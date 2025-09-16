@@ -74,11 +74,11 @@
           <el-divider>或使用以下方式登录</el-divider>
           <div class="social-buttons">
             <el-button class="social-btn" @click="handleSocialLogin('github')">
-              <el-icon><component :is="'Github'" /></el-icon>
+              <el-icon><Link /></el-icon>
               GitHub
             </el-button>
             <el-button class="social-btn" @click="handleSocialLogin('google')">
-              <el-icon><component :is="'Google'" /></el-icon>
+              <el-icon><Link /></el-icon>
               Google
             </el-button>
           </div>
@@ -103,8 +103,7 @@ import { useUserStore } from '@/stores/user'
 import {
   User,
   Lock,
-  Github,
-  Google
+  Link
 } from '@element-plus/icons-vue'
 import type { FormRules } from 'element-plus'
 
@@ -122,7 +121,7 @@ const loginForm = reactive({
 const loading = ref(false)
 
 // 表单验证规则
-const rules: Record<string, Rule[]> = {
+const rules: FormRules = {
   username: [
     { required: true, message: '请输入用户名或邮箱', trigger: 'blur' },
     { min: 3, message: '用户名至少3个字符', trigger: 'blur' }
@@ -149,13 +148,13 @@ const handleLogin = async (values: typeof loginForm) => {
       remember: values.remember
     })
     
-    message.success('登录成功')
+    ElMessage.success('登录成功')
     
     // 跳转到仪表盘
     const redirect = router.currentRoute.value.query.redirect as string
     router.push(redirect || '/dashboard')
   } catch (error) {
-    message.error('登录失败，请检查用户名和密码')
+    ElMessage.error('登录失败，请检查用户名和密码')
   } finally {
     loading.value = false
   }
@@ -173,7 +172,7 @@ const handleLoginFailed = (errorInfo: any) => {
  */
 const handleForgotPassword = () => {
   // TODO: 实现忘记密码功能
-  message.info('忘记密码功能开发中')
+  ElMessage.info('忘记密码功能开发中')
 }
 
 /**
@@ -188,7 +187,7 @@ const handleRegister = () => {
  */
 const handleSocialLogin = (provider: string) => {
   // TODO: 实现社交登录
-  message.info(`${provider} 登录功能开发中`)
+  ElMessage.info(`${provider} 登录功能开发中`)
 }
 </script>
 
