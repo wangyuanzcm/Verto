@@ -1,0 +1,609 @@
+/**
+ * SCSS变量定义
+ * 定义项目中使用的所有设计令牌和变量
+ */
+
+// 颜色系统
+$primary-color: #409eff;
+$success-color: #67c23a;
+$warning-color: #e6a23c;
+$danger-color: #f56c6c;
+$info-color: #909399;
+
+// 主色调色板
+$primary-light-9: #ecf5ff;
+$primary-light-8: #d9ecff;
+$primary-light-7: #c6e2ff;
+$primary-light-6: #b3d8ff;
+$primary-light-5: #a0cfff;
+$primary-light-4: #8cc5ff;
+$primary-light-3: #79bbff;
+$primary-light-2: #66b1ff;
+$primary-light-1: #53a8ff;
+$primary-dark-1: #3a8ee6;
+$primary-dark-2: #337ecc;
+
+// 成功色调色板
+$success-light-9: #f0f9ff;
+$success-light-8: #e1f3d8;
+$success-light-7: #d1edc4;
+$success-light-6: #c2e7b0;
+$success-light-5: #b3e19d;
+$success-light-4: #a4db89;
+$success-light-3: #95d475;
+$success-light-2: #85ce61;
+$success-light-1: #73c83e;
+$success-dark-1: #5daf34;
+$success-dark-2: #529b2e;
+
+// 警告色调色板
+$warning-light-9: #fdf6ec;
+$warning-light-8: #faecd8;
+$warning-light-7: #f8e3c5;
+$warning-light-6: #f5dab1;
+$warning-light-5: #f3d19e;
+$warning-light-4: #f0c78a;
+$warning-light-3: #eebe77;
+$warning-light-2: #ebb563;
+$warning-light-1: #e9ac50;
+$warning-dark-1: #cf9236;
+$warning-dark-2: #b88230;
+
+// 危险色调色板
+$danger-light-9: #fef0f0;
+$danger-light-8: #fde2e2;
+$danger-light-7: #fcd3d3;
+$danger-light-6: #fbc4c4;
+$danger-light-5: #fab6b6;
+$danger-light-4: #f9a7a7;
+$danger-light-3: #f89898;
+$danger-light-2: #f78989;
+$danger-light-1: #f67c7c;
+$danger-dark-1: #dd6161;
+$danger-dark-2: #c45656;
+
+// 信息色调色板
+$info-light-9: #f4f4f5;
+$info-light-8: #e9e9eb;
+$info-light-7: #dedfe0;
+$info-light-6: #d3d4d6;
+$info-light-5: #c8c9cc;
+$info-light-4: #bdbec2;
+$info-light-3: #b1b3b8;
+$info-light-2: #a6a9ad;
+$info-light-1: #9b9ea3;
+$info-dark-1: #82848a;
+$info-dark-2: #6b6e72;
+
+// 中性色系
+$white: #ffffff;
+$black: #000000;
+
+// 背景色
+$bg-color-page: #f2f3f5;
+$bg-color-base: #f5f7fa;
+$bg-color-overlay: #ffffff;
+
+// 文本色
+$text-color-primary: #303133;
+$text-color-regular: #606266;
+$text-color-secondary: #909399;
+$text-color-placeholder: #a8abb2;
+$text-color-disabled: #c0c4cc;
+
+// 边框色
+$border-color-base: #dcdfe6;
+$border-color-light: #e4e7ed;
+$border-color-lighter: #ebeef5;
+$border-color-extra-light: #f2f6fc;
+$border-color-dark: #d4d7de;
+$border-color-darker: #cdd0d6;
+
+// 填充色
+$fill-color-base: #f0f2f5;
+$fill-color-light: #f5f7fa;
+$fill-color-lighter: #fafafa;
+$fill-color-extra-light: #fafcff;
+$fill-color-dark: #ebedf0;
+$fill-color-darker: #e6e8eb;
+$fill-color-blank: #ffffff;
+
+// 字体系列
+$font-family-base: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+$font-family-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+
+// 字体大小
+$font-size-extra-large: 20px;
+$font-size-large: 18px;
+$font-size-medium: 16px;
+$font-size-base: 14px;
+$font-size-small: 13px;
+$font-size-extra-small: 12px;
+
+// 字体粗细
+$font-weight-primary: 500;
+$font-weight-bold: 700;
+$font-weight-normal: 400;
+$font-weight-light: 300;
+
+// 行高
+$line-height-primary: 24px;
+$line-height-base: 1.5;
+
+// 边框宽度
+$border-width-base: 1px;
+$border-width-thick: 2px;
+
+// 边框样式
+$border-style-base: solid;
+
+// 圆角
+$border-radius-base: 4px;
+$border-radius-small: 2px;
+$border-radius-large: 6px;
+$border-radius-round: 20px;
+$border-radius-circle: 100%;
+
+// 阴影
+$box-shadow-base: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+$box-shadow-dark: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.12);
+$box-shadow-light: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+
+// 间距系统
+$spacing-base: 16px;
+$spacing-large: 24px;
+$spacing-medium: 20px;
+$spacing-small: 12px;
+$spacing-extra-small: 8px;
+$spacing-mini: 4px;
+
+// 组件尺寸
+$component-size-large: 40px;
+$component-size-default: 32px;
+$component-size-small: 28px;
+$component-size-mini: 24px;
+
+// Z-index层级
+$z-index-normal: 1;
+$z-index-top: 1000;
+$z-index-popper: 2000;
+$z-index-dialog: 3000;
+$z-index-message: 4000;
+$z-index-loading: 5000;
+
+// 过渡动画
+$transition-duration-base: 0.3s;
+$transition-duration-fast: 0.2s;
+$transition-duration-slow: 0.5s;
+
+$transition-function-ease-in-out-bezier: cubic-bezier(0.645, 0.045, 0.355, 1);
+$transition-function-fast-bezier: cubic-bezier(0.23, 1, 0.32, 1);
+$transition-function-linear: linear;
+
+$transition-base: all $transition-duration-base $transition-function-ease-in-out-bezier;
+$transition-fade: opacity $transition-duration-base $transition-function-fast-bezier;
+$transition-md-fade: transform $transition-duration-base $transition-function-fast-bezier, opacity $transition-duration-base $transition-function-fast-bezier;
+$transition-border: border-color $transition-duration-base $transition-function-ease-in-out-bezier;
+$transition-box-shadow: box-shadow $transition-duration-base $transition-function-ease-in-out-bezier;
+$transition-color: color $transition-duration-base $transition-function-ease-in-out-bezier;
+
+// 断点系统
+$breakpoint-xs: 480px;
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 992px;
+$breakpoint-xl: 1200px;
+$breakpoint-xxl: 1600px;
+
+// 容器最大宽度
+$container-max-width-xs: 100%;
+$container-max-width-sm: 540px;
+$container-max-width-md: 720px;
+$container-max-width-lg: 960px;
+$container-max-width-xl: 1140px;
+$container-max-width-xxl: 1320px;
+
+// 网格系统
+$grid-columns: 24;
+$grid-gutter-width: 0;
+
+// 表单组件
+$input-height-large: $component-size-large;
+$input-height-default: $component-size-default;
+$input-height-small: $component-size-small;
+$input-height-mini: $component-size-mini;
+
+$input-padding-horizontal: 15px;
+$input-padding-vertical: 0;
+
+$input-border-color: $border-color-base;
+$input-border-color-hover: $border-color-dark;
+$input-border-color-focus: $primary-color;
+
+$input-font-size: $font-size-base;
+$input-color: $text-color-regular;
+$input-placeholder-color: $text-color-placeholder;
+
+// 按钮组件
+$button-padding-vertical: 12px;
+$button-padding-horizontal: 20px;
+$button-font-size: $font-size-base;
+$button-border-radius: $border-radius-base;
+$button-font-weight: $font-weight-primary;
+
+$button-padding-vertical-large: 13px;
+$button-padding-horizontal-large: 20px;
+$button-font-size-large: $font-size-medium;
+
+$button-padding-vertical-small: 9px;
+$button-padding-horizontal-small: 15px;
+$button-font-size-small: $font-size-small;
+
+$button-padding-vertical-mini: 7px;
+$button-padding-horizontal-mini: 15px;
+$button-font-size-mini: $font-size-extra-small;
+
+// 表格组件
+$table-border-color: $border-color-lighter;
+$table-border: 1px solid $table-border-color;
+$table-text-color: $text-color-regular;
+$table-header-text-color: $text-color-primary;
+$table-row-hover-bg-color: $bg-color-base;
+$table-current-row-bg-color: #ecf5ff;
+$table-header-bg-color: $bg-color-base;
+$table-fixed-box-shadow: 0 0 10px rgba(0, 0, 0, 0.12);
+
+// 分页组件
+$pagination-font-size: $font-size-small;
+$pagination-bg-color: $bg-color-overlay;
+$pagination-color: $text-color-regular;
+$pagination-border-radius: $border-radius-base;
+$pagination-button-color: $text-color-regular;
+$pagination-button-disabled-color: $text-color-placeholder;
+$pagination-button-disabled-bg-color: $bg-color-base;
+$pagination-hover-color: $primary-color;
+
+// 对话框组件
+$dialog-background-color: $bg-color-overlay;
+$dialog-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+$dialog-title-font-size: $font-size-large;
+$dialog-content-font-size: $font-size-base;
+$dialog-font-line-height: $line-height-base;
+$dialog-padding-primary: 20px;
+
+// 消息提示组件
+$message-shadow: $box-shadow-base;
+$message-padding: 15px 15px 15px 20px;
+$message-content-color: $text-color-primary;
+$message-content-font-size: $font-size-base;
+$message-close-size: 16px;
+$message-close-icon-color: $text-color-placeholder;
+$message-close-hover-color: $text-color-secondary;
+
+// 通知组件
+$notification-width: 330px;
+$notification-padding: 14px 26px 14px 13px;
+$notification-radius: $border-radius-large;
+$notification-shadow: $box-shadow-light;
+$notification-border-color: $border-color-lighter;
+$notification-icon-size: 24px;
+$notification-close-font-size: $font-size-base;
+$notification-group-margin-left: 13px;
+$notification-group-margin-right: 8px;
+$notification-content-margin-left: 4px;
+$notification-content-color: $text-color-regular;
+$notification-title-color: $text-color-primary;
+$notification-title-font-size: $font-size-medium;
+$notification-title-margin-bottom: 6px;
+
+// 加载组件
+$loading-spinner-size: 42px;
+$loading-fullscreen-spinner-size: 50px;
+
+// 菜单组件
+$menu-active-color: $primary-color;
+$menu-text-color: $text-color-primary;
+$menu-hover-text-color: $primary-color;
+$menu-bg-color: $bg-color-overlay;
+$menu-hover-bg-color: $primary-light-9;
+$menu-item-height: 56px;
+$menu-sub-item-height: 50px;
+$menu-horizontal-sub-item-height: 36px;
+$menu-item-font-size: $font-size-base;
+$menu-item-hover-fill: $bg-color-base;
+
+// 面包屑组件
+$breadcrumb-font-size: $font-size-base;
+$breadcrumb-icon-color: $text-color-placeholder;
+$breadcrumb-separator-color: $text-color-placeholder;
+$breadcrumb-font-weight: $font-weight-normal;
+
+// 滑块组件
+$slider-main-bg-color: $primary-color;
+$slider-runway-bg-color: $border-color-lighter;
+$slider-button-hover-color: mix($primary-color, $black, 80%);
+$slider-button-bg-color: $bg-color-overlay;
+$slider-height: 6px;
+$slider-button-size: 16px;
+$slider-disabled-color: $text-color-placeholder;
+
+// 步骤条组件
+$steps-border-color: $border-color-lighter;
+$steps-border-radius: $border-radius-base;
+$steps-padding: 20px;
+
+// 卡片组件
+$card-border-color: $border-color-lighter;
+$card-border-radius: $border-radius-base;
+$card-padding: 20px;
+$card-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+
+// 折叠面板组件
+$collapse-border-color: $border-color-lighter;
+$collapse-header-height: 48px;
+$collapse-header-bg-color: $bg-color-overlay;
+$collapse-header-color: $text-color-primary;
+$collapse-header-font-size: $font-size-small;
+$collapse-content-bg-color: $bg-color-overlay;
+$collapse-content-font-size: $font-size-small;
+$collapse-content-color: $text-color-regular;
+
+// 时间线组件
+$timeline-node-size-normal: 12px;
+$timeline-node-size-large: 14px;
+$timeline-node-color: $border-color-light;
+$timeline-color: $primary-color;
+
+// 分割线组件
+$divider-color: $border-color-lighter;
+$divider-content-color: $text-color-primary;
+$divider-font-size: $font-size-base;
+
+// 回到顶部组件
+$backtop-bg-color: $bg-color-overlay;
+$backtop-color: $primary-color;
+$backtop-hover-bg-color: $border-color-extra-light;
+
+// 页头组件
+$page-header-breadcrumb-font-size: $font-size-base;
+$page-header-breadcrumb-color: $text-color-regular;
+$page-header-title-font-size: $font-size-large;
+$page-header-title-color: $text-color-primary;
+$page-header-content-font-size: $font-size-base;
+$page-header-content-color: $text-color-regular;
+
+// 结果页组件
+$result-padding: 40px 30px;
+$result-icon-font-size: 64px;
+$result-title-font-size: 20px;
+$result-title-color: $text-color-primary;
+$result-subtitle-font-size: $font-size-base;
+$result-subtitle-color: $text-color-regular;
+$result-extra-margin-top: 30px;
+$result-info-color: $info-color;
+$result-success-color: $success-color;
+$result-warning-color: $warning-color;
+$result-danger-color: $danger-color;
+
+// 骨架屏组件
+$skeleton-color: #f2f2f2;
+$skeleton-to-color: #e6e6e6;
+$skeleton-animation-duration: 1.4s;
+
+// 空状态组件
+$empty-padding: 40px 0;
+$empty-image-width: 160px;
+$empty-description-margin-top: 20px;
+$empty-description-color: $text-color-secondary;
+$empty-bottom-margin-top: 20px;
+
+// 描述列表组件
+$descriptions-table-border: 1px solid $border-color-lighter;
+$descriptions-item-bordered-label-bg: $bg-color-base;
+$descriptions-item-label-colon-margin-right: 8px;
+$descriptions-item-label-colon-margin-left: 2px;
+$descriptions-header-margin-bottom: 20px;
+$descriptions-title-font-size: $font-size-medium;
+$descriptions-title-color: $text-color-primary;
+$descriptions-title-font-weight: $font-weight-bold;
+$descriptions-extra-color: $text-color-regular;
+$descriptions-item-padding-bottom: 16px;
+$descriptions-item-trailing-colon: true;
+$descriptions-item-label-color: $text-color-primary;
+$descriptions-item-label-font-weight: $font-weight-primary;
+$descriptions-item-content-color: $text-color-regular;
+
+// 抽屉组件
+$drawer-bg: $bg-color-overlay;
+$drawer-padding: 20px;
+
+// 弹出框组件
+$popover-bg-color: $bg-color-overlay;
+$popover-font-size: $font-size-base;
+$popover-border-color: $border-color-lighter;
+$popover-arrow-size: 6px;
+$popover-distance: 12px;
+$popover-padding: 12px;
+$popover-padding-large: 18px 20px;
+$popover-title-font-size: $font-size-medium;
+$popover-title-color: $text-color-primary;
+$popover-title-font-weight: $font-weight-bold;
+
+// 气泡确认框组件
+$popconfirm-icon-color: $warning-color;
+$popconfirm-icon-size: 14px;
+
+// 工具提示组件
+$tooltip-max-width: 250px;
+$tooltip-color: $bg-color-overlay;
+$tooltip-bg-color: $text-color-primary;
+$tooltip-arrow-size: 6px;
+$tooltip-distance: 12px;
+$tooltip-padding: 10px;
+$tooltip-font-size: $font-size-small;
+
+// 标签组件
+$tag-padding: 0 10px;
+$tag-font-size: $font-size-small;
+$tag-border-radius: $border-radius-base;
+$tag-border-radius-rounded: $border-radius-round;
+
+// 进度条组件
+$progress-font-size: $font-size-base;
+$progress-bg-color: $border-color-extra-light;
+$progress-radius: 100px;
+$progress-height: 6px;
+
+// 树形控件组件
+$tree-node-hover-bg-color: $bg-color-base;
+$tree-text-color: $text-color-regular;
+$tree-expand-icon-color: $text-color-placeholder;
+
+// 穿梭框组件
+$transfer-border-color: $border-color-base;
+$transfer-border-radius: $border-radius-base;
+$transfer-panel-width: 200px;
+$transfer-panel-header-height: 40px;
+$transfer-panel-header-bg-color: $bg-color-base;
+$transfer-panel-footer-height: 40px;
+$transfer-panel-body-height: 246px;
+$transfer-item-height: 30px;
+$transfer-item-hover-bg-color: $bg-color-base;
+$transfer-filter-height: 32px;
+
+// 下拉菜单组件
+$dropdown-menu-box-shadow: $box-shadow-light;
+$dropdown-menuitem-hover-fill: $primary-light-9;
+$dropdown-menuitem-hover-color: $primary-color;
+
+// 徽章组件
+$badge-bg-color: $danger-color;
+$badge-radius: 10px;
+$badge-font-size: $font-size-extra-small;
+$badge-padding: 6px 7px;
+$badge-size: 18px;
+
+// 头像组件
+$avatar-color: $text-color-placeholder;
+$avatar-bg-color: $border-color-lighter;
+$avatar-text-font-size: 14px;
+$avatar-icon-font-size: 18px;
+$avatar-border-radius: $border-radius-base;
+$avatar-large-size: 40px;
+$avatar-medium-size: 36px;
+$avatar-small-size: 28px;
+
+// 警告组件
+$alert-padding: 8px 16px;
+$alert-border-radius: $border-radius-base;
+$alert-title-font-size: $font-size-small;
+$alert-description-font-size: $font-size-base;
+$alert-description-margin-top: 5px;
+$alert-icon-size: 16px;
+$alert-icon-large-size: 28px;
+$alert-close-font-size: $font-size-extra-small;
+$alert-close-customed-font-size: $font-size-base;
+
+// 日期选择器组件
+$datepicker-color: $text-color-regular;
+$datepicker-off-color: $text-color-placeholder;
+$datepicker-header-color: $text-color-regular;
+$datepicker-icon-color: $text-color-primary;
+$datepicker-border-color: $border-color-lighter;
+$datepicker-inner-border-color: $border-color-light;
+$datepicker-inrange-bg-color: $primary-light-9;
+$datepicker-inrange-hover-color: $primary-light-8;
+$datepicker-active-color: $primary-color;
+$datepicker-hover-color: $primary-light-9;
+
+// 时间选择器组件
+$time-color: $text-color-regular;
+$time-border-color: $border-color-lighter;
+$time-active-color: $text-color-primary;
+$time-circle-color: $primary-color;
+$time-disabled-color: $text-color-placeholder;
+
+// 级联选择器组件
+$cascader-menu-color: $text-color-regular;
+$cascader-menu-border: solid 1px $border-color-light;
+$cascader-menu-border-color: $border-color-light;
+$cascader-menu-border-width: 1px;
+$cascader-node-background-hover: $bg-color-base;
+$cascader-node-color-disabled: $text-color-placeholder;
+$cascader-color-empty: $text-color-placeholder;
+$cascader-tag-background: $bg-color-base;
+
+// 开关组件
+$switch-on-color: $primary-color;
+$switch-off-color: $border-color-base;
+$switch-font-size: $font-size-base;
+$switch-core-border-radius: 10px;
+$switch-width: 40px;
+$switch-height: 20px;
+$switch-button-size: 16px;
+
+// 滑动输入条组件
+$rate-height: 20px;
+$rate-font-size: $font-size-base;
+$rate-icon-size: 18px;
+$rate-icon-margin: 6px;
+$rate-icon-color: $text-color-placeholder;
+
+// 颜色选择器组件
+$color-picker-alpha-bg-a: transparent;
+$color-picker-alpha-bg-b: $white;
+
+// 上传组件
+$upload-dragger-padding-horizontal: 26px;
+$upload-dragger-padding-vertical: 40px;
+
+// 自定义变量（项目特有）
+$verto-primary: $primary-color;
+$verto-sidebar-width: 240px;
+$verto-sidebar-collapsed-width: 64px;
+$verto-header-height: 60px;
+$verto-footer-height: 50px;
+$verto-content-padding: 24px;
+
+// 项目特定的颜色
+$verto-bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+$verto-card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$verto-border-radius-card: 8px;
+
+// 响应式断点映射
+$breakpoints: (
+  xs: $breakpoint-xs,
+  sm: $breakpoint-sm,
+  md: $breakpoint-md,
+  lg: $breakpoint-lg,
+  xl: $breakpoint-xl,
+  xxl: $breakpoint-xxl
+);
+
+// 容器最大宽度映射
+$container-max-widths: (
+  xs: $container-max-width-xs,
+  sm: $container-max-width-sm,
+  md: $container-max-width-md,
+  lg: $container-max-width-lg,
+  xl: $container-max-width-xl,
+  xxl: $container-max-width-xxl
+);
+
+// 组件尺寸映射
+$component-sizes: (
+  large: $component-size-large,
+  default: $component-size-default,
+  small: $component-size-small,
+  mini: $component-size-mini
+);
+
+// 间距映射
+$spacings: (
+  mini: $spacing-mini,
+  extra-small: $spacing-extra-small,
+  small: $spacing-small,
+  medium: $spacing-medium,
+  base: $spacing-base,
+  large: $spacing-large
+);
