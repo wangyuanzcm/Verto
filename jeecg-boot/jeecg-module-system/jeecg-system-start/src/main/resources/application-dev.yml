@@ -286,7 +286,7 @@ jeecg:
   #分布式锁配置
   redisson:
     address: 127.0.0.1:6379
-    password: 123456
+    password:
     type: STANDALONE
     enabled: true
   # 百度开放API配置

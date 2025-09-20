@@ -70,7 +70,7 @@ export function createVitePlugins(viteEnv: ViteEnv, isBuild: boolean, isQiankunM
     vitePlugins.push(...configQiankunMicroPlugin(viteEnv))
   }
 
-  // electron plugin
+  // // electron plugin
   const isElectron = viteEnv.VITE_GLOB_RUN_PLATFORM === 'electron';
   if (isElectron) {
     vitePlugins.push(configElectronPlugin(viteEnv, isBuild))

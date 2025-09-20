@@ -1,0 +1,92 @@
+import { defHttp } from '/@/utils/http/axios';
+import { Modal } from 'ant-design-vue';
+
+export enum Api {
+  // 应用管理
+  list = '/appmanage/app/list',
+  save = '/appmanage/app/edit',
+  delete = '/appmanage/app/delete',
+  queryById = '/appmanage/app/queryById',
+  batchDelete = '/appmanage/app/deleteBatch',
+  // 获取用户列表（用于负责人选择）
+  getUserList = '/sys/user/list',
+  // 获取领域字典
+  getDomainDict = '/sys/dict/getDictItems/app_domain',
+}
+
+/**
+ * 查询应用列表
+ * @param params 查询参数
+ */
+export const getAppList = (params) => {
+  return defHttp.get({ url: Api.list, params }, { isTransformResponse: false });
+};
+
+/**
+ * 根据应用id查询应用详情
+ * @param params 查询参数
+ */
+export const getAppById = (params) => {
+  return defHttp.get({ url: Api.queryById, params }, { isTransformResponse: false });
+};
+
+/**
+ * 新增或编辑应用
+ * @param params 应用数据
+ */
+export const saveApp = (params) => {
+  return defHttp.put({ url: Api.save, params });
+};
+
+/**
+ * 删除应用
+ * @param params 删除参数
+ * @param handleSuccess 成功回调
+ */
+export const deleteApp = (params, handleSuccess) => {
+  return Modal.confirm({
+    title: '确认删除',
+    content: '是否删除选中的应用？',
+    okText: '确认',
+    cancelText: '取消',
+    onOk: () => {
+      return defHttp.delete({ url: Api.delete, params }, { joinParamsToUrl: true }).then(() => {
+        handleSuccess();
+      });
+    },
+  });
+};
+
+/**
+ * 批量删除应用
+ * @param params 删除参数
+ * @param handleSuccess 成功回调
+ */
+export const batchDeleteApp = (params, handleSuccess) => {
+  return Modal.confirm({
+    title: '确认删除',
+    content: '是否删除选中的应用？',
+    okText: '确认',
+    cancelText: '取消',
+    onOk: () => {
+      return defHttp.delete({ url: Api.batchDelete, data: params }, { joinParamsToUrl: true }).then(() => {
+        handleSuccess();
+      });
+    },
+  });
+};
+
+/**
+ * 获取用户列表（用于负责人选择）
+ * @param params 查询参数
+ */
+export const getUserList = (params) => {
+  return defHttp.get({ url: Api.getUserList, params }, { isTransformResponse: false });
+};
+
+/**
+ * 获取领域字典数据
+ */
+export const getDomainDict = () => {
+  return defHttp.get({ url: Api.getDomainDict }, { isTransformResponse: false });
+};
