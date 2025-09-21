@@ -26,78 +26,55 @@
 
     <!-- 详情内容 -->
     <div v-else-if="appDetail" class="detail-content">
-      <!-- 基本信息卡片 -->
-      <a-card title="基本信息" class="detail-card">
-        <a-row :gutter="24">
-          <a-col :span="12">
-            <div class="info-item">
-              <label class="info-label">应用简称：</label>
-              <span class="info-value">{{ appDetail.appName }}</span>
-            </div>
-          </a-col>
-          <a-col :span="12">
-            <div class="info-item">
-              <label class="info-label">所属领域：</label>
+      <!-- 应用基本信息概览 -->
+      <a-card class="app-overview-card">
+        <div class="app-overview">
+          <div class="app-avatar">
+            <a-avatar :size="64" :src="appDetail.avatar">
+              {{ appDetail.appName?.charAt(0) }}
+            </a-avatar>
+          </div>
+          <div class="app-info">
+            <h2 class="app-title">{{ appDetail.appName }}</h2>
+            <p class="app-desc">{{ appDetail.appDescription || '暂无描述' }}</p>
+            <div class="app-tags">
               <a-tag color="blue">{{ appDetail.domain_dictText || '未分类' }}</a-tag>
+              <a-tag color="green">{{ appDetail.status === '1' ? '运行中' : '已停用' }}</a-tag>
             </div>
-          </a-col>
-          <a-col :span="24">
-            <div class="info-item">
-              <label class="info-label">应用描述：</label>
-              <span class="info-value">{{ appDetail.appDescription || '暂无描述' }}</span>
+          </div>
+          <div class="app-stats">
+            <div class="stat-item">
+              <div class="stat-value">{{ projectCount }}</div>
+              <div class="stat-label">项目数量</div>
             </div>
-          </a-col>
-          <a-col :span="24">
-            <div class="info-item">
-              <label class="info-label">Git地址：</label>
-              <a :href="appDetail.gitUrl" target="_blank" class="git-link">
-                <Icon icon="ant-design:github-outlined" size="16" />
-                {{ appDetail.gitUrl }}
-              </a>
+            <div class="stat-item">
+              <div class="stat-value">{{ commitCount }}</div>
+              <div class="stat-label">代码提交</div>
             </div>
-          </a-col>
-          <a-col :span="24">
-            <div class="info-item">
-              <label class="info-label">应用负责人：</label>
-              <span class="info-value">{{ appDetail.managers_dictText || '暂无负责人' }}</span>
+            <div class="stat-item">
+              <div class="stat-value">{{ deployCount }}</div>
+              <div class="stat-label">部署次数</div>
             </div>
-          </a-col>
-        </a-row>
+          </div>
+        </div>
       </a-card>
 
-      <!-- 创建信息卡片 -->
-      <a-card title="创建信息" class="detail-card">
-        <a-row :gutter="24">
-          <a-col :span="12">
-            <div class="info-item">
-              <label class="info-label">创建人：</label>
-              <span class="info-value">{{ appDetail.createBy_dictText || appDetail.createBy }}</span>
-            </div>
-          </a-col>
-          <a-col :span="12">
-            <div class="info-item">
-              <label class="info-label">创建时间：</label>
-              <span class="info-value">{{ formatDate(appDetail.createTime) }}</span>
-            </div>
-          </a-col>
-          <a-col :span="12">
-            <div class="info-item">
-              <label class="info-label">更新人：</label>
-              <span class="info-value">{{ appDetail.updateBy_dictText || appDetail.updateBy || '暂无' }}</span>
-            </div>
-          </a-col>
-          <a-col :span="12">
-            <div class="info-item">
-              <label class="info-label">更新时间：</label>
-              <span class="info-value">{{ formatDate(appDetail.updateTime) }}</span>
-            </div>
-          </a-col>
-        </a-row>
+      <!-- Tab页面内容 -->
+      <a-card class="tab-container">
+        <a-tabs v-model:activeKey="activeTabKey" type="card" @change="handleTabChange">
+          <a-tab-pane
+            v-for="tab in tabList"
+            :key="tab.key"
+            :tab="tab.name"
+          >
+            <component
+              :is="tab.component"
+              :app-detail="appDetail"
+              :app-id="appDetail.id"
+            />
+          </a-tab-pane>
+        </a-tabs>
       </a-card>
-
-      <!-- Git仓库信息卡片 -->
-      <a-card title="Git仓库信息" class="detail-card">
-        <div class="git-info">
           <div class="git-actions">
             <a-button type="primary" @click="openGitRepo">
               <Icon icon="ant-design:github-outlined" size="16" />
@@ -127,32 +104,61 @@
 </template>
 
 <script lang="ts">
-  import { ref, onMounted } from 'vue';
+  import { defineComponent, ref, onMounted } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
-  import { useModal } from '@/components/Modal';
-  import { useMessage } from '@/hooks/web/useMessage';
-  import { useCopyToClipboard } from '@/hooks/web/useCopyToClipboard';
-  import Icon from '@/components/Icon';
+  import { Card, Button, Row, Col, Spin, Tag, message, Tabs, TabPane, Avatar } from 'ant-design-vue';
+  import Icon from '/@/components/Icon';
+  import { useModal } from '/@/components/Modal';
+  import { useClipboard } from '@vueuse/core';
+  import { formatToDateTime } from '/@/utils/dateUtil';
+  import { getAppDetail, deleteApp } from './AppManage.api';
   import AppManageModal from './components/AppManageModal.vue';
-  import { getAppById, deleteApp } from './AppManage.api';
-  import type { AppManageModel } from './AppManage.data';
-  import { formatToDateTime } from '@/utils/dateUtil';
+  import BasicInfo from './components/BasicInfo.vue';
+  import ProjectList from './components/ProjectList.vue';
+  import AppConfig from './components/AppConfig.vue';
+  import Statistics from './components/Statistics.vue';
+  import { tabList } from './AppDetailTabs.data';
 
-  export default {
+  export default defineComponent({
     name: 'AppManageDetail',
     components: {
+      ACard: Card,
+      AButton: Button,
+      ARow: Row,
+      ACol: Col,
+      ASpin: Spin,
+      ATag: Tag,
+      ATabs: Tabs,
+      ATabPane: TabPane,
+      AAvatar: Avatar,
       Icon,
       AppManageModal,
+      BasicInfo,
+      ProjectList,
+      AppConfig,
+      Statistics,
     },
     setup() {
       const route = useRoute();
       const router = useRouter();
-      const { createMessage } = useMessage();
-      const { clipboardRef, copiedRef } = useCopyToClipboard();
+      const { createMessage } = message;
+
+      // 模态框
       const [registerModal, { openModal }] = useModal();
 
+      // 剪贴板
+      const { copy, copied: copiedRef } = useClipboard();
+      const clipboardRef = ref('');
+
+      // 响应式数据
       const loading = ref(false);
-      const appDetail = ref<AppManageModel | null>(null);
+      const appDetail = ref<any>(null);
+      const activeTabKey = ref('basic');
+      
+      // 统计数据
+      const projectCount = ref(12);
+      const commitCount = ref(1234);
+      const deployCount = ref(89);
 
       /**
        * 加载应用详情
@@ -246,6 +252,13 @@
         loadAppDetail();
       };
 
+      /**
+       * Tab切换处理
+       */
+      const handleTabChange = (key: string) => {
+        activeTabKey.value = key;
+      };
+
       // 组件挂载时加载数据
       onMounted(() => {
         loadAppDetail();
@@ -254,17 +267,23 @@
       return {
         loading,
         appDetail,
+        activeTabKey,
+        tabList,
+        projectCount,
+        commitCount,
+        deployCount,
         registerModal,
         goBack,
         handleEdit,
         handleDelete,
+        handleTabChange,
         openGitRepo,
         copyGitUrl,
         formatDate,
         handleSuccess,
       };
     },
-  };
+  });
 </script>
 
 <style lang="less" scoped>
@@ -310,6 +329,96 @@
     }
 
     .detail-content {
+      .app-overview-card {
+        margin-bottom: 24px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+        .app-overview {
+          display: flex;
+          align-items: center;
+          gap: 24px;
+
+          .app-avatar {
+            flex-shrink: 0;
+          }
+
+          .app-info {
+            flex: 1;
+
+            .app-title {
+              margin: 0 0 8px 0;
+              font-size: 24px;
+              font-weight: 600;
+              color: #262626;
+            }
+
+            .app-desc {
+              margin: 0 0 12px 0;
+              color: #595959;
+              font-size: 14px;
+              line-height: 1.5;
+            }
+
+            .app-tags {
+              display: flex;
+              gap: 8px;
+            }
+          }
+
+          .app-stats {
+            display: flex;
+            gap: 32px;
+
+            .stat-item {
+              text-align: center;
+
+              .stat-value {
+                font-size: 24px;
+                font-weight: bold;
+                color: #1890ff;
+                margin-bottom: 4px;
+              }
+
+              .stat-label {
+                font-size: 12px;
+                color: #8c8c8c;
+              }
+            }
+          }
+        }
+      }
+
+      .tab-container {
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+        :deep(.ant-tabs-card) {
+          .ant-tabs-tab {
+            border-radius: 6px 6px 0 0;
+            border: 1px solid #d9d9d9;
+            background: #fafafa;
+            margin-right: 2px;
+
+            &.ant-tabs-tab-active {
+              background: white;
+              border-bottom-color: white;
+            }
+          }
+
+          .ant-tabs-content-holder {
+            border: 1px solid #d9d9d9;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            background: white;
+          }
+
+          .ant-tabs-tabpane {
+            padding: 24px;
+          }
+        }
+      }
+
       .detail-card {
         margin-bottom: 24px;
         border-radius: 8px;

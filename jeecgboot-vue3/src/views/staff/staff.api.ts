@@ -14,7 +14,6 @@ enum Api {
   exportXls = '/sys/staff/exportXls',
   duplicateCheck = '/sys/duplicate/check',
   getStaffById = '/sys/staff/queryById',
-  getDepartmentList = '/sys/depart/queryTreeList',
   getSkillDict = '/sys/dict/getDictItems/staff_skills',
 }
 
@@ -36,9 +35,9 @@ export const getStaffList = (params) => defHttp.get({ url: Api.list, params });
 
 /**
  * 根据ID获取人员详情
- * @param params 包含id的参数对象
+ * @param id 人员ID
  */
-export const getStaffById = (params) => defHttp.get({ url: Api.getStaffById, params });
+export const getStaffById = (id) => defHttp.get({ url: Api.getStaffById, params: { id } });
 
 /**
  * 保存或更新人员信息
@@ -51,12 +50,24 @@ export const saveOrUpdateStaff = (params, isUpdate) => {
 };
 
 /**
+ * 创建新人员
+ * @param params 人员信息参数
+ */
+export const createStaff = (params) => defHttp.post({ url: Api.save, params });
+
+/**
+ * 更新人员信息
+ * @param params 人员信息参数
+ */
+export const updateStaff = (params) => defHttp.post({ url: Api.edit, params });
+
+/**
  * 删除人员
  * @param params 删除参数
  * @param handleSuccess 成功回调
  */
 export const deleteStaff = (params, handleSuccess) => {
-  return defHttp.delete({ url: Api.deleteStaff, params }, { joinParamsToUrl: true }).then(() => {
+  return defHttp.delete({ url: Api.deleteStaff, data: params }, { joinParamsToUrl: true }).then(() => {
     handleSuccess();
   });
 };
@@ -76,7 +87,7 @@ export const batchDeleteStaff = (params, handleSuccess) => {
       return defHttp.delete({ url: Api.deleteBatch, data: params }, { joinParamsToUrl: true }).then(() => {
         handleSuccess();
       });
-    }
+    },
   });
 };
 
@@ -93,30 +104,17 @@ export const duplicateCheck = (params) => defHttp.get({ url: Api.duplicateCheck,
 const timer = {};
 export const duplicateCheckDelay = (params) => {
   return new Promise((resolve) => {
-    const { tableName, fieldName, fieldVal, dataId } = params;
-    const key = `${tableName}_${fieldName}`;
-    
+    const key = params.tableName + '_' + params.fieldName;
     if (timer[key]) {
       clearTimeout(timer[key]);
     }
-    
     timer[key] = setTimeout(() => {
-      duplicateCheck(params)
-        .then((res) => {
-          resolve(res);
-        })
-        .catch((err) => {
-          resolve(false);
-        });
+      duplicateCheck(params).then((res) => {
+        resolve(res);
+      });
     }, 300);
   });
 };
-
-/**
- * 获取部门列表
- * @param params 查询参数
- */
-export const getDepartmentList = (params) => defHttp.get({ url: Api.getDepartmentList, params });
 
 /**
  * 获取技能字典

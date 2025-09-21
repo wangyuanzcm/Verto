@@ -1,6 +1,5 @@
 import { BasicColumn } from '/@/components/Table';
 import { FormSchema } from '/@/components/Table';
-import { getDepartmentList } from './staff.api';
 import { rules } from '/@/utils/helper/validator';
 import { render } from '/@/utils/common/renderUtils';
 
@@ -16,8 +15,6 @@ export interface StaffModel {
   workLocation: string;
   skills: string[];
   phone?: string;
-  department?: string;
-  position?: string;
   status?: number;
   createTime?: string;
   updateTime?: string;
@@ -46,16 +43,6 @@ export const columns: BasicColumn[] = [
   {
     title: '手机号',
     dataIndex: 'phone',
-    width: 120,
-  },
-  {
-    title: '部门',
-    dataIndex: 'department',
-    width: 150,
-  },
-  {
-    title: '职位',
-    dataIndex: 'position',
     width: 120,
   },
   {
@@ -119,12 +106,6 @@ export const searchFormSchema: FormSchema[] = [
     colProps: { span: 6 },
   },
   {
-    label: '部门',
-    field: 'department',
-    component: 'Input',
-    colProps: { span: 6 },
-  },
-  {
     label: '状态',
     field: 'status',
     component: 'Select',
@@ -141,7 +122,7 @@ export const searchFormSchema: FormSchema[] = [
 ];
 
 /**
- * 人员表单配置
+ * 表单配置
  */
 export const formSchema: FormSchema[] = [
   {
@@ -188,30 +169,6 @@ export const formSchema: FormSchema[] = [
     component: 'Input',
     rules: [
       { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码' },
-    ],
-  },
-  {
-    label: '部门',
-    field: 'department',
-    component: 'TreeSelect',
-    componentProps: {
-      fieldNames: {
-        label: 'departName',
-        key: 'id',
-        value: 'id',
-      },
-      getPopupContainer: () => document.body,
-      placeholder: '请选择部门',
-      treeDefaultExpandAll: true,
-    },
-    required: true,
-  },
-  {
-    label: '职位',
-    field: 'position',
-    component: 'Input',
-    rules: [
-      { max: 50, message: '职位名称不能超过50个字符' },
     ],
   },
   {

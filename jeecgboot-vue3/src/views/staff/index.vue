@@ -40,10 +40,12 @@
   import { useModal } from '/@/components/Modal';
   import { useMessage } from '/@/hooks/web/useMessage';
   import { useListPage } from '/@/hooks/system/useListPage';
+  import { useRouter } from 'vue-router';
   import { columns, searchFormSchema, StaffModel } from './staff.data';
   import { getStaffList, deleteStaff, batchDeleteStaff, getImportUrl, getExportUrl } from './staff.api';
 
   const { createMessage, createConfirm } = useMessage();
+  const router = useRouter();
   
   // 注册弹窗
   const [registerModal, { openModal }] = useModal();
@@ -90,9 +92,7 @@
    * 新增人员
    */
   function handleCreate() {
-    openModal(true, {
-      isUpdate: false,
-    });
+    router.push('/staff/create');
   }
 
   /**
@@ -100,10 +100,15 @@
    * @param record 人员记录
    */
   function handleEdit(record: StaffModel) {
-    openModal(true, {
-      record,
-      isUpdate: true,
-    });
+    router.push(`/staff/edit/${record.id}`);
+  }
+
+  /**
+   * 查看人员详情
+   * @param record 人员记录
+   */
+  function handleView(record: StaffModel) {
+    router.push(`/staff/detail/${record.id}`);
   }
 
   /**
@@ -139,6 +144,11 @@
    */
   function getTableAction(record: StaffModel): ActionItem[] {
     return [
+      {
+        label: '查看',
+        icon: 'ant-design:eye-outlined',
+        onClick: handleView.bind(null, record),
+      },
       {
         label: '编辑',
         icon: 'clarity:note-edit-line',

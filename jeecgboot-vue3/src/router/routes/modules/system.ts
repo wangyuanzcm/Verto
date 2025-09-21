@@ -23,15 +23,6 @@ const system: AppRouteModule = {
       component: () => import('/@/views/system/user/index.vue'),
     },
     {
-      path: 'staff',
-      name: 'StaffManagement',
-      meta: {
-        title: '人员管理',
-        ignoreKeepAlive: true,
-      },
-      component: () => import('/@/views/system/staff/index.vue'),
-    },
-    {
       path: 'role',
       name: 'RoleManagement',
       meta: {
