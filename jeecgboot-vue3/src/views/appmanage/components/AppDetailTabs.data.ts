@@ -3,6 +3,14 @@
  * @description 定义应用详情页面的Tab结构、统计数据和配置项
  */
 
+import TrackingManage from './TrackingManage.vue';
+import CodeReview from './CodeReview.vue';
+import PipelineManage from './PipelineManage.vue';
+import TemplateInit from './TemplateInit.vue';
+import AdvancedSettings from './AdvancedSettings.vue';
+import PageManage from './PageManage.vue';
+import MenuManage from './MenuManage.vue';
+
 export interface TabItem {
   key: string;
   name: string;
@@ -37,22 +45,58 @@ export const appDetailTabs: TabItem[] = [
     icon: 'ant-design:info-circle-outlined',
   },
   {
-    key: 'projects',
-    name: '项目列表',
-    component: 'ProjectList',
-    icon: 'ant-design:project-outlined',
+    key: 'tracking',
+    name: '埋点管理',
+    component: 'TrackingManage',
+    icon: 'ant-design:aim-outlined',
   },
   {
-    key: 'config',
-    name: '应用配置',
-    component: 'AppConfig',
+    key: 'codeReview',
+    name: '代码审查',
+    component: 'CodeReviewManage',
+    icon: 'ant-design:audit-outlined',
+  },
+  {
+    key: 'pipeline',
+    name: '流水线管理',
+    component: 'PipelineManage',
+    icon: 'ant-design:deployment-unit-outlined',
+  },
+  {
+    key: 'pageManage',
+    name: '页面管理',
+    component: 'PageManage',
+    icon: 'ant-design:file-text-outlined',
+  },
+  {
+    key: 'menuManage',
+    name: '菜单管理',
+    component: 'MenuManage',
+    icon: 'ant-design:menu-outlined',
+  },
+  {
+    key: 'permissionManage',
+    name: '权限管理',
+    component: 'PermissionManage',
+    icon: 'ant-design:safety-certificate-outlined',
+  },
+  {
+    key: 'page',
+    tab: '页面管理',
+    component: PageManage,
+    icon: 'ant-design:file-text-outlined',
+  },
+  {
+    key: 'menu',
+    tab: '菜单管理',
+    component: MenuManage,
+    icon: 'ant-design:menu-outlined',
+  },
+  {
+    key: 'advanced',
+    tab: '高级设置',
+    component: AdvancedSettings,
     icon: 'ant-design:setting-outlined',
-  },
-  {
-    key: 'statistics',
-    name: '统计信息',
-    component: 'Statistics',
-    icon: 'ant-design:bar-chart-outlined',
   },
 ];
 

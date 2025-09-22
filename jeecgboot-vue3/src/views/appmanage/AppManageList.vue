@@ -257,10 +257,8 @@
        * 查看应用详情
        */
       const handleViewDetail = (record: AppManageModel) => {
-        router.push({
-          name: 'AppManageDetail',
-          params: { id: record.id },
-        });
+        console.log('跳转到应用详情，ID:', record.id);
+        router.push(`/appmanage/detail/${record.id}`);
       };
 
       /**
@@ -329,8 +327,9 @@
     .app-manage-row {
       margin-top: 16px;
       
-      .a-col {
-        padding: 8px;
+      :deep(.ant-col) {
+        padding: 12px;
+        margin-bottom: 16px;
       }
     }
 

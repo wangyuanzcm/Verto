@@ -111,13 +111,13 @@
   import { useModal } from '/@/components/Modal';
   import { useClipboard } from '@vueuse/core';
   import { formatToDateTime } from '/@/utils/dateUtil';
-  import { getAppDetail, deleteApp } from './AppManage.api';
+  import { getAppById, deleteApp } from './AppManage.api';
   import AppManageModal from './components/AppManageModal.vue';
   import BasicInfo from './components/BasicInfo.vue';
   import ProjectList from './components/ProjectList.vue';
   import AppConfig from './components/AppConfig.vue';
   import Statistics from './components/Statistics.vue';
-  import { tabList } from './AppDetailTabs.data';
+  import { appDetailTabs as tabList } from './components/AppDetailTabs.data';
 
   export default defineComponent({
     name: 'AppManageDetail',

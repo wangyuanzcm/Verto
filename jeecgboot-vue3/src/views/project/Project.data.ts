@@ -478,3 +478,9 @@ export const projectTabList: ProjectTabItem[] = [
     component: 'ProjectStatistics',
   },
 ];
+
+/**
+ * 项目详情页面标签页配置
+ * 为了兼容ProjectDetail.vue中的导入，提供别名导出
+ */
+export const projectDetailTabs = projectTabList;

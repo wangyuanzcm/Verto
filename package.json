@@ -1,0 +1,142 @@
+{
+  "name": "verto-tensorflow-title-extractor",
+  "version": "1.0.0",
+  "description": "基于TensorFlow.js的浏览器端AI标题提取系统",
+  "main": "src/ai/tensorflow-title-extractor.js",
+  "type": "module",
+  "scripts": {
+    "dev": "python -m http.server 8000",
+    "build": "node scripts/optimize-tensorflow-model.js",
+    "test": "node test/test-title-extraction.js",
+    "optimize": "node scripts/optimize-tensorflow-model.js",
+    "serve": "python -m http.server 8000",
+    "install-deps": "pnpm install",
+    "clean": "rimraf models/optimized-* dist/",
+    "lint": "eslint src/ scripts/ test/",
+    "format": "prettier --write src/ scripts/ test/"
+  },
+  "keywords": [
+    "tensorflow",
+    "tensorflow.js",
+    "ai",
+    "nlp",
+    "title-extraction",
+    "browser",
+    "javascript",
+    "machine-learning",
+    "neural-network",
+    "text-processing"
+  ],
+  "author": "Verto AI Team",
+  "license": "MIT",
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.15.0",
+    "@tensorflow/tfjs-backend-webgl": "^4.15.0",
+    "@tensorflow/tfjs-backend-cpu": "^4.15.0",
+    "@tensorflow/tfjs-backend-webgpu": "^4.15.0",
+    "@tensorflow/tfjs-converter": "^4.15.0",
+    "@tensorflow/tfjs-core": "^4.15.0",
+    "@tensorflow/tfjs-data": "^4.15.0",
+    "@tensorflow/tfjs-layers": "^4.15.0"
+  },
+  "devDependencies": {
+    "@tensorflow/tfjs-node": "^4.15.0",
+    "@tensorflow/tfjs-node-gpu": "^4.15.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "rimraf": "^5.0.5",
+    "jest": "^29.7.0",
+    "@babel/core": "^7.23.9",
+    "@babel/preset-env": "^7.23.9",
+    "babel-jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "node": ">=16.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0",
+    "pnpm": ">=7.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/verto.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/verto/issues"
+  },
+  "homepage": "https://github.com/your-org/verto#readme",
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ],
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {
+      "^.+\\.js$": "babel-jest"
+    },
+    "testMatch": [
+      "**/test/**/*.test.js",
+      "**/__tests__/**/*.js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/**/*.test.js",
+      "!src/**/index.js"
+    ]
+  },
+  "eslintConfig": {
+    "env": {
+      "browser": true,
+      "es2021": true,
+      "node": true
+    },
+    "extends": [
+      "eslint:recommended"
+    ],
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module"
+    },
+    "rules": {
+      "no-unused-vars": "warn",
+      "no-console": "off",
+      "prefer-const": "error",
+      "no-var": "error"
+    }
+  },
+  "prettier": {
+    "semi": true,
+    "singleQuote": true,
+    "tabWidth": 4,
+    "trailingComma": "es5",
+    "printWidth": 100,
+    "bracketSpacing": true,
+    "arrowParens": "avoid"
+  },
+  "config": {
+    "tensorflow": {
+      "backend": "webgl",
+      "debug": false,
+      "modelPath": "models/",
+      "maxModelSize": "10MB",
+      "loadTimeout": 10000
+    },
+    "optimization": {
+      "quantization": true,
+      "pruning": true,
+      "compression": true,
+      "caching": true
+    }
+  },
+  "files": [
+    "src/",
+    "scripts/",
+    "models/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ]
+}
