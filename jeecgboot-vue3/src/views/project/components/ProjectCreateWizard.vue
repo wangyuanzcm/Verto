@@ -3,9 +3,9 @@
     v-bind="$attrs" 
     @register="registerModal" 
     title="创建项目" 
-    @ok="handleSubmit"
     :width="800"
-    :okButtonProps="{ disabled: !canSubmit }"
+    :showOkBtn="false"
+    :showCancelBtn="false"
   >
     <div class="project-create-wizard">
       <a-steps :current="currentStep" class="mb-6">
@@ -57,18 +57,33 @@
         </div>
       </div>
 
-      <!-- 步骤导航 -->
-      <div class="flex justify-between mt-6 pt-4 border-t">
-        <a-button v-if="currentStep > 0" @click="prevStep">上一步</a-button>
-        <div v-else></div>
-        <a-button 
-          v-if="currentStep < 2" 
-          type="primary" 
-          @click="nextStep"
-          :disabled="!canNextStep"
-        >
-          下一步
-        </a-button>
+      <!-- 自定义步骤导航按钮 -->
+      <div class="wizard-footer">
+        <a-space>
+          <a-button v-if="currentStep > 0" @click="prevStep">
+            上一步
+          </a-button>
+          <a-button 
+            v-if="currentStep < 2" 
+            type="primary" 
+            @click="nextStep"
+            :disabled="!canNextStep"
+          >
+            下一步
+          </a-button>
+          <a-button 
+            v-if="currentStep === 2" 
+            type="primary" 
+            @click="handleSubmit"
+            :loading="submitLoading"
+            :disabled="!canSubmit"
+          >
+            创建项目
+          </a-button>
+          <a-button @click="handleCancel">
+            取消
+          </a-button>
+        </a-space>
       </div>
     </div>
   </BasicModal>
@@ -98,6 +113,7 @@
   const currentStep = ref(0);
   const relatedApps = ref([]);
   const branchSettings = ref({});
+  const submitLoading = ref(false);
 
   // 基本信息表单
   const [registerBasicForm, { 
@@ -293,6 +309,13 @@
   }
 
   /**
+   * 取消操作
+   */
+  function handleCancel() {
+    closeModal();
+  }
+
+  /**
    * 提交表单
    */
   async function handleSubmit() {
@@ -302,7 +325,7 @@
       const detailValues = await validateDetail();
       const devValues = await validateDev();
 
-      setModalProps({ confirmLoading: true });
+      submitLoading.value = true;
 
       // 合并表单数据
       const formData = {
@@ -328,7 +351,7 @@
       console.error('项目创建失败:', error);
       createMessage.error('项目创建失败，请检查表单信息');
     } finally {
-      setModalProps({ confirmLoading: false });
+      submitLoading.value = false;
     }
   }
 </script>
@@ -379,6 +402,14 @@
       border-top: 1px solid #f0f0f0;
       padding-top: 16px;
       margin-top: 16px;
+    }
+
+    .wizard-footer {
+      padding: 16px 24px;
+      border-top: 1px solid #f0f0f0;
+      background: #fafafa;
+      text-align: right;
+      margin: 0 -24px -24px;
     }
   }
 </style>
