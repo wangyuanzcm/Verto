@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  # GitLab 服务
+  gitlab:
+    image: gitlab/gitlab-ce:11.8.2-ce.0
+    container_name: verto-gitlab
+    hostname: gitlab.local
+    restart: unless-stopped
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:${GITLAB_HTTP_PORT:-8082}'
+        gitlab_rails['gitlab_shell_ssh_port'] = ${GITLAB_SSH_PORT:-2222}
+        # 禁用一些不必要的服务以减少资源占用（GitLab 11.8.2兼容）
+        prometheus_monitoring['enable'] = false
+        # 在GitLab 11.8.2中，一些监控组件可能不存在，只保留基本配置
+        # 配置邮件设置（可选）
+        gitlab_rails['smtp_enable'] = false
+        # 配置备份保留时间
+        gitlab_rails['backup_keep_time'] = 604800
+        # GitLab 11.8.2特定配置
+        unicorn['worker_processes'] = 2
+        sidekiq['concurrency'] = 10
+    ports:
+      - '${GITLAB_HTTP_PORT:-8082}:80'      # GitLab Web界面
+      - '${GITLAB_HTTPS_PORT:-8443}:443'     # GitLab HTTPS
+      - '${GITLAB_SSH_PORT:-2222}:22'      # GitLab SSH
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    networks:
+      - devops-network
+    # 设置共享内存大小，GitLab需要较大的共享内存
+    shm_size: '256m'
+
+  # Jenkins 服务
+  jenkins:
+    image: jenkins/jenkins:2.276
+    container_name: verto-jenkins
+    hostname: jenkins.local
+    restart: unless-stopped
+    user: root
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - JENKINS_OPTS=--httpPort=${JENKINS_HTTP_PORT:-8081}
+    ports:
+      - '${JENKINS_HTTP_PORT:-8081}:${JENKINS_HTTP_PORT:-8081}'    # Jenkins Web界面
+      - '${JENKINS_AGENT_PORT:-50000}:50000'  # Jenkins Agent端口
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - jenkins_docker:/usr/bin/docker
+    networks:
+      - devops-network
+    depends_on:
+      - gitlab
+
+  # Jenkins Agent (可选，用于分布式构建)
+  jenkins-agent:
+    image: jenkins/inbound-agent:latest
+    container_name: verto-jenkins-agent
+    restart: unless-stopped
+    environment:
+      - JENKINS_URL=http://jenkins:8081
+      - JENKINS_SECRET=${JENKINS_AGENT_SECRET:-}
+      - JENKINS_AGENT_NAME=docker-agent
+      - JENKINS_AGENT_WORKDIR=/home/jenkins/agent
+    volumes:
+      - jenkins_agent_workdir:/home/jenkins/agent
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - devops-network
+    depends_on:
+      - jenkins
+
+  # Redis (用于GitLab缓存，可选)
+  redis:
+    image: redis:7-alpine
+    container_name: verto-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - devops-network
+
+  # PostgreSQL (用于GitLab数据库，可选，GitLab默认使用内置PostgreSQL)
+  postgres:
+    image: postgres:13
+    container_name: verto-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gitlabhq_production
+      POSTGRES_USER: gitlab
+      POSTGRES_PASSWORD: gitlab_password
+      POSTGRES_INITDB_ARGS: --encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - devops-network
+
+# 数据卷定义
+volumes:
+  # GitLab 数据卷
+  gitlab_config:
+    driver: local
+  gitlab_logs:
+    driver: local
+  gitlab_data:
+    driver: local
+  
+  # Jenkins 数据卷
+  jenkins_home:
+    driver: local
+  jenkins_docker:
+    driver: local
+  jenkins_agent_workdir:
+    driver: local
+  
+  # 数据库和缓存数据卷
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# 网络定义
+networks:
+  devops-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

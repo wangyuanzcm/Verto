@@ -511,3 +511,8 @@ AI写文章
 如果觉得还不错，请作者喝杯咖啡吧 ☺
 
 ![](https://static.oschina.net/uploads/img/201903/08155608_0EFX.png)
+
+
+
+创建gitlab和jenkins的docker容器
+docker compose -f docker-compose-devops.yml --env-file .env.devops pull
