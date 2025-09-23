@@ -294,27 +294,4 @@
 </script>
 
 <style lang="less" scoped>
-  .project-statistics {
-    .stat-card {
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-
-    .milestone-item {
-      .milestone-title {
-        font-weight: 600;
-        margin-bottom: 4px;
-      }
-
-      .milestone-date {
-        font-size: 12px;
-        color: #666;
-        margin-bottom: 4px;
-      }
-
-      .milestone-description {
-        font-size: 12px;
-        color: #999;
-      }
-    }
-  }
 </style>

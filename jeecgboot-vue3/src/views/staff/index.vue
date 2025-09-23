@@ -67,7 +67,7 @@
         fullScreen: true,
       },
       actionColumn: {
-        width: 150,
+        width: 200,
         title: '操作',
         dataIndex: 'action',
         slots: { customRender: 'action' },

@@ -156,6 +156,54 @@ const render = {
   renderTag(text, color) {
     return isEmpty(text) ? h('span', text) : h(Tag, { color }, () => text);
   },
+  /**
+   * 渲染进度条
+   * @param progress 进度值 0-100
+   */
+  renderProgress(progress) {
+    if (progress == null || progress == undefined) {
+      return h('span', '-');
+    }
+    const percent = Number(progress);
+    let color = '#52c41a'; // 绿色
+    if (percent < 30) {
+      color = '#ff4d4f'; // 红色
+    } else if (percent < 70) {
+      color = '#faad14'; // 橙色
+    }
+    return h('div', { style: 'display: flex; align-items: center;' }, [
+      h('div', {
+        style: `
+          width: 60px;
+          height: 8px;
+          background-color: #f0f0f0;
+          border-radius: 4px;
+          overflow: hidden;
+          margin-right: 8px;
+        `
+      }, [
+        h('div', {
+          style: `
+            width: ${percent}%;
+            height: 100%;
+            background-color: ${color};
+            transition: width 0.3s ease;
+          `
+        })
+      ]),
+      h('span', { style: 'font-size: 12px; color: #666;' }, `${percent}%`)
+    ]);
+  },
+  /**
+   * 渲染日期
+   * @param date 日期字符串
+   */
+  renderDate(date) {
+    if (!date) {
+      return h('span', '-');
+    }
+    return h('span', date);
+  },
 };
 
 /**

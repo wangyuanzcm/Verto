@@ -75,6 +75,10 @@
           </a-tab-pane>
         </a-tabs>
       </a-card>
+
+      <!-- Git仓库信息 -->
+      <a-card class="git-info-card" v-if="appDetail.gitUrl">
+        <div class="git-info">
           <div class="git-actions">
             <a-button type="primary" @click="openGitRepo">
               <Icon icon="ant-design:github-outlined" size="16" />
@@ -114,7 +118,7 @@
   import { getAppById, deleteApp } from './AppManage.api';
   import AppManageModal from './components/AppManageModal.vue';
   import BasicInfo from './components/BasicInfo.vue';
-  import ProjectList from './components/ProjectList.vue';
+  // import ProjectList from './components/ProjectList.vue';
   import AppConfig from './components/AppConfig.vue';
   import Statistics from './components/Statistics.vue';
   import { appDetailTabs as tabList } from './components/AppDetailTabs.data';
@@ -134,7 +138,7 @@
       Icon,
       AppManageModal,
       BasicInfo,
-      ProjectList,
+      // ProjectList,
       AppConfig,
       Statistics,
     },
@@ -190,7 +194,8 @@
        * 返回列表
        */
       const goBack = () => {
-        router.push({ name: 'AppManageList' });
+        console.log('goBack 方法被调用');
+        router.push('/appmanage/list');
       };
 
       /**

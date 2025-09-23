@@ -1,42 +1,33 @@
 <template>
-  <div class="project-list">
+  <div>
     <BasicTable @register="registerTable" :rowSelection="rowSelection">
-      <!-- 工具栏 -->
       <template #tableTitle>
-        <a-button type="primary" @click="handleAdd" preIcon="ant-design:plus-outlined">
-          新增项目
+        <a-button type="primary" @click="handleCreateWizard" preIcon="ant-design:plus-outlined">
+          创建项目
         </a-button>
+        <a-button @click="handleAdd" preIcon="ant-design:edit-outlined">
+          快速新增
+        </a-button>
+        <a-select
+          v-model:value="currentTaskType"
+          placeholder="选择项目类型"
+          style="width: 150px; margin-left: 8px"
+          @change="handleTaskTypeChange"
+        >
+          <a-select-option value="">全部</a-select-option>
+          <a-select-option :value="TaskType.REQUIREMENT">需求</a-select-option>
+          <a-select-option :value="TaskType.BUG">BUG</a-select-option>
+        </a-select>
         <a-button
           type="primary"
           @click="handleBatchDelete"
           :disabled="!selectedRowKeys.length"
           preIcon="ant-design:delete-outlined"
-          color="error"
+          danger
+          style="margin-left: 8px"
         >
           批量删除
         </a-button>
-        <a-dropdown v-if="selectedRowKeys.length === 1">
-          <template #overlay>
-            <a-menu>
-              <a-menu-item key="1" @click="handleEdit(selectedRows[0])">
-                <Icon icon="clarity:note-edit-line" />
-                编辑
-              </a-menu-item>
-              <a-menu-item key="2" @click="handleDetail(selectedRows[0])">
-                <Icon icon="ant-design:eye-outlined" />
-                详情
-              </a-menu-item>
-              <a-menu-item key="3" @click="handleCopy(selectedRows[0])">
-                <Icon icon="ant-design:copy-outlined" />
-                复制
-              </a-menu-item>
-            </a-menu>
-          </template>
-          <a-button>
-            批量操作
-            <Icon icon="mdi:chevron-down" />
-          </a-button>
-        </a-dropdown>
       </template>
 
       <!-- 状态列 -->
@@ -46,26 +37,52 @@
         </a-tag>
       </template>
 
-      <!-- 优先级列 -->
-      <template #priority="{ record }">
-        <a-tag :color="getPriorityColor(record.priority)">
-          {{ getPriorityText(record.priority) }}
+
+
+      <!-- 任务类型列 -->
+      <template #taskType="{ record }">
+        <a-tag :color="getTaskTypeColor(record.taskType)">
+          {{ getTaskTypeText(record.taskType) }}
         </a-tag>
       </template>
 
-      <!-- 类型列 -->
-      <template #type="{ record }">
-        <a-tag>{{ getTypeText(record.type) }}</a-tag>
+      <!-- 需求/BUG ID列 -->
+      <template #taskId="{ record }">
+        <span v-if="record.taskType === 'REQUIREMENT'">
+          <a-tag color="blue">{{ record.requirementId }}</a-tag>
+        </span>
+        <span v-else-if="record.taskType === 'BUG'">
+          <a-tag color="red">{{ record.bugId }}</a-tag>
+        </span>
+        <span v-else>-</span>
       </template>
 
-      <!-- 进度列 -->
-      <template #progress="{ record }">
-        <a-progress
-          :percent="record.progress"
-          :size="'small'"
-          :status="record.progress === 100 ? 'success' : 'active'"
-        />
+      <!-- 开发模式列 -->
+      <template #developmentMode="{ record }">
+        <a-tag :color="getDevelopmentModeColor(record.developmentMode)">
+          {{ getDevelopmentModeText(record.developmentMode) }}
+        </a-tag>
       </template>
+
+      <!-- Git分支状态列 -->
+      <template #gitBranchStatus="{ record }">
+        <div v-if="record.gitBranches && record.gitBranches.length > 0">
+          <a-tag 
+            v-for="branch in record.gitBranches.slice(0, 2)" 
+            :key="branch.id"
+            :color="getBranchStatusColor(branch.status)"
+            size="small"
+          >
+            {{ branch.branchName }}
+          </a-tag>
+          <a-tag v-if="record.gitBranches.length > 2" size="small">
+            +{{ record.gitBranches.length - 2 }}
+          </a-tag>
+        </div>
+        <span v-else>无分支</span>
+      </template>
+
+
 
       <!-- 操作列 -->
       <template #action="{ record }">
@@ -96,32 +113,43 @@
       </template>
     </BasicTable>
 
-    <!-- 新增/编辑弹窗 -->
+    <!-- 编辑弹窗 -->
     <ProjectModal @register="registerModal" @success="handleSuccess" />
+    
+    <!-- 项目创建向导 -->
+    <ProjectCreateWizard @register="registerWizardModal" @success="handleSuccess" />
   </div>
 </template>
 
 <script lang="ts" setup>
-  import { reactive, computed, unref } from 'vue';
+  import { reactive, computed, unref, ref } from 'vue';
   import { BasicTable, useTable, TableAction } from '/@/components/Table';
   import { useModal } from '/@/components/Modal';
-  import { useListPage } from '/@/hooks/system/useListPage';
-  import { columns, searchFormSchema, ProjectStatus, ProjectPriority, ProjectType } from './Project.data';
+  // import { useListPage } from '/@/hooks/system/useListPage';
+  import { 
+    getColumns, 
+    searchFormSchema, 
+    ProjectStatus, 
+    TaskType,
+    DevelopmentMode
+  } from './Project.data';
   import { getProjectList, deleteProject, batchDeleteProject } from './Project.api';
   import ProjectModal from './components/ProjectModal.vue';
+  import ProjectCreateWizard from './components/ProjectCreateWizard.vue';
   import { useGo } from '/@/hooks/web/usePage';
   import { Icon } from '/@/components/Icon';
 
-  defineOptions({ name: 'ProjectList' });
-
   const go = useGo();
 
+  // 当前项目类型筛选
+  const currentTaskType = ref('');
+
   // 表格配置
-  const [registerTable, { reload, getSelectRows }] = useTable({
+  const [registerTable, { reload, getSelectRows, setColumns }] = useTable({
     title: '项目列表',
     api: getProjectList,
     rowKey: 'id',
-    columns,
+    columns: getColumns(),
     formConfig: {
       labelWidth: 120,
       schemas: searchFormSchema,
@@ -132,6 +160,10 @@
     bordered: true,
     handleSearchInfoFn(info) {
       console.log('handleSearchInfoFn', info);
+      // 添加项目类型筛选
+      if (currentTaskType.value) {
+        info.taskType = currentTaskType.value;
+      }
       return info;
     },
     actionColumn: {
@@ -142,12 +174,36 @@
     },
   });
 
+  /**
+   * 任务类型变化处理
+   */
+  function handleTaskTypeChange(value: string) {
+    currentTaskType.value = value;
+    // 动态更新表格列配置
+    const newColumns = getColumns(value as TaskType);
+    setColumns(newColumns);
+    reload();
+  }
+
   // 弹窗配置
   const [registerModal, { openModal }] = useModal();
+  const [registerWizardModal, { openModal: openWizardModal }] = useModal();
 
   // 多选
-  const selectedRowKeys = computed(() => getSelectRows().map(item => item.id));
-  const selectedRows = computed(() => getSelectRows());
+  const selectedRowKeys = computed(() => {
+    try {
+      return getSelectRows().map(item => item.id);
+    } catch (error) {
+      return [];
+    }
+  });
+  const selectedRows = computed(() => {
+    try {
+      return getSelectRows();
+    } catch (error) {
+      return [];
+    }
+  });
   const rowSelection = {
     type: 'checkbox',
     selectedRowKeys: unref(selectedRowKeys),
@@ -178,12 +234,19 @@
   }
 
   /**
-   * 新增
+   * 新增事件
    */
   function handleAdd() {
     openModal(true, {
       isUpdate: false,
     });
+  }
+
+  /**
+   * 创建项目向导
+   */
+  function handleCreateWizard() {
+    openWizardModal(true, {});
   }
 
   /**
@@ -240,11 +303,11 @@
   function getStatusColor(status: ProjectStatus) {
     const colorMap = {
       [ProjectStatus.PLANNING]: 'blue',
-      [ProjectStatus.IN_PROGRESS]: 'processing',
+      [ProjectStatus.DEVELOPING]: 'processing',
       [ProjectStatus.TESTING]: 'orange',
-      [ProjectStatus.COMPLETED]: 'success',
-      [ProjectStatus.SUSPENDED]: 'warning',
-      [ProjectStatus.CANCELLED]: 'error',
+      [ProjectStatus.DEPLOYED]: 'success',
+      [ProjectStatus.MAINTENANCE]: 'warning',
+      [ProjectStatus.ARCHIVED]: 'default',
     };
     return colorMap[status] || 'default';
   }
@@ -255,61 +318,77 @@
   function getStatusText(status: ProjectStatus) {
     const textMap = {
       [ProjectStatus.PLANNING]: '规划中',
-      [ProjectStatus.IN_PROGRESS]: '进行中',
+      [ProjectStatus.DEVELOPING]: '开发中',
       [ProjectStatus.TESTING]: '测试中',
-      [ProjectStatus.COMPLETED]: '已完成',
-      [ProjectStatus.SUSPENDED]: '已暂停',
-      [ProjectStatus.CANCELLED]: '已取消',
+      [ProjectStatus.DEPLOYED]: '已部署',
+      [ProjectStatus.MAINTENANCE]: '维护中',
+      [ProjectStatus.ARCHIVED]: '已归档',
     };
     return textMap[status] || '未知';
   }
 
+
+
+
+
   /**
-   * 获取优先级颜色
+   * 获取任务类型颜色
    */
-  function getPriorityColor(priority: ProjectPriority) {
+  function getTaskTypeColor(taskType: TaskType) {
     const colorMap = {
-      [ProjectPriority.LOW]: 'green',
-      [ProjectPriority.MEDIUM]: 'blue',
-      [ProjectPriority.HIGH]: 'orange',
-      [ProjectPriority.URGENT]: 'red',
+      [TaskType.REQUIREMENT]: 'blue',
+      [TaskType.BUG]: 'red',
     };
-    return colorMap[priority] || 'default';
+    return colorMap[taskType] || 'default';
   }
 
   /**
-   * 获取优先级文本
+   * 获取任务类型文本
    */
-  function getPriorityText(priority: ProjectPriority) {
+  function getTaskTypeText(taskType: TaskType) {
     const textMap = {
-      [ProjectPriority.LOW]: '低',
-      [ProjectPriority.MEDIUM]: '中',
-      [ProjectPriority.HIGH]: '高',
-      [ProjectPriority.URGENT]: '紧急',
+      [TaskType.REQUIREMENT]: '需求',
+      [TaskType.BUG]: 'BUG',
     };
-    return textMap[priority] || '未知';
+    return textMap[taskType] || '未知';
   }
 
   /**
-   * 获取类型文本
+   * 获取开发模式颜色
    */
-  function getTypeText(type: ProjectType) {
-    const textMap = {
-      [ProjectType.WEB]: 'Web应用',
-      [ProjectType.MOBILE]: '移动应用',
-      [ProjectType.DESKTOP]: '桌面应用',
-      [ProjectType.API]: 'API服务',
-      [ProjectType.LIBRARY]: '组件库',
-      [ProjectType.OTHER]: '其他',
+  function getDevelopmentModeColor(mode: DevelopmentMode) {
+    const colorMap = {
+      [DevelopmentMode.L1]: 'green',
+      [DevelopmentMode.L2]: 'blue',
+      [DevelopmentMode.L3]: 'purple',
     };
-    return textMap[type] || '未知';
+    return colorMap[mode] || 'default';
+  }
+
+  /**
+   * 获取开发模式文本
+   */
+  function getDevelopmentModeText(mode: DevelopmentMode) {
+    const textMap = {
+      [DevelopmentMode.L1]: 'L1-直接开发',
+      [DevelopmentMode.L2]: 'L2-模板开发',
+      [DevelopmentMode.L3]: 'L3-可视化配置',
+    };
+    return textMap[mode] || '未知';
+  }
+
+  /**
+   * 获取分支状态颜色
+   */
+  function getBranchStatusColor(status: string) {
+    const colorMap = {
+      'ACTIVE': 'processing',
+      'MERGED': 'success',
+      'DELETED': 'default',
+    };
+    return colorMap[status] || 'default';
   }
 </script>
 
 <style lang="less" scoped>
-  .project-list {
-    padding: 16px;
-    background: #fff;
-    border-radius: 6px;
-  }
 </style>

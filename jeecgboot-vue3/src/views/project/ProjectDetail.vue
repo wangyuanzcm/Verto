@@ -39,7 +39,7 @@
 
     <!-- 详情内容 -->
     <div v-else class="detail-content">
-      <!-- 项目概览卡片 -->
+      <!-- 需求概览卡片 -->
       <a-card class="project-overview-card" :bordered="false">
         <div class="overview-content">
           <div class="project-info">
@@ -95,10 +95,13 @@
   import { getProjectDetail, deleteProject } from './Project.api';
   import { ProjectStatus, projectDetailTabs } from './Project.data';
   import ProjectBasicInfo from './components/ProjectBasicInfo.vue';
-  import ProjectTasks from './components/ProjectTasks.vue';
+  import ProjectRelatedApps from './components/ProjectRelatedApps.vue';
+  import GitBranchManager from './components/GitBranchManager.vue';
+  import ProjectWorkflow from './components/ProjectWorkflow.vue';
+  import PipelineManager from './components/PipelineManager.vue';
+  import ProjectTimeline from './components/ProjectTimeline.vue';
   import ProjectMembers from './components/ProjectMembers.vue';
   import ProjectFiles from './components/ProjectFiles.vue';
-  import ProjectDeployment from './components/ProjectDeployment.vue';
   import ProjectStatistics from './components/ProjectStatistics.vue';
 
   defineOptions({ name: 'ProjectDetail' });
@@ -146,10 +149,13 @@
   function getTabComponent(key: string) {
     const componentMap = {
       basic: ProjectBasicInfo,
-      tasks: ProjectTasks,
+      relatedApps: ProjectRelatedApps,
+      gitBranches: GitBranchManager,
+      workflow: ProjectWorkflow,
+      pipelines: PipelineManager,
+      timeline: ProjectTimeline,
       members: ProjectMembers,
       files: ProjectFiles,
-      deployment: ProjectDeployment,
       statistics: ProjectStatistics,
     };
     return componentMap[key] || ProjectBasicInfo;
@@ -258,39 +264,30 @@
 
 <style lang="less" scoped>
   .project-detail {
-    padding: 16px;
-    background: #f5f5f5;
-    min-height: calc(100vh - 64px);
+    padding: 0;
+    background: #f5f7fa;
+    min-height: 100vh;
 
     .detail-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 16px;
-      padding: 16px 24px;
-      background: #fff;
-      border-radius: 6px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      padding: 16px;
 
       .header-left {
         display: flex;
         align-items: center;
         gap: 16px;
 
-        .back-btn {
-          border: none;
-          box-shadow: none;
-        }
-
         .title-info {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 8px;
 
           h2 {
             margin: 0;
-            font-size: 20px;
-            font-weight: 600;
+            font-size: 18px;
           }
         }
       }
@@ -307,18 +304,20 @@
       align-items: center;
       height: 400px;
       background: #fff;
-      border-radius: 6px;
+      margin: 0 16px;
     }
 
     .detail-content {
+      padding: 0 16px 16px;
+
       .project-overview-card {
         margin-bottom: 16px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
         .overview-content {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
+          gap: 16px;
 
           .project-info {
             display: flex;
@@ -334,19 +333,18 @@
 
               h3 {
                 margin: 0 0 8px 0;
-                font-size: 18px;
-                font-weight: 600;
+                font-size: 16px;
               }
 
               .description {
-                margin: 0 0 12px 0;
+                margin: 0 0 8px 0;
                 color: #666;
                 line-height: 1.5;
               }
 
               .project-tags {
                 display: flex;
-                gap: 8px;
+                gap: 4px;
                 flex-wrap: wrap;
               }
             }
@@ -354,22 +352,22 @@
 
           .project-stats {
             display: flex;
-            gap: 32px;
+            gap: 16px;
+            flex-shrink: 0;
 
             .stat-item {
               text-align: center;
+              padding: 16px;
+              min-width: 80px;
 
               .stat-value {
                 font-size: 24px;
-                font-weight: 600;
-                color: #1890ff;
                 line-height: 1;
+                margin-bottom: 8px;
               }
 
               .stat-label {
-                margin-top: 4px;
                 font-size: 12px;
-                color: #666;
               }
             }
           }
@@ -377,10 +375,98 @@
       }
 
       .tab-container {
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border: 1px solid #f0f0f0;
 
-        :deep(.ant-tabs-content-holder) {
-          padding: 16px 0;
+        :deep(.ant-tabs) {
+          .ant-tabs-nav {
+            margin: 0;
+            padding: 0 16px;
+
+            .ant-tabs-tab {
+              padding: 12px 16px;
+
+              &.ant-tabs-tab-active {
+                background: #fff;
+                color: #1890ff;
+                font-weight: 600;
+                border-bottom: 3px solid #1890ff;
+              }
+            }
+          }
+
+          .ant-tabs-content-holder {
+            padding: 24px;
+            background: #fff;
+          }
+
+          .ant-tabs-ink-bar {
+            display: none;
+          }
+        }
+      }
+    }
+  }
+
+  // 响应式设计
+  @media (max-width: 768px) {
+    .project-detail {
+      .detail-header {
+        padding: 16px 20px;
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+
+        .header-left {
+          justify-content: space-between;
+
+          .title-info {
+            h2 {
+              font-size: 20px;
+            }
+          }
+        }
+
+        .header-actions {
+          justify-content: center;
+        }
+      }
+
+      .detail-content {
+        padding: 0 16px 16px;
+
+        .project-overview-card {
+          .overview-content {
+            flex-direction: column;
+            gap: 24px;
+
+            .project-stats {
+              justify-content: space-around;
+              gap: 16px;
+
+              .stat-item {
+                min-width: 60px;
+                padding: 12px;
+
+                .stat-value {
+                  font-size: 24px;
+                }
+              }
+            }
+          }
+        }
+
+        .tab-container {
+          :deep(.ant-tabs-nav) {
+            padding: 0 16px;
+
+            .ant-tabs-tab {
+              padding: 12px 16px;
+            }
+          }
+
+          :deep(.ant-tabs-content-holder) {
+            padding: 16px;
+          }
         }
       }
     }

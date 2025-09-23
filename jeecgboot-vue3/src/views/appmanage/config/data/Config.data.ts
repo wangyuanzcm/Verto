@@ -214,6 +214,9 @@ export const configColumns: BasicColumn[] = [
         [ConfigType.CODE_REVIEW]: { text: '代码审查配置', color: 'purple' },
       };
       const type = typeMap[record.type];
+      if (!type) {
+        return h(Tag, { color: 'default' }, () => record.type || '未知类型');
+      }
       return h(Tag, { color: type.color }, () => type.text);
     },
   },
@@ -229,6 +232,9 @@ export const configColumns: BasicColumn[] = [
         [EnvironmentType.PROD]: { text: '生产', color: 'red' },
       };
       const env = envMap[record.environment];
+      if (!env) {
+        return h(Tag, { color: 'default' }, () => record.environment || '未知环境');
+      }
       return h(Tag, { color: env.color }, () => env.text);
     },
   },
@@ -243,6 +249,9 @@ export const configColumns: BasicColumn[] = [
         [ConfigStatus.DRAFT]: { text: '草稿', color: 'warning' },
       };
       const status = statusMap[record.status];
+      if (!status) {
+        return h(Tag, { color: 'default' }, () => record.status || '未知状态');
+      }
       return h(Tag, { color: status.color }, () => status.text);
     },
   },

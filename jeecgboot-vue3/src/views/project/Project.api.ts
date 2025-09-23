@@ -33,6 +33,28 @@ enum Api {
   deploymentEdit = '/project/deployment/edit',
   deploymentDelete = '/project/deployment/delete',
   deploymentExecute = '/project/deployment/execute',
+  // 应用管理相关
+  appList = '/app/list',
+  appDetail = '/app/detail',
+  // 开发模板相关
+  templateList = '/template/list',
+  templateDetail = '/template/detail',
+  // 用户相关
+  userList = '/user/list',
+  // Git分支管理相关
+  gitBranchList = '/project/git/branch/list',
+  gitBranchCreate = '/project/git/branch/create',
+  gitBranchMerge = '/project/git/branch/merge',
+  gitBranchDelete = '/project/git/branch/delete',
+
+  // 工作流管理
+  workflowGet = '/project/workflow/get',
+  workflowUpdate = '/project/workflow/update',
+  workflowDeploy = '/project/workflow/deploy',
+  workflowRollback = '/project/workflow/rollback',
+  
+  // 流水线管理相关
+  pipelineBase = '/project',
 }
 
 /**
@@ -262,3 +284,175 @@ export const executeProjectDeployment = (params: any) =>
     url: Api.deploymentExecute,
     params,
   });
+
+/**
+ * 获取应用列表
+ */
+export const getAppList = (params?: any) =>
+  defHttp.get<any>({
+    url: Api.appList,
+    params,
+  });
+
+/**
+ * 获取应用详情
+ */
+export const getAppDetail = (params: any) =>
+  defHttp.get<any>({
+    url: Api.appDetail,
+    params,
+  });
+
+/**
+ * 获取开发模板列表
+ */
+export const getTemplateList = (params?: any) =>
+  defHttp.get<any>({
+    url: Api.templateList,
+    params,
+  });
+
+/**
+ * 获取开发模板详情
+ */
+export const getTemplateDetail = (params: any) =>
+  defHttp.get<any>({
+    url: Api.templateDetail,
+    params,
+  });
+
+/**
+ * 获取用户列表
+ */
+export const getUserList = (params?: any) =>
+  defHttp.get<any>({
+    url: Api.userList,
+    params,
+  });
+
+/**
+ * 获取项目Git分支列表
+ */
+export const getProjectGitBranches = (params: any) =>
+  defHttp.get<any>({
+    url: Api.gitBranchList,
+    params,
+  });
+
+/**
+ * 创建Git分支
+ */
+export const createGitBranch = (params: any) =>
+  defHttp.post<any>({
+    url: Api.gitBranchCreate,
+    params,
+  });
+
+/**
+ * 合并Git分支
+ */
+export const mergeGitBranch = (params: any) =>
+  defHttp.post<any>({
+    url: Api.gitBranchMerge,
+    params,
+  });
+
+/**
+ * 删除Git分支
+ */
+export const deleteGitBranch = (params: any) => {
+  return defHttp.delete({ url: Api.gitBranchDelete, params });
+};
+
+/**
+ * 获取项目工作流信息
+ */
+export const getProjectWorkflow = (params: any) => {
+  return defHttp.get({ url: Api.workflowGet, params });
+};
+
+/**
+ * 更新项目工作流配置
+ */
+export const updateProjectWorkflow = (params: any) => {
+  return defHttp.post({ url: Api.workflowUpdate, params });
+};
+
+/**
+ * 执行工作流部署
+ */
+export const deployWorkflow = (params: any) => {
+  return defHttp.post({ url: Api.workflowDeploy, params });
+};
+
+/**
+ * 工作流回滚
+ */
+export const rollbackWorkflow = (params: any) => {
+  return defHttp.post({ url: Api.workflowRollback, params });
+};
+
+// ==================== 项目流水线相关 ====================
+
+/**
+ * 获取项目流水线列表
+ */
+export const getProjectPipelines = (projectId: string) => {
+  return defHttp.get({ url: `${Api.pipelineBase}/${projectId}/pipelines` });
+};
+
+/**
+ * 获取流水线详情
+ */
+export const getPipelineDetail = (projectId: string, pipelineId: string) => {
+  return defHttp.get({ url: `${Api.pipelineBase}/${projectId}/pipelines/${pipelineId}` });
+};
+
+/**
+ * 创建流水线
+ */
+export const createPipeline = (projectId: string, params: any) => {
+  return defHttp.post({ url: `${Api.pipelineBase}/${projectId}/pipelines`, params });
+};
+
+/**
+ * 更新流水线
+ */
+export const updatePipeline = (projectId: string, pipelineId: string, params: any) => {
+  return defHttp.put({ url: `${Api.pipelineBase}/${projectId}/pipelines/${pipelineId}`, params });
+};
+
+/**
+ * 删除流水线
+ */
+export const deletePipeline = (projectId: string, pipelineId: string) => {
+  return defHttp.delete({ url: `${Api.pipelineBase}/${projectId}/pipelines/${pipelineId}` });
+};
+
+/**
+ * 执行流水线
+ */
+export const executePipeline = (projectId: string, pipelineId: string, params?: any) => {
+  return defHttp.post({ url: `${Api.pipelineBase}/${projectId}/pipelines/${pipelineId}/execute`, params });
+};
+
+/**
+ * 停止流水线执行
+ */
+export const stopPipelineExecution = (projectId: string, pipelineId: string, executionId: string) => {
+  return defHttp.post({ url: `${Api.pipelineBase}/${projectId}/pipelines/${pipelineId}/executions/${executionId}/stop` });
+};
+
+/**
+ * 获取流水线执行历史
+ */
+export const getPipelineExecutions = (projectId: string, pipelineId: string, params?: any) => {
+  return defHttp.get({ url: `${Api.pipelineBase}/${projectId}/pipelines/${pipelineId}/executions`, params });
+};
+
+/**
+ * 获取流水线执行日志
+ */
+export const getPipelineExecutionLogs = (projectId: string, pipelineId: string, executionId: string) => {
+  return defHttp.get({ url: `${Api.pipelineBase}/${projectId}/pipelines/${pipelineId}/executions/${executionId}/logs` });
+};

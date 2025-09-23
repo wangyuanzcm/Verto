@@ -100,8 +100,11 @@
       </template>
     </BasicTable>
 
-    <!-- 新增/编辑弹窗 -->
+    <!-- 新增弹窗 -->
     <ConfigModal @register="registerModal" @success="handleSuccess" />
+
+    <!-- 编辑抽屉 -->
+    <ConfigDrawer @register="registerDrawer" @success="handleSuccess" />
 
     <!-- 部署弹窗 -->
     <DeployModal @register="registerDeployModal" @success="handleSuccess" />
@@ -115,10 +118,12 @@
   import { reactive, ref } from 'vue';
   import { BasicTable, useTable, TableAction } from '/@/components/Table';
   import { useModal } from '/@/components/Modal';
+  import { useDrawer } from '/@/components/Drawer';
   import { useMessage } from '/@/hooks/web/useMessage';
   import { useGo } from '/@/hooks/web/usePage';
   
   import ConfigModal from './components/ConfigModal.vue';
+  import ConfigDrawer from './components/ConfigDrawer.vue';
   import DeployModal from './components/DeployModal.vue';
   import CopyModal from './components/CopyModal.vue';
   
@@ -158,7 +163,7 @@
     showTableSetting: true,
     bordered: true,
     actionColumn: {
-      width: 120,
+      width: 300,
       title: '操作',
       dataIndex: 'action',
       slots: { customRender: 'action' },
@@ -169,6 +174,9 @@
   const [registerModal, { openModal }] = useModal();
   const [registerDeployModal, { openModal: openDeployModal }] = useModal();
   const [registerCopyModal, { openModal: openCopyModal }] = useModal();
+  
+  // 抽屉配置
+  const [registerDrawer, { openDrawer }] = useDrawer();
 
   /**
    * 新增配置
@@ -183,7 +191,7 @@
    * 编辑配置
    */
   function handleEdit(record: Recordable) {
-    openModal(true, {
+    openDrawer(true, {
       record,
       isUpdate: true,
     });

@@ -808,7 +808,7 @@ export default [
       const end = start + pageSize;
       const records = filteredList.slice(start, end);
 
-      return resultPageSuccess(pageNo, pageSize, filteredList.length, records);
+      return resultPageSuccess(pageNo, pageSize, filteredList);
     },
   },
 
@@ -918,7 +918,7 @@ export default [
       const end = start + pageSize;
       const records = filteredList.slice(start, end);
 
-      return resultPageSuccess(pageNo, pageSize, filteredList.length, records);
+      return resultPageSuccess(pageNo, pageSize, filteredList);
     },
   },
 

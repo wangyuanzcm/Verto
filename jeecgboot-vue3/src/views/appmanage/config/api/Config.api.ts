@@ -1,5 +1,5 @@
 import { defHttp } from '/@/utils/http/axios';
-import { ConfigModel, PipelineConfig, TrackingConfig, CodeReviewConfig } from '../data/Config.data';
+import { ConfigModel } from '../data/Config.data';
 
 enum Api {
   CONFIG_LIST = '/super/config/list',
@@ -14,18 +14,18 @@ enum Api {
   CONFIG_IMPORT = '/super/config/import',
   CONFIG_HISTORY = '/super/config/history',
   CONFIG_PREVIEW = '/super/config/preview',
-  
+
   // 流水线配置相关
   PIPELINE_EXECUTE = '/super/config/pipeline/execute',
   PIPELINE_STOP = '/super/config/pipeline/stop',
   PIPELINE_LOGS = '/super/config/pipeline/logs',
   PIPELINE_STAGES = '/super/config/pipeline/stages',
-  
+
   // 埋点配置相关
   TRACKING_EVENTS = '/super/config/tracking/events',
   TRACKING_PROPERTIES = '/super/config/tracking/properties',
   TRACKING_STATISTICS = '/super/config/tracking/statistics',
-  
+
   // 代码审查配置相关
   CODE_REVIEW_RULES = '/super/config/code-review/rules',
   CODE_REVIEW_REVIEWERS = '/super/config/code-review/reviewers',
@@ -121,7 +121,7 @@ export const importConfig = (file: File, appId: string) => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('appId', appId);
-  
+
   return defHttp.post<any>({
     url: Api.CONFIG_IMPORT,
     params: formData,
