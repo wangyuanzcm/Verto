@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.project.mapper.ProjectMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="org.jeecg.modules.project.entity.Project">
+        <id column="id" property="id" />
+        <result column="project_name" property="projectName" />
+        <result column="project_code" property="projectCode" />
+        <result column="project_type" property="projectType" />
+        <result column="description" property="description" />
+        <result column="status" property="status" />
+        <result column="priority" property="priority" />
+        <result column="start_date" property="startDate" />
+        <result column="end_date" property="endDate" />
+        <result column="budget" property="budget" />
+        <result column="actual_cost" property="actualCost" />
+        <result column="progress" property="progress" />
+        <result column="manager_id" property="managerId" />
+        <result column="manager_name" property="managerName" />
+        <result column="team_members" property="teamMembers" />
+        <result column="git_url" property="gitUrl" />
+        <result column="git_branch" property="gitBranch" />
+        <result column="deploy_env" property="deployEnv" />
+        <result column="tags" property="tags" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, project_name, project_code, project_type, description, status, priority, 
+        start_date, end_date, budget, actual_cost, progress, manager_id, manager_name, 
+        team_members, git_url, git_branch, deploy_env, tags, create_by, create_time, 
+        update_by, update_time
+    </sql>
+
+    <!-- 获取项目统计信息 -->
+    <select id="getProjectStatistics" resultType="java.util.Map">
+        SELECT 
+            COUNT(*) as total_count,
+            COUNT(CASE WHEN status = '1' THEN 1 END) as active_count,
+            COUNT(CASE WHEN status = '2' THEN 1 END) as completed_count,
+            COUNT(CASE WHEN status = '3' THEN 1 END) as paused_count,
+            AVG(progress) as avg_progress,
+            SUM(budget) as total_budget,
+            SUM(actual_cost) as total_cost
+        FROM project
+        WHERE del_flag = '0'
+    </select>
+
+    <!-- 检查项目编码是否存在 -->
+    <select id="checkProjectCodeExists" parameterType="java.lang.String" resultType="java.lang.Integer">
+        SELECT COUNT(1) FROM project 
+        WHERE project_code = #{projectCode} AND del_flag = '0'
+    </select>
+
+</mapper>

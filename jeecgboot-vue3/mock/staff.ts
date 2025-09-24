@@ -272,222 +272,222 @@ const departmentStats = [
   { department: '设计部', count: 2, percentage: 13.3 },
   { department: '测试部', count: 1, percentage: 6.7 },
 ];
+export default [] as MockMethod[];
+// export default [
+//   /**
+//    * 获取人员列表
+//    */
+//   {
+//     url: '/jeecgboot/sys/staff/list',
+//     method: 'get',
+//     response: ({ query }) => {
+//       const { pageNo = 1, pageSize = 10, name, employeeNo, email, status } = query;
+//       let filteredList = [...staffList];
 
-export default [
-  /**
-   * 获取人员列表
-   */
-  {
-    url: '/jeecgboot/sys/staff/list',
-    method: 'get',
-    response: ({ query }) => {
-      const { pageNo = 1, pageSize = 10, name, employeeNo, email, status } = query;
-      let filteredList = [...staffList];
+//       // 根据姓名过滤
+//       if (name) {
+//         filteredList = filteredList.filter(item => 
+//           item.name.toLowerCase().includes(name.toLowerCase())
+//         );
+//       }
 
-      // 根据姓名过滤
-      if (name) {
-        filteredList = filteredList.filter(item => 
-          item.name.toLowerCase().includes(name.toLowerCase())
-        );
-      }
+//       // 根据工号过滤
+//       if (employeeNo) {
+//         filteredList = filteredList.filter(item => 
+//           item.employeeNo.toLowerCase().includes(employeeNo.toLowerCase())
+//         );
+//       }
 
-      // 根据工号过滤
-      if (employeeNo) {
-        filteredList = filteredList.filter(item => 
-          item.employeeNo.toLowerCase().includes(employeeNo.toLowerCase())
-        );
-      }
+//       // 根据邮箱过滤
+//       if (email) {
+//         filteredList = filteredList.filter(item => 
+//           item.email.toLowerCase().includes(email.toLowerCase())
+//         );
+//       }
 
-      // 根据邮箱过滤
-      if (email) {
-        filteredList = filteredList.filter(item => 
-          item.email.toLowerCase().includes(email.toLowerCase())
-        );
-      }
+//       // 根据状态过滤
+//       if (status !== undefined && status !== '') {
+//         filteredList = filteredList.filter(item => item.status === Number(status));
+//       }
 
-      // 根据状态过滤
-      if (status !== undefined && status !== '') {
-        filteredList = filteredList.filter(item => item.status === Number(status));
-      }
+//       // 分页处理
+//       const start = (pageNo - 1) * pageSize;
+//       const end = start + pageSize;
+//       const records = filteredList.slice(start, end);
 
-      // 分页处理
-      const start = (pageNo - 1) * pageSize;
-      const end = start + pageSize;
-      const records = filteredList.slice(start, end);
+//       return resultPageSuccess(pageNo, pageSize, filteredList);
+//     },
+//   },
 
-      return resultPageSuccess(pageNo, pageSize, filteredList);
-    },
-  },
+//   /**
+//    * 获取人员详情
+//    */
+//   {
+//     url: '/jeecgboot/staff/queryById',
+//     method: 'get',
+//     response: ({ query }) => {
+//       const { id } = query;
+//       const staff = staffList.find(item => item.id === id);
+//       return resultSuccess(staff);
+//     },
+//   },
 
-  /**
-   * 获取人员详情
-   */
-  {
-    url: '/jeecgboot/staff/queryById',
-    method: 'get',
-    response: ({ query }) => {
-      const { id } = query;
-      const staff = staffList.find(item => item.id === id);
-      return resultSuccess(staff);
-    },
-  },
+//   /**
+//    * 新增人员
+//    */
+//   {
+//     url: '/jeecgboot/sys/staff/add',
+//     method: 'post',
+//     response: ({ body }) => {
+//       const newStaff = {
+//         ...body,
+//         id: String(staffList.length + 1),
+//         createTime: new Date().toLocaleString(),
+//         updateTime: new Date().toLocaleString(),
+//         createBy: 'admin',
+//         updateBy: 'admin',
+//       };
+//       staffList.push(newStaff);
+//       return resultSuccess('新增成功');
+//     },
+//   },
 
-  /**
-   * 新增人员
-   */
-  {
-    url: '/jeecgboot/sys/staff/add',
-    method: 'post',
-    response: ({ body }) => {
-      const newStaff = {
-        ...body,
-        id: String(staffList.length + 1),
-        createTime: new Date().toLocaleString(),
-        updateTime: new Date().toLocaleString(),
-        createBy: 'admin',
-        updateBy: 'admin',
-      };
-      staffList.push(newStaff);
-      return resultSuccess('新增成功');
-    },
-  },
+//   /**
+//    * 编辑人员
+//    */
+//   {
+//     url: '/jeecgboot/sys/staff/edit',
+//     method: 'put',
+//     response: ({ body }) => {
+//       const { id } = body;
+//       const index = staffList.findIndex(item => item.id === id);
+//       if (index !== -1) {
+//         staffList[index] = { 
+//           ...staffList[index], 
+//           ...body, 
+//           updateTime: new Date().toLocaleString() 
+//         };
+//       }
+//       return resultSuccess('编辑成功');
+//     },
+//   },
 
-  /**
-   * 编辑人员
-   */
-  {
-    url: '/jeecgboot/sys/staff/edit',
-    method: 'put',
-    response: ({ body }) => {
-      const { id } = body;
-      const index = staffList.findIndex(item => item.id === id);
-      if (index !== -1) {
-        staffList[index] = { 
-          ...staffList[index], 
-          ...body, 
-          updateTime: new Date().toLocaleString() 
-        };
-      }
-      return resultSuccess('编辑成功');
-    },
-  },
+//   /**
+//    * 删除人员
+//    */
+//   {
+//     url: '/jeecgboot/staff/delete',
+//     method: 'delete',
+//     response: ({ query }) => {
+//       const { id } = query;
+//       const index = staffList.findIndex(item => item.id === id);
+//       if (index !== -1) {
+//         staffList.splice(index, 1);
+//       }
+//       return resultSuccess('删除成功');
+//     },
+//   },
 
-  /**
-   * 删除人员
-   */
-  {
-    url: '/jeecgboot/staff/delete',
-    method: 'delete',
-    response: ({ query }) => {
-      const { id } = query;
-      const index = staffList.findIndex(item => item.id === id);
-      if (index !== -1) {
-        staffList.splice(index, 1);
-      }
-      return resultSuccess('删除成功');
-    },
-  },
+//   /**
+//    * 批量删除人员
+//    */
+//   {
+//     url: '/jeecgboot/staff/deleteBatch',
+//     method: 'delete',
+//     response: ({ body }) => {
+//       const { ids } = body;
+//       ids.forEach(id => {
+//         const index = staffList.findIndex(item => item.id === id);
+//         if (index !== -1) {
+//           staffList.splice(index, 1);
+//         }
+//       });
+//       return resultSuccess('批量删除成功');
+//     },
+//   },
 
-  /**
-   * 批量删除人员
-   */
-  {
-    url: '/jeecgboot/staff/deleteBatch',
-    method: 'delete',
-    response: ({ body }) => {
-      const { ids } = body;
-      ids.forEach(id => {
-        const index = staffList.findIndex(item => item.id === id);
-        if (index !== -1) {
-          staffList.splice(index, 1);
-        }
-      });
-      return resultSuccess('批量删除成功');
-    },
-  },
+//   /**
+//    * 导出人员数据
+//    */
+//   {
+//     url: '/jeecgboot/staff/exportXls',
+//     method: 'get',
+//     response: ({ query }) => {
+//       // 模拟导出功能，实际应该返回文件流
+//       return resultSuccess('导出成功', { 
+//         fileName: `staff_export_${new Date().getTime()}.xlsx`,
+//         downloadUrl: '/jeecgboot/download/staff_export.xlsx'
+//       });
+//     },
+//   },
 
-  /**
-   * 导出人员数据
-   */
-  {
-    url: '/jeecgboot/staff/exportXls',
-    method: 'get',
-    response: ({ query }) => {
-      // 模拟导出功能，实际应该返回文件流
-      return resultSuccess('导出成功', { 
-        fileName: `staff_export_${new Date().getTime()}.xlsx`,
-        downloadUrl: '/jeecgboot/download/staff_export.xlsx'
-      });
-    },
-  },
+//   /**
+//    * 导入人员数据
+//    */
+//   {
+//     url: '/jeecgboot/staff/importExcel',
+//     method: 'post',
+//     response: ({ body }) => {
+//       // 模拟导入功能
+//       const { file } = body;
+//       return resultSuccess('导入成功', {
+//         successCount: 10,
+//         failCount: 0,
+//         totalCount: 10,
+//         message: '成功导入10条记录'
+//       });
+//     },
+//   },
 
-  /**
-   * 导入人员数据
-   */
-  {
-    url: '/jeecgboot/staff/importExcel',
-    method: 'post',
-    response: ({ body }) => {
-      // 模拟导入功能
-      const { file } = body;
-      return resultSuccess('导入成功', {
-        successCount: 10,
-        failCount: 0,
-        totalCount: 10,
-        message: '成功导入10条记录'
-      });
-    },
-  },
+//   /**
+//    * 获取技能统计
+//    */
+//   {
+//     url: '/jeecgboot/staff/skillsStats',
+//     method: 'get',
+//     response: () => {
+//       return resultSuccess(skillsStats);
+//     },
+//   },
 
-  /**
-   * 获取技能统计
-   */
-  {
-    url: '/jeecgboot/staff/skillsStats',
-    method: 'get',
-    response: () => {
-      return resultSuccess(skillsStats);
-    },
-  },
+//   /**
+//    * 获取部门统计
+//    */
+//   {
+//     url: '/jeecgboot/staff/departmentStats',
+//     method: 'get',
+//     response: () => {
+//       return resultSuccess(departmentStats);
+//     },
+//   },
 
-  /**
-   * 获取部门统计
-   */
-  {
-    url: '/jeecgboot/staff/departmentStats',
-    method: 'get',
-    response: () => {
-      return resultSuccess(departmentStats);
-    },
-  },
+//   /**
+//    * 检查工号是否重复
+//    */
+//   {
+//     url: '/jeecgboot/staff/checkEmployeeNo',
+//     method: 'get',
+//     response: ({ query }) => {
+//       const { employeeNo, id } = query;
+//       const exists = staffList.some(item => 
+//         item.employeeNo === employeeNo && item.id !== id
+//       );
+//       return resultSuccess(!exists);
+//     },
+//   },
 
-  /**
-   * 检查工号是否重复
-   */
-  {
-    url: '/jeecgboot/staff/checkEmployeeNo',
-    method: 'get',
-    response: ({ query }) => {
-      const { employeeNo, id } = query;
-      const exists = staffList.some(item => 
-        item.employeeNo === employeeNo && item.id !== id
-      );
-      return resultSuccess(!exists);
-    },
-  },
-
-  /**
-   * 检查邮箱是否重复
-   */
-  {
-    url: '/jeecgboot/staff/checkEmail',
-    method: 'get',
-    response: ({ query }) => {
-      const { email, id } = query;
-      const exists = staffList.some(item => 
-        item.email === email && item.id !== id
-      );
-      return resultSuccess(!exists);
-    },
-  },
-] as MockMethod[];
+//   /**
+//    * 检查邮箱是否重复
+//    */
+//   {
+//     url: '/jeecgboot/staff/checkEmail',
+//     method: 'get',
+//     response: ({ query }) => {
+//       const { email, id } = query;
+//       const exists = staffList.some(item => 
+//         item.email === email && item.id !== id
+//       );
+//       return resultSuccess(!exists);
+//     },
+//   },
+// ] as MockMethod[];

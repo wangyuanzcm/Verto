@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.config.mapper.ProjectTemplateMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="org.jeecg.modules.config.entity.ProjectTemplate">
+        <id column="id" property="id" />
+        <result column="template_name" property="templateName" />
+        <result column="template_code" property="templateCode" />
+        <result column="template_type" property="templateType" />
+        <result column="tech_stack" property="techStack" />
+        <result column="description" property="description" />
+        <result column="git_url" property="gitUrl" />
+        <result column="git_branch" property="gitBranch" />
+        <result column="config_data" property="configData" />
+        <result column="enabled" property="enabled" />
+        <result column="sort_order" property="sortOrder" />
+        <result column="version" property="version" />
+        <result column="author" property="author" />
+        <result column="tags" property="tags" />
+        <result column="usage_count" property="usageCount" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, template_name, template_code, template_type, tech_stack, description, git_url, 
+        git_branch, config_data, enabled, sort_order, version, author, tags, usage_count, 
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 获取启用的模板列表 -->
+    <select id="getEnabledTemplates" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM project_template
+        WHERE enabled = 1 AND del_flag = '0'
+        ORDER BY sort_order ASC, usage_count DESC, create_time DESC
+    </select>
+
+    <!-- 根据模板类型查询模板列表 -->
+    <select id="getTemplatesByType" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM project_template
+        WHERE template_type = #{templateType} AND del_flag = '0'
+        ORDER BY sort_order ASC, usage_count DESC, create_time DESC
+    </select>
+
+    <!-- 获取模板详情（包含配置数据） -->
+    <select id="getTemplateDetail" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM project_template
+        WHERE id = #{id} AND del_flag = '0'
+    </select>
+
+    <!-- 增加模板使用次数 -->
+    <update id="increaseUsageCount" parameterType="java.lang.String">
+        UPDATE project_template 
+        SET usage_count = usage_count + 1,
+            update_time = NOW()
+        WHERE id = #{id} AND del_flag = '0'
+    </update>
+
+</mapper>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.config.mapper.ProjectConfigMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="org.jeecg.modules.config.entity.ProjectConfig">
+        <id column="id" property="id" />
+        <result column="project_id" property="projectId" />
+        <result column="config_type" property="configType" />
+        <result column="config_key" property="configKey" />
+        <result column="config_value" property="configValue" />
+        <result column="description" property="description" />
+        <result column="enabled" property="enabled" />
+        <result column="sort_order" property="sortOrder" />
+        <result column="environment" property="environment" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, project_id, config_type, config_key, config_value, description, enabled, 
+        sort_order, environment, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 根据项目ID查询配置列表 -->
+    <select id="getConfigsByProjectId" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM project_config
+        WHERE project_id = #{projectId} AND del_flag = '0'
+        ORDER BY sort_order ASC, create_time DESC
+    </select>
+
+    <!-- 根据配置类型查询配置列表 -->
+    <select id="getConfigsByType" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM project_config
+        WHERE config_type = #{configType} 
+        <if test="projectId != null and projectId != ''">
+            AND project_id = #{projectId}
+        </if>
+        AND del_flag = '0'
+        ORDER BY sort_order ASC, create_time DESC
+    </select>
+
+    <!-- 保存项目配置（批量） -->
+    <insert id="saveProjectConfigs" parameterType="java.util.List">
+        INSERT INTO project_config (id, project_id, config_type, config_key, config_value, 
+                                   description, enabled, sort_order, environment, create_by, create_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.id}, #{item.projectId}, #{item.configType}, #{item.configKey}, #{item.configValue},
+             #{item.description}, #{item.enabled}, #{item.sortOrder}, #{item.environment}, 
+             #{item.createBy}, #{item.createTime})
+        </foreach>
+    </insert>
+
+</mapper>
