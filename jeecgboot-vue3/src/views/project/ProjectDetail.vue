@@ -1,184 +1,212 @@
 <template>
   <div class="project-detail">
-    <!-- 页面头部 -->
-    <div class="detail-header">
-      <div class="header-left">
-        <a-button @click="goBack" class="back-btn">
-          <template #icon>
-            <Icon icon="ant-design:arrow-left-outlined" />
-          </template>
-          返回
-        </a-button>
-        <div class="title-info">
-          <h2>{{ projectInfo.name }}</h2>
-          <a-tag :color="getStatusColor(projectInfo.status)">
-            {{ getStatusText(projectInfo.status) }}
-          </a-tag>
-        </div>
-      </div>
-      <div class="header-actions">
-        <a-button @click="handleEdit">
-          <template #icon>
-            <Icon icon="ant-design:edit-outlined" />
-          </template>
-          编辑
-        </a-button>
-        <a-button type="primary" danger @click="handleDelete">
-          <template #icon>
-            <Icon icon="ant-design:delete-outlined" />
-          </template>
-          删除
-        </a-button>
-      </div>
-    </div>
-
-    <!-- 加载状态 -->
-    <div v-if="loading" class="loading-container">
-      <a-spin size="large" />
-    </div>
-
-    <!-- 详情内容 -->
-    <div v-else class="detail-content">
-      <!-- 需求概览卡片 -->
-      <a-card class="project-overview-card" :bordered="false">
-        <div class="overview-content">
-          <div class="project-info">
-            <div class="project-avatar">
-              <a-avatar :size="64" :src="projectInfo.avatar">
-                {{ projectInfo.name?.charAt(0) }}
-              </a-avatar>
+    <PageWrapper dense contentFullHeight fixedHeight contentClass="flex">
+      <template #headerContent>
+        <div class="project-header">
+          <div class="project-title">
+            <h2>{{ projectData?.title || '项目详情' }}</h2>
+            <div class="project-meta">
+              <a-tag :color="getProjectTypeColor(projectData?.projectType)">
+                {{ getProjectTypeText(projectData?.projectType) }}
+              </a-tag>
+              <a-tag :color="getProjectStatusColor(projectData?.status)">
+                {{ getProjectStatusText(projectData?.status) }}
+              </a-tag>
+              <span class="project-id">
+                {{ projectData?.requirementId || projectData?.bugId || '' }}
+              </span>
             </div>
-            <div class="project-details">
-              <h3>{{ projectInfo.name }}</h3>
-              <p class="description">{{ projectInfo.description }}</p>
-              <div class="project-tags">
-                <a-tag v-for="tag in projectInfo.tags" :key="tag" color="blue">
-                  {{ tag }}
+          </div>
+          <div class="project-actions">
+            <a-button type="primary" @click="handleEdit">
+              <Icon icon="ant-design:edit-outlined" />
+              编辑项目
+            </a-button>
+            <a-button @click="handleCreateGitBranch" :loading="gitBranchLoading">
+              <Icon icon="ant-design:branch-outlined" />
+              创建Git分支
+            </a-button>
+            <a-button @click="handleTriggerPipeline" :loading="pipelineLoading">
+              <Icon icon="ant-design:play-circle-outlined" />
+              触发流水线
+            </a-button>
+          </div>
+        </div>
+      </template>
+
+      <a-tabs v-model:activeKey="activeTab" type="card" class="project-tabs">
+        <!-- 基本信息 -->
+        <a-tab-pane key="basic" tab="基本信息">
+          <div class="tab-content">
+            <a-descriptions :column="2" bordered>
+              <a-descriptions-item label="项目类型">
+                <a-tag :color="getProjectTypeColor(projectData?.projectType)">
+                  {{ getProjectTypeText(projectData?.projectType) }}
                 </a-tag>
+              </a-descriptions-item>
+              <a-descriptions-item label="需求/BUG ID">
+                {{ projectData?.requirementId || projectData?.bugId || '-' }}
+              </a-descriptions-item>
+              <a-descriptions-item label="项目标题" :span="2">
+                {{ projectData?.title || '-' }}
+              </a-descriptions-item>
+              <a-descriptions-item label="项目描述" :span="2">
+                {{ projectData?.description || '-' }}
+              </a-descriptions-item>
+              <a-descriptions-item label="关联应用">
+                {{ projectData?.relatedAppName || '-' }}
+              </a-descriptions-item>
+              <a-descriptions-item label="开发人员">
+                {{ projectData?.developerName || '-' }}
+              </a-descriptions-item>
+              <a-descriptions-item label="项目状态">
+                <a-tag :color="getProjectStatusColor(projectData?.status)">
+                  {{ getProjectStatusText(projectData?.status) }}
+                </a-tag>
+              </a-descriptions-item>
+              <a-descriptions-item label="Git分支">
+                {{ projectData?.gitBranch || '-' }}
+              </a-descriptions-item>
+              <a-descriptions-item label="开始时间">
+                {{ formatTime(projectData?.startTime) }}
+              </a-descriptions-item>
+              <a-descriptions-item label="提测时间">
+                {{ formatTime(projectData?.testTime) }}
+              </a-descriptions-item>
+              <a-descriptions-item label="上线时间">
+                {{ formatTime(projectData?.onlineTime) }}
+              </a-descriptions-item>
+              <a-descriptions-item label="发布时间">
+                {{ formatTime(projectData?.releaseTime) }}
+              </a-descriptions-item>
+            </a-descriptions>
+
+            <!-- 设计链接 -->
+            <div class="design-links-section" v-if="projectData?.designLinks?.length">
+              <h3>原型/设计稿链接</h3>
+              <div class="design-links">
+                <div v-for="link in projectData.designLinks" :key="link.id" class="design-link-item">
+                  <a-tag :color="link.type === 'prototype' ? 'blue' : 'green'">
+                    {{ link.type === 'prototype' ? '原型' : '设计稿' }}
+                  </a-tag>
+                  <span class="link-title">{{ link.title }}</span>
+                  <a :href="link.url" target="_blank" class="link-url">
+                    <Icon icon="ant-design:link-outlined" />
+                    查看链接
+                  </a>
+                </div>
               </div>
             </div>
           </div>
-          <div class="project-stats">
-            <div class="stat-item">
-              <div class="stat-value">{{ taskCount }}</div>
-              <div class="stat-label">任务数</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-value">{{ memberCount }}</div>
-              <div class="stat-label">成员数</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-value">{{ projectInfo.progress }}%</div>
-              <div class="stat-label">完成度</div>
-            </div>
-          </div>
-        </div>
-      </a-card>
+        </a-tab-pane>
 
-      <!-- Tab页面内容 -->
-      <a-card class="tab-container" :bordered="false">
-        <a-tabs v-model:activeKey="activeTabKey" @change="handleTabChange">
-          <a-tab-pane v-for="tab in tabList" :key="tab.key" :tab="tab.name">
-            <component :is="tab.component" :project-id="projectId" />
-          </a-tab-pane>
-        </a-tabs>
-      </a-card>
-    </div>
+        <!-- Git分支管理 -->
+        <a-tab-pane key="git" tab="Git分支">
+          <GitBranchManager :project-id="projectId" :project-data="projectData" />
+        </a-tab-pane>
+
+        <!-- 应用配置 -->
+        <a-tab-pane key="config" tab="应用配置">
+          <AppConfigManager :project-id="projectId" />
+        </a-tab-pane>
+
+        <!-- 流水线 -->
+        <a-tab-pane key="pipeline" tab="流水线">
+          <PipelineManager :project-id="projectId" />
+        </a-tab-pane>
+      </a-tabs>
+    </PageWrapper>
+    
+    <!-- 项目编辑模态框 -->
+    <ProjectModal @register="registerModal" @success="handleEditSuccess" />
+    
+    <!-- Git分支创建结果模态框 -->
+    <BasicModal
+      v-model:visible="gitBranchModalVisible"
+      title="Git分支创建结果"
+      :footer="null"
+      width="600px"
+    >
+      <div class="git-branch-result">
+        <a-result
+          :status="gitBranchResult.success ? 'success' : 'error'"
+          :title="gitBranchResult.success ? '分支创建成功' : '分支创建失败'"
+          :sub-title="gitBranchResult.message"
+        >
+          <template #extra v-if="gitBranchResult.success">
+            <div class="git-command">
+              <h4>Git命令：</h4>
+              <a-typography-paragraph copyable>
+                {{ gitBranchResult.command }}
+              </a-typography-paragraph>
+            </div>
+          </template>
+        </a-result>
+      </div>
+    </BasicModal>
   </div>
 </template>
 
 <script lang="ts" setup>
   import { ref, reactive, onMounted, computed } from 'vue';
-  import { useRoute, useRouter } from 'vue-router';
+  import { useRoute } from 'vue-router';
+  import { PageWrapper } from '/@/components/Page';
+  import { BasicModal, useModal } from '/@/components/Modal';
   import { Icon } from '/@/components/Icon';
   import { useMessage } from '/@/hooks/web/useMessage';
-  import { getProjectDetail, deleteProject } from './Project.api';
-  import { ProjectStatus, projectDetailTabs } from './Project.data';
-  import ProjectBasicInfo from './components/ProjectBasicInfo.vue';
-  import ProjectRelatedApps from './components/ProjectRelatedApps.vue';
+  import { 
+    getProjectDetail, 
+    createGitBranch, 
+    triggerPipeline,
+    generateGitBranchName 
+  } from './Project.api';
+  import { ProjectModel, ProjectType, ProjectStatus } from './Project.data';
+  import ProjectModal from './components/ProjectModal.vue';
   import GitBranchManager from './components/GitBranchManager.vue';
-  import ProjectWorkflow from './components/ProjectWorkflow.vue';
+  import AppConfigManager from './components/AppConfigManager.vue';
   import PipelineManager from './components/PipelineManager.vue';
-  import ProjectTimeline from './components/ProjectTimeline.vue';
-  import ProjectMembers from './components/ProjectMembers.vue';
-  import ProjectFiles from './components/ProjectFiles.vue';
-  import ProjectStatistics from './components/ProjectStatistics.vue';
-
-  defineOptions({ name: 'ProjectDetail' });
+  import { formatToDateTime } from '/@/utils/dateUtil';
 
   const route = useRoute();
-  const router = useRouter();
-  const { createMessage, createConfirm } = useMessage();
-
-  // 响应式数据
+  const { createMessage } = useMessage();
+  
+  // 项目ID
+  const projectId = computed(() => route.params?.id as string);
+  
+  // 项目数据
+  const projectData = ref<ProjectModel>();
+  
+  // 当前激活的标签页
+  const activeTab = ref('basic');
+  
+  // 加载状态
   const loading = ref(false);
-  const activeTabKey = ref('basic');
-  const taskCount = ref(0);
-  const memberCount = ref(0);
-
-  // 项目信息
-  const projectInfo = reactive({
-    id: '',
-    name: '',
-    code: '',
-    description: '',
-    status: ProjectStatus.PLANNING,
-    priority: '',
-    type: '',
-    avatar: '',
-    tags: [],
-    progress: 0,
-    startDate: '',
-    endDate: '',
-    createTime: '',
-    updateTime: '',
+  const gitBranchLoading = ref(false);
+  const pipelineLoading = ref(false);
+  
+  // Git分支创建结果
+  const gitBranchModalVisible = ref(false);
+  const gitBranchResult = reactive({
+    success: false,
+    message: '',
+    command: '',
+    branchName: '',
   });
 
-  // 计算属性
-  const projectId = computed(() => route.params.id as string);
-
-  // Tab列表
-  const tabList = projectDetailTabs.map(tab => ({
-    ...tab,
-    component: getTabComponent(tab.key),
-  }));
-
-  /**
-   * 获取Tab组件
-   */
-  function getTabComponent(key: string) {
-    const componentMap = {
-      basic: ProjectBasicInfo,
-      relatedApps: ProjectRelatedApps,
-      gitBranches: GitBranchManager,
-      workflow: ProjectWorkflow,
-      pipelines: PipelineManager,
-      timeline: ProjectTimeline,
-      members: ProjectMembers,
-      files: ProjectFiles,
-      statistics: ProjectStatistics,
-    };
-    return componentMap[key] || ProjectBasicInfo;
-  }
+  // 注册模态框
+  const [registerModal, { openModal }] = useModal();
 
   /**
    * 加载项目详情
    */
   async function loadProjectDetail() {
+    if (!projectId.value) return;
+    
     try {
       loading.value = true;
       const result = await getProjectDetail({ id: projectId.value });
-      
-      if (result.success) {
-        Object.assign(projectInfo, result.result);
-        // 模拟统计数据
-        taskCount.value = Math.floor(Math.random() * 50) + 10;
-        memberCount.value = Math.floor(Math.random() * 10) + 3;
-      } else {
-        createMessage.error(result.message || '加载项目详情失败');
-      }
+      projectData.value = result;
     } catch (error) {
-      console.error('加载项目详情失败:', error);
       createMessage.error('加载项目详情失败');
     } finally {
       loading.value = false;
@@ -186,77 +214,129 @@
   }
 
   /**
-   * 返回列表
-   */
-  function goBack() {
-    router.go(-1);
-  }
-
-  /**
    * 编辑项目
    */
   function handleEdit() {
-    router.push(`/project/edit/${projectId.value}`);
+    // 跳转到独立的编辑页面
+    router.push(`/project/edit/${route.params.id}`);
   }
 
   /**
-   * 删除项目
+   * 创建Git分支
    */
-  function handleDelete() {
-    createConfirm({
-      iconType: 'warning',
-      title: '确认删除',
-      content: '确定要删除这个项目吗？删除后无法恢复。',
-      onOk: async () => {
-        try {
-          await deleteProject({ id: projectId.value });
-          createMessage.success('删除成功');
-          router.push('/project/list');
-        } catch (error) {
-          createMessage.error('删除失败');
-        }
-      },
-    });
+  async function handleCreateGitBranch() {
+    if (!projectData.value) return;
+    
+    try {
+      gitBranchLoading.value = true;
+      const itemId = projectData.value.requirementId || projectData.value.bugId;
+      if (!itemId) {
+        createMessage.error('需求ID或BUG ID不能为空');
+        return;
+      }
+      
+      const result = await createGitBranch({
+        projectId: projectId.value,
+        projectType: projectData.value.projectType,
+        itemId,
+        appId: projectData.value.relatedAppId,
+      });
+      
+      gitBranchResult.success = result.success;
+      gitBranchResult.message = result.message;
+      gitBranchResult.command = result.command;
+      gitBranchResult.branchName = result.branchName;
+      gitBranchModalVisible.value = true;
+      
+      if (result.success) {
+        // 更新项目数据中的Git分支信息
+        projectData.value.gitBranch = result.branchName;
+      }
+    } catch (error) {
+      createMessage.error('创建Git分支失败');
+    } finally {
+      gitBranchLoading.value = false;
+    }
   }
 
   /**
-   * Tab切换处理
+   * 触发流水线
    */
-  function handleTabChange(key: string) {
-    activeTabKey.value = key;
+  async function handleTriggerPipeline() {
+    if (!projectId.value) return;
+    
+    try {
+      pipelineLoading.value = true;
+      await triggerPipeline({ projectId: projectId.value });
+      createMessage.success('流水线触发成功');
+      // 切换到流水线标签页
+      activeTab.value = 'pipeline';
+    } catch (error) {
+      createMessage.error('触发流水线失败');
+    } finally {
+      pipelineLoading.value = false;
+    }
   }
 
   /**
-   * 获取状态颜色
+   * 编辑成功回调
    */
-  function getStatusColor(status: ProjectStatus) {
+  function handleEditSuccess() {
+    loadProjectDetail();
+  }
+
+  /**
+   * 获取项目类型颜色
+   */
+  function getProjectTypeColor(type?: ProjectType) {
+    return type === ProjectType.REQUIREMENT ? 'blue' : 'red';
+  }
+
+  /**
+   * 获取项目类型文本
+   */
+  function getProjectTypeText(type?: ProjectType) {
+    return type === ProjectType.REQUIREMENT ? '需求' : 'BUG';
+  }
+
+  /**
+   * 获取项目状态颜色
+   */
+  function getProjectStatusColor(status?: ProjectStatus) {
     const colorMap = {
-      [ProjectStatus.PLANNING]: 'blue',
-      [ProjectStatus.IN_PROGRESS]: 'processing',
-      [ProjectStatus.TESTING]: 'orange',
-      [ProjectStatus.COMPLETED]: 'success',
-      [ProjectStatus.SUSPENDED]: 'warning',
-      [ProjectStatus.CANCELLED]: 'error',
+      [ProjectStatus.PLANNING]: 'default',
+      [ProjectStatus.DEVELOPING]: 'processing',
+      [ProjectStatus.TESTING]: 'warning',
+      [ProjectStatus.ONLINE]: 'success',
+      [ProjectStatus.RELEASED]: 'success',
+      [ProjectStatus.CLOSED]: 'default',
     };
-    return colorMap[status] || 'default';
+    return colorMap[status!] || 'default';
   }
 
   /**
-   * 获取状态文本
+   * 获取项目状态文本
    */
-  function getStatusText(status: ProjectStatus) {
+  function getProjectStatusText(status?: ProjectStatus) {
     const textMap = {
       [ProjectStatus.PLANNING]: '规划中',
-      [ProjectStatus.IN_PROGRESS]: '进行中',
+      [ProjectStatus.DEVELOPING]: '开发中',
       [ProjectStatus.TESTING]: '测试中',
-      [ProjectStatus.COMPLETED]: '已完成',
-      [ProjectStatus.SUSPENDED]: '已暂停',
-      [ProjectStatus.CANCELLED]: '已取消',
+      [ProjectStatus.ONLINE]: '已上线',
+      [ProjectStatus.RELEASED]: '已发布',
+      [ProjectStatus.CLOSED]: '已关闭',
     };
-    return textMap[status] || '未知';
+    return textMap[status!] || status;
   }
 
-  // 生命周期
+  /**
+   * 格式化时间
+   */
+  function formatTime(time?: string) {
+    return time ? formatToDateTime(time) : '-';
+  }
+
+  // 组件挂载时加载数据
   onMounted(() => {
     loadProjectDetail();
   });
@@ -264,209 +344,100 @@
 
 <style lang="less" scoped>
   .project-detail {
-    padding: 0;
-    background: #f5f7fa;
-    min-height: 100vh;
-
-    .detail-header {
+    .project-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      padding: 16px;
-
-      .header-left {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-
-        .title-info {
+      align-items: flex-start;
+      
+      .project-title {
+        h2 {
+          margin: 0 0 8px 0;
+          font-size: 24px;
+          font-weight: 600;
+        }
+        
+        .project-meta {
           display: flex;
           align-items: center;
-          gap: 8px;
-
-          h2 {
-            margin: 0;
-            font-size: 18px;
+          gap: 12px;
+          
+          .project-id {
+            color: #666;
+            font-size: 14px;
           }
         }
       }
-
-      .header-actions {
+      
+      .project-actions {
         display: flex;
         gap: 8px;
       }
     }
-
-    .loading-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 400px;
-      background: #fff;
-      margin: 0 16px;
+    
+    .project-tabs {
+      height: 100%;
+      width: 100%;
+      
+      :deep(.ant-tabs-content-holder) {
+        height: calc(100% - 44px);
+        overflow: auto;
+      }
+      
+      :deep(.ant-tabs-tabpane) {
+        width: 100%;
+        height: 100%;
+      }
     }
-
-    .detail-content {
-      padding: 0 16px 16px;
-
-      .project-overview-card {
+    
+    .tab-content {
+      padding: 16px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    .design-links-section {
+      margin-top: 24px;
+      
+      h3 {
         margin-bottom: 16px;
-
-        .overview-content {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 16px;
-
-          .project-info {
-            display: flex;
-            gap: 16px;
-            flex: 1;
-
-            .project-avatar {
-              flex-shrink: 0;
-            }
-
-            .project-details {
-              flex: 1;
-
-              h3 {
-                margin: 0 0 8px 0;
-                font-size: 16px;
-              }
-
-              .description {
-                margin: 0 0 8px 0;
-                color: #666;
-                line-height: 1.5;
-              }
-
-              .project-tags {
-                display: flex;
-                gap: 4px;
-                flex-wrap: wrap;
-              }
-            }
-          }
-
-          .project-stats {
-            display: flex;
-            gap: 16px;
-            flex-shrink: 0;
-
-            .stat-item {
-              text-align: center;
-              padding: 16px;
-              min-width: 80px;
-
-              .stat-value {
-                font-size: 24px;
-                line-height: 1;
-                margin-bottom: 8px;
-              }
-
-              .stat-label {
-                font-size: 12px;
-              }
-            }
-          }
-        }
+        font-size: 16px;
+        font-weight: 600;
       }
-
-      .tab-container {
-        border: 1px solid #f0f0f0;
-
-        :deep(.ant-tabs) {
-          .ant-tabs-nav {
-            margin: 0;
-            padding: 0 16px;
-
-            .ant-tabs-tab {
-              padding: 12px 16px;
-
-              &.ant-tabs-tab-active {
-                background: #fff;
-                color: #1890ff;
-                font-weight: 600;
-                border-bottom: 3px solid #1890ff;
-              }
+      
+      .design-links {
+        .design-link-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 8px;
+          padding: 8px;
+          background: #fafafa;
+          border-radius: 4px;
+          
+          .link-title {
+            font-weight: 500;
+          }
+          
+          .link-url {
+            color: #1890ff;
+            text-decoration: none;
+            
+            &:hover {
+              text-decoration: underline;
             }
-          }
-
-          .ant-tabs-content-holder {
-            padding: 24px;
-            background: #fff;
-          }
-
-          .ant-tabs-ink-bar {
-            display: none;
           }
         }
       }
     }
-  }
-
-  // 响应式设计
-  @media (max-width: 768px) {
-    .project-detail {
-      .detail-header {
-        padding: 16px 20px;
-        flex-direction: column;
-        gap: 16px;
-        align-items: stretch;
-
-        .header-left {
-          justify-content: space-between;
-
-          .title-info {
-            h2 {
-              font-size: 20px;
-            }
-          }
-        }
-
-        .header-actions {
-          justify-content: center;
-        }
-      }
-
-      .detail-content {
-        padding: 0 16px 16px;
-
-        .project-overview-card {
-          .overview-content {
-            flex-direction: column;
-            gap: 24px;
-
-            .project-stats {
-              justify-content: space-around;
-              gap: 16px;
-
-              .stat-item {
-                min-width: 60px;
-                padding: 12px;
-
-                .stat-value {
-                  font-size: 24px;
-                }
-              }
-            }
-          }
-        }
-
-        .tab-container {
-          :deep(.ant-tabs-nav) {
-            padding: 0 16px;
-
-            .ant-tabs-tab {
-              padding: 12px 16px;
-            }
-          }
-
-          :deep(.ant-tabs-content-holder) {
-            padding: 16px;
-          }
+    
+    .git-branch-result {
+      .git-command {
+        text-align: left;
+        
+        h4 {
+          margin-bottom: 8px;
+          font-size: 14px;
+          font-weight: 600;
         }
       }
     }

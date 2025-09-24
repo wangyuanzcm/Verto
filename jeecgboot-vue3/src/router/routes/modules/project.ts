@@ -21,7 +21,7 @@ const project: AppRouteModule = {
       name: 'ProjectList',
       component: () => import('/@/views/project/ProjectList.vue'),
       meta: {
-        title: '需求列表',
+        title: '项目列表',
         hideMenu: false,
       },
     },
@@ -30,7 +30,29 @@ const project: AppRouteModule = {
       name: 'ProjectDetail',
       component: () => import('/@/views/project/ProjectDetail.vue'),
       meta: {
-        title: '需求详情',
+        title: '项目详情',
+        hideMenu: true,
+        hideTab: false,
+        currentActiveMenu: '/project/list',
+      },
+    },
+    {
+      path: 'edit/:id',
+      name: 'ProjectEdit',
+      component: () => import('/@/views/project/ProjectEdit.vue'),
+      meta: {
+        title: '编辑项目',
+        hideMenu: true,
+        hideTab: false,
+        currentActiveMenu: '/project/list',
+      },
+    },
+    {
+      path: 'add',
+      name: 'ProjectAdd',
+      component: () => import('/@/views/project/ProjectEdit.vue'),
+      meta: {
+        title: '新建项目',
         hideMenu: true,
         hideTab: false,
         currentActiveMenu: '/project/list',

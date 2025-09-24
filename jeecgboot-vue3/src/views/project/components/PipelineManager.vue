@@ -1,655 +1,791 @@
 <template>
   <div class="pipeline-manager">
-    <!-- 流水线概览 -->
+    <div class="pipeline-header">
+      <h3>流水线管理</h3>
+      <a-space>
+        <a-button @click="loadPipelineStatus" :loading="loading">
+          <Icon icon="ant-design:reload-outlined" />
+          刷新状态
+        </a-button>
+        <a-button type="primary" @click="handleTriggerPipeline" :loading="triggerLoading">
+          <Icon icon="ant-design:play-circle-outlined" />
+          触发流水线
+        </a-button>
+        <a-button danger @click="handleStopPipeline" :loading="stopLoading" :disabled="!isRunning">
+          <Icon icon="ant-design:stop-outlined" />
+          停止流水线
+        </a-button>
+      </a-space>
+    </div>
+
+    <!-- 流水线状态概览 -->
     <div class="pipeline-overview">
       <a-row :gutter="16">
         <a-col :span="6">
-          <a-card>
-            <a-statistic
-              title="总流水线"
-              :value="pipelineStats.total"
-              :value-style="{ color: '#1890ff' }"
-            >
-              <template #prefix>
-                <Icon icon="ant-design:build-outlined" />
-              </template>
-            </a-statistic>
-          </a-card>
+          <a-statistic
+            title="流水线状态"
+            :value="pipelineStatus.status"
+            :value-style="{ color: getStatusColor(pipelineStatus.status) }"
+          />
         </a-col>
         <a-col :span="6">
-          <a-card>
-            <a-statistic
-              title="运行中"
-              :value="pipelineStats.running"
-              :value-style="{ color: '#52c41a' }"
-            >
-              <template #prefix>
-                <Icon icon="ant-design:play-circle-outlined" />
-              </template>
-            </a-statistic>
-          </a-card>
+          <a-statistic
+            title="执行时长"
+            :value="pipelineStatus.duration"
+            suffix="秒"
+          />
         </a-col>
         <a-col :span="6">
-          <a-card>
-            <a-statistic
-              title="成功率"
-              :value="pipelineStats.successRate"
-              suffix="%"
-              :value-style="{ color: pipelineStats.successRate >= 90 ? '#52c41a' : '#ff4d4f' }"
-            >
-              <template #prefix>
-                <Icon icon="ant-design:check-circle-outlined" />
-              </template>
-            </a-statistic>
-          </a-card>
+          <a-statistic
+            title="成功率"
+            :value="pipelineStatus.successRate"
+            suffix="%"
+            :precision="1"
+          />
         </a-col>
         <a-col :span="6">
-          <a-card>
-            <a-statistic
-              title="平均耗时"
-              :value="pipelineStats.avgDuration"
-              suffix="分钟"
-              :value-style="{ color: '#722ed1' }"
-            >
-              <template #prefix>
-                <Icon icon="ant-design:clock-circle-outlined" />
-              </template>
-            </a-statistic>
-          </a-card>
+          <a-statistic
+            title="最后执行时间"
+            :value="formatTime(pipelineStatus.lastExecuteTime)"
+          />
         </a-col>
       </a-row>
     </div>
 
-    <!-- 流水线列表 -->
-    <div class="pipeline-list">
-      <a-card title="流水线列表" :bordered="false">
-        <template #extra>
-          <a-space>
-            <a-button type="primary" @click="handleCreatePipeline">
-              <template #icon>
-                <Icon icon="ant-design:plus-outlined" />
-              </template>
-              创建流水线
-            </a-button>
-            <a-button @click="handleRefresh">
-              <template #icon>
-                <Icon icon="ant-design:reload-outlined" />
-              </template>
-              刷新
-            </a-button>
-          </a-space>
-        </template>
-
-        <a-table 
-          :columns="pipelineColumns" 
-          :data-source="pipelineList"
-          :loading="loading"
-          :pagination="pagination"
-          @change="handleTableChange"
+    <!-- 流水线阶段 -->
+    <div class="pipeline-stages">
+      <h4>流水线阶段</h4>
+      <div class="stages-container">
+        <div
+          v-for="(stage, index) in pipelineStages"
+          :key="stage.id"
+          class="stage-item"
+          :class="getStageClass(stage.status)"
         >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'name'">
-              <div class="pipeline-name">
-                <Icon :icon="getPipelineIcon(record.type)" class="pipeline-icon" />
-                <span>{{ record.name }}</span>
-              </div>
-            </template>
-            
-            <template v-if="column.key === 'status'">
-              <a-tag :color="getPipelineStatusColor(record.status)">
-                <Icon :icon="getPipelineStatusIcon(record.status)" />
-                {{ getPipelineStatusText(record.status) }}
+          <div class="stage-header">
+            <div class="stage-info">
+              <Icon :icon="getStageIcon(stage.status)" class="stage-icon" />
+              <span class="stage-name">{{ stage.name }}</span>
+              <a-tag :color="getStageStatusColor(stage.status)" size="small">
+                {{ getStageStatusText(stage.status) }}
               </a-tag>
-            </template>
+            </div>
+            <div class="stage-actions">
+              <a-button
+                size="small"
+                @click="handleRetryStage(stage)"
+                :disabled="!canRetryStage(stage)"
+                :loading="stage.retrying"
+              >
+                重试
+              </a-button>
+              <a-button
+                size="small"
+                @click="handleSkipStage(stage)"
+                :disabled="!canSkipStage(stage)"
+              >
+                跳过
+              </a-button>
+              <a-button
+                size="small"
+                @click="handleViewLogs(stage)"
+              >
+                查看日志
+              </a-button>
+            </div>
+          </div>
+          
+          <div class="stage-content">
+            <div class="stage-meta">
+              <span>开始时间: {{ formatTime(stage.startTime) }}</span>
+              <span>结束时间: {{ formatTime(stage.endTime) }}</span>
+              <span>耗时: {{ stage.duration }}秒</span>
+            </div>
             
-            <template v-if="column.key === 'environment'">
-              <a-tag>{{ record.environment }}</a-tag>
-            </template>
+            <div class="stage-progress" v-if="stage.status === 'running'">
+              <a-progress
+                :percent="stage.progress"
+                :status="stage.progress === 100 ? 'success' : 'active'"
+                size="small"
+              />
+            </div>
             
-            <template v-if="column.key === 'lastRun'">
-              <div v-if="record.lastRun">
-                <div>{{ formatTime(record.lastRun.time) }}</div>
-                <div class="last-run-info">
-                  <a-tag size="small" :color="getRunStatusColor(record.lastRun.status)">
-                    {{ getRunStatusText(record.lastRun.status) }}
-                  </a-tag>
-                  <span class="duration">{{ record.lastRun.duration }}</span>
-                </div>
-              </div>
-              <span v-else class="text-gray">从未运行</span>
-            </template>
-            
-            <template v-if="column.key === 'actions'">
-              <a-space>
-                <a-button 
-                  type="link" 
-                  size="small" 
-                  @click="handleRunPipeline(record)"
-                  :disabled="record.status === 'running'"
-                >
-                  <Icon icon="ant-design:play-circle-outlined" />
-                  运行
-                </a-button>
-                <a-button type="link" size="small" @click="handleViewPipeline(record)">
-                  <Icon icon="ant-design:eye-outlined" />
-                  查看
-                </a-button>
-                <a-dropdown>
-                  <template #overlay>
-                    <a-menu>
-                      <a-menu-item @click="handleEditPipeline(record)">
-                        <Icon icon="ant-design:edit-outlined" />
-                        编辑
-                      </a-menu-item>
-                      <a-menu-item @click="handleClonePipeline(record)">
-                        <Icon icon="ant-design:copy-outlined" />
-                        克隆
-                      </a-menu-item>
-                      <a-menu-divider />
-                      <a-menu-item @click="handleDeletePipeline(record)" class="text-red">
-                        <Icon icon="ant-design:delete-outlined" />
-                        删除
-                      </a-menu-item>
-                    </a-menu>
-                  </template>
-                  <a-button type="link" size="small">
-                    <Icon icon="ant-design:more-outlined" />
-                  </a-button>
-                </a-dropdown>
-              </a-space>
-            </template>
-          </template>
-        </a-table>
-      </a-card>
+            <div class="stage-error" v-if="stage.status === 'failed' && stage.error">
+              <a-alert
+                :message="stage.error"
+                type="error"
+                size="small"
+                show-icon
+              />
+            </div>
+          </div>
+          
+          <!-- 连接线 -->
+          <div v-if="index < pipelineStages.length - 1" class="stage-connector">
+            <Icon icon="ant-design:arrow-down-outlined" />
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- 流水线详情弹窗 -->
-    <BasicModal 
-      v-bind="$attrs" 
-      @register="registerDetailModal" 
-      title="流水线详情" 
-      :width="1200"
-      :min-height="600"
+    <!-- 执行历史 -->
+    <div class="pipeline-history">
+      <h4>执行历史</h4>
+      <a-table
+        :columns="historyColumns"
+        :data-source="pipelineHistory"
+        :loading="historyLoading"
+        :pagination="{ pageSize: 10 }"
+        size="small"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'status'">
+            <a-tag :color="getStatusColor(record.status)">
+              {{ getStatusText(record.status) }}
+            </a-tag>
+          </template>
+          <template v-if="column.key === 'duration'">
+            {{ record.duration }}秒
+          </template>
+          <template v-if="column.key === 'executeTime'">
+            {{ formatTime(record.executeTime) }}
+          </template>
+          <template v-if="column.key === 'action'">
+            <a-space>
+              <a-button size="small" @click="handleViewHistoryDetail(record)">
+                查看详情
+              </a-button>
+              <a-button size="small" @click="handleViewHistoryLogs(record)">
+                查看日志
+              </a-button>
+            </a-space>
+          </template>
+        </template>
+      </a-table>
+    </div>
+
+    <!-- 日志查看模态框 -->
+    <BasicModal
+      v-model:visible="logsModalVisible"
+      :title="logsModalTitle"
+      width="80%"
       :footer="null"
     >
-      <PipelineDetail 
-        v-if="currentPipeline"
-        :pipeline="currentPipeline"
-        @refresh="handleRefresh"
-      />
+      <div class="logs-container">
+        <div class="logs-header">
+          <a-space>
+            <a-button @click="loadLogs" :loading="logsLoading">
+              <Icon icon="ant-design:reload-outlined" />
+              刷新日志
+            </a-button>
+            <a-button @click="handleDownloadLogs">
+              <Icon icon="ant-design:download-outlined" />
+              下载日志
+            </a-button>
+            <a-switch v-model:checked="autoRefreshLogs" size="small" />
+            <span>自动刷新</span>
+          </a-space>
+        </div>
+        <div class="logs-content">
+          <pre class="logs-text">{{ logsContent }}</pre>
+        </div>
+      </div>
     </BasicModal>
 
-    <!-- 创建/编辑流水线弹窗 -->
-    <BasicModal 
-      v-bind="$attrs" 
-      @register="registerFormModal" 
-      :title="formModalTitle" 
-      @ok="handleFormSubmit"
-      :width="800"
+    <!-- 历史详情模态框 -->
+    <BasicModal
+      v-model:visible="historyDetailModalVisible"
+      title="执行详情"
+      :footer="null"
+      width="60%"
     >
-      <PipelineForm 
-        ref="pipelineFormRef"
-        :project-id="projectId"
-        :pipeline="editingPipeline"
-        @submit="handleFormSubmit"
-      />
+      <div class="history-detail" v-if="currentHistoryDetail">
+        <a-descriptions :column="2" bordered>
+          <a-descriptions-item label="执行ID">
+            {{ currentHistoryDetail.id }}
+          </a-descriptions-item>
+          <a-descriptions-item label="状态">
+            <a-tag :color="getStatusColor(currentHistoryDetail.status)">
+              {{ getStatusText(currentHistoryDetail.status) }}
+            </a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="开始时间">
+            {{ formatTime(currentHistoryDetail.startTime) }}
+          </a-descriptions-item>
+          <a-descriptions-item label="结束时间">
+            {{ formatTime(currentHistoryDetail.endTime) }}
+          </a-descriptions-item>
+          <a-descriptions-item label="执行时长">
+            {{ currentHistoryDetail.duration }}秒
+          </a-descriptions-item>
+          <a-descriptions-item label="触发人">
+            {{ currentHistoryDetail.triggerUser }}
+          </a-descriptions-item>
+          <a-descriptions-item label="Git分支" :span="2">
+            {{ currentHistoryDetail.gitBranch }}
+          </a-descriptions-item>
+          <a-descriptions-item label="Git提交" :span="2">
+            {{ currentHistoryDetail.gitCommit }}
+          </a-descriptions-item>
+        </a-descriptions>
+      </div>
     </BasicModal>
   </div>
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, onMounted, computed } from 'vue';
-  import { BasicModal, useModal } from '/@/components/Modal';
+  import { ref, reactive, onMounted, onUnmounted, computed } from 'vue';
   import { Icon } from '/@/components/Icon';
+  import { BasicModal } from '/@/components/Modal';
   import { useMessage } from '/@/hooks/web/useMessage';
-  import { formatToDateTime } from '/@/utils/dateUtil';
-  import PipelineDetail from './PipelineDetail.vue';
-  import PipelineForm from './PipelineForm.vue';
   import { 
-    getPipelineList, 
-    runPipeline, 
-    deletePipeline,
-    createPipeline,
-    updatePipeline 
+    getPipelineStatus, 
+    triggerPipeline, 
+    stopPipeline,
+    getPipelineLogs,
+    retryPipelineStage,
+    skipPipelineStage,
+    getPipelineHistory
   } from '../Project.api';
+  import { formatToDateTime } from '/@/utils/dateUtil';
 
   interface Props {
     projectId: string;
   }
 
   const props = defineProps<Props>();
-  const { createMessage, createConfirm } = useMessage();
+  const { createMessage } = useMessage();
 
-  // 流水线统计
-  const pipelineStats = reactive({
-    total: 0,
-    running: 0,
-    successRate: 0,
-    avgDuration: 0,
-  });
-
-  // 流水线列表
-  const pipelineList = ref([]);
+  // 加载状态
   const loading = ref(false);
-  const pagination = reactive({
-    current: 1,
-    pageSize: 10,
-    total: 0,
-    showSizeChanger: true,
-    showQuickJumper: true,
+  const triggerLoading = ref(false);
+  const stopLoading = ref(false);
+  const historyLoading = ref(false);
+  const logsLoading = ref(false);
+
+  // 流水线状态
+  const pipelineStatus = reactive({
+    status: 'idle',
+    duration: 0,
+    successRate: 0,
+    lastExecuteTime: '',
   });
 
-  // 当前选中的流水线
-  const currentPipeline = ref(null);
-  const editingPipeline = ref(null);
+  // 流水线阶段
+  const pipelineStages = ref<any[]>([]);
 
-  // 表格列配置
-  const pipelineColumns = [
-    {
-      title: '流水线名称',
-      dataIndex: 'name',
-      key: 'name',
-      width: 200,
-    },
-    {
-      title: '类型',
-      dataIndex: 'type',
-      key: 'type',
-      width: 100,
-    },
-    {
-      title: '环境',
-      dataIndex: 'environment',
-      key: 'environment',
-      width: 100,
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 120,
-    },
-    {
-      title: '最后运行',
-      dataIndex: 'lastRun',
-      key: 'lastRun',
-      width: 180,
-    },
-    {
-      title: '创建时间',
-      dataIndex: 'createTime',
-      key: 'createTime',
-      width: 150,
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 150,
-      fixed: 'right',
-    },
+  // 执行历史
+  const pipelineHistory = ref<any[]>([]);
+
+  // 日志相关
+  const logsModalVisible = ref(false);
+  const logsModalTitle = ref('');
+  const logsContent = ref('');
+  const autoRefreshLogs = ref(false);
+  const currentStageId = ref('');
+  const currentHistoryId = ref('');
+
+  // 历史详情
+  const historyDetailModalVisible = ref(false);
+  const currentHistoryDetail = ref<any>(null);
+
+  // 自动刷新定时器
+  let refreshTimer: NodeJS.Timeout | null = null;
+  let logsRefreshTimer: NodeJS.Timeout | null = null;
+
+  // 是否正在运行
+  const isRunning = computed(() => {
+    return pipelineStatus.status === 'running';
+  });
+
+  // 历史表格列配置
+  const historyColumns = [
+    { title: '执行ID', dataIndex: 'id', key: 'id', width: 120 },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
+    { title: '执行时长', dataIndex: 'duration', key: 'duration', width: 100 },
+    { title: '触发人', dataIndex: 'triggerUser', key: 'triggerUser', width: 120 },
+    { title: '执行时间', dataIndex: 'executeTime', key: 'executeTime', width: 180 },
+    { title: '操作', key: 'action', width: 200 },
   ];
 
-  // 弹窗注册
-  const [registerDetailModal, { openModal: openDetailModal, closeModal: closeDetailModal }] = useModal();
-  const [registerFormModal, { openModal: openFormModal, closeModal: closeFormModal }] = useModal();
-
-  // 表单引用
-  const pipelineFormRef = ref();
-
-  // 表单弹窗标题
-  const formModalTitle = computed(() => {
-    return editingPipeline.value ? '编辑流水线' : '创建流水线';
-  });
-
   /**
-   * 加载流水线列表
+   * 加载流水线状态
    */
-  async function loadPipelineList() {
+  async function loadPipelineStatus() {
     try {
       loading.value = true;
-      const params = {
-        projectId: props.projectId,
-        current: pagination.current,
-        size: pagination.pageSize,
-      };
+      const result = await getPipelineStatus({ projectId: props.projectId });
       
-      const result = await getPipelineList(params);
-      if (result.success) {
-        pipelineList.value = result.data.records || [];
-        pagination.total = result.data.total || 0;
-        
-        // 更新统计信息
-        updatePipelineStats();
-      }
+      Object.assign(pipelineStatus, result.status);
+      pipelineStages.value = result.stages || [];
     } catch (error) {
-      console.error('加载流水线列表失败:', error);
-      // 使用模拟数据
-      loadMockData();
+      createMessage.error('加载流水线状态失败');
     } finally {
       loading.value = false;
     }
   }
 
   /**
-   * 加载模拟数据
+   * 加载执行历史
    */
-  function loadMockData() {
-    pipelineList.value = [
-      {
-        id: '1',
-        name: '前端构建部署',
-        type: 'build',
-        environment: '生产环境',
-        status: 'idle',
-        lastRun: {
-          time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          status: 'success',
-          duration: '5分钟',
-        },
-        createTime: '2024-01-10 10:00:00',
-      },
-      {
-        id: '2',
-        name: '后端API部署',
-        type: 'deploy',
-        environment: '测试环境',
-        status: 'running',
-        lastRun: {
-          time: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-          status: 'running',
-          duration: '进行中',
-        },
-        createTime: '2024-01-10 11:00:00',
-      },
-      {
-        id: '3',
-        name: '数据库迁移',
-        type: 'migration',
-        environment: '预发布',
-        status: 'idle',
-        lastRun: {
-          time: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          status: 'failed',
-          duration: '2分钟',
-        },
-        createTime: '2024-01-09 15:30:00',
-      },
-    ];
-
-    pagination.total = pipelineList.value.length;
-    updatePipelineStats();
+  async function loadPipelineHistory() {
+    try {
+      historyLoading.value = true;
+      const result = await getPipelineHistory({ projectId: props.projectId });
+      pipelineHistory.value = result || [];
+    } catch (error) {
+      createMessage.error('加载执行历史失败');
+    } finally {
+      historyLoading.value = false;
+    }
   }
 
   /**
-   * 更新流水线统计
+   * 触发流水线
    */
-  function updatePipelineStats() {
-    const total = pipelineList.value.length;
-    const running = pipelineList.value.filter(p => p.status === 'running').length;
-    const successCount = pipelineList.value.filter(p => 
-      p.lastRun && p.lastRun.status === 'success'
-    ).length;
-    
-    Object.assign(pipelineStats, {
-      total,
-      running,
-      successRate: total > 0 ? Math.round((successCount / total) * 100) : 0,
-      avgDuration: 6.5, // 模拟平均耗时
-    });
+  async function handleTriggerPipeline() {
+    try {
+      triggerLoading.value = true;
+      await triggerPipeline({ projectId: props.projectId });
+      createMessage.success('流水线触发成功');
+      loadPipelineStatus();
+    } catch (error) {
+      createMessage.error('触发流水线失败');
+    } finally {
+      triggerLoading.value = false;
+    }
   }
 
   /**
-   * 获取流水线图标
+   * 停止流水线
    */
-  function getPipelineIcon(type: string) {
-    const iconMap = {
-      'build': 'ant-design:build-outlined',
-      'deploy': 'ant-design:cloud-upload-outlined',
-      'test': 'ant-design:bug-outlined',
-      'migration': 'ant-design:database-outlined',
-    };
-    return iconMap[type] || 'ant-design:setting-outlined';
+  async function handleStopPipeline() {
+    try {
+      stopLoading.value = true;
+      await stopPipeline({ projectId: props.projectId });
+      createMessage.success('流水线已停止');
+      loadPipelineStatus();
+    } catch (error) {
+      createMessage.error('停止流水线失败');
+    } finally {
+      stopLoading.value = false;
+    }
   }
 
   /**
-   * 获取流水线状态颜色
+   * 重试阶段
    */
-  function getPipelineStatusColor(status: string) {
+  async function handleRetryStage(stage: any) {
+    try {
+      stage.retrying = true;
+      await retryPipelineStage({
+        projectId: props.projectId,
+        stageId: stage.id,
+      });
+      createMessage.success('阶段重试成功');
+      loadPipelineStatus();
+    } catch (error) {
+      createMessage.error('重试阶段失败');
+    } finally {
+      stage.retrying = false;
+    }
+  }
+
+  /**
+   * 跳过阶段
+   */
+  async function handleSkipStage(stage: any) {
+    try {
+      await skipPipelineStage({
+        projectId: props.projectId,
+        stageId: stage.id,
+      });
+      createMessage.success('阶段已跳过');
+      loadPipelineStatus();
+    } catch (error) {
+      createMessage.error('跳过阶段失败');
+    }
+  }
+
+  /**
+   * 查看阶段日志
+   */
+  function handleViewLogs(stage: any) {
+    currentStageId.value = stage.id;
+    currentHistoryId.value = '';
+    logsModalTitle.value = `${stage.name} - 执行日志`;
+    logsModalVisible.value = true;
+    loadLogs();
+  }
+
+  /**
+   * 查看历史日志
+   */
+  function handleViewHistoryLogs(record: any) {
+    currentStageId.value = '';
+    currentHistoryId.value = record.id;
+    logsModalTitle.value = `执行历史 ${record.id} - 日志`;
+    logsModalVisible.value = true;
+    loadLogs();
+  }
+
+  /**
+   * 加载日志
+   */
+  async function loadLogs() {
+    try {
+      logsLoading.value = true;
+      const result = await getPipelineLogs({
+        projectId: props.projectId,
+        stageId: currentStageId.value,
+        historyId: currentHistoryId.value,
+      });
+      logsContent.value = result.logs || '';
+    } catch (error) {
+      createMessage.error('加载日志失败');
+    } finally {
+      logsLoading.value = false;
+    }
+  }
+
+  /**
+   * 下载日志
+   */
+  function handleDownloadLogs() {
+    const blob = new Blob([logsContent.value], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pipeline-logs-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * 查看历史详情
+   */
+  function handleViewHistoryDetail(record: any) {
+    currentHistoryDetail.value = record;
+    historyDetailModalVisible.value = true;
+  }
+
+  /**
+   * 获取状态颜色
+   */
+  function getStatusColor(status: string) {
     const colorMap = {
-      'idle': 'default',
-      'running': 'processing',
-      'success': 'success',
-      'failed': 'error',
-      'disabled': 'default',
+      idle: '#666',
+      running: '#1890ff',
+      success: '#52c41a',
+      failed: '#ff4d4f',
+      cancelled: '#faad14',
     };
-    return colorMap[status] || 'default';
+    return colorMap[status] || '#666';
   }
 
   /**
-   * 获取流水线状态图标
+   * 获取状态文本
    */
-  function getPipelineStatusIcon(status: string) {
+  function getStatusText(status: string) {
+    const textMap = {
+      idle: '空闲',
+      running: '运行中',
+      success: '成功',
+      failed: '失败',
+      cancelled: '已取消',
+    };
+    return textMap[status] || status;
+  }
+
+  /**
+   * 获取阶段样式类
+   */
+  function getStageClass(status: string) {
+    return `stage-${status}`;
+  }
+
+  /**
+   * 获取阶段图标
+   */
+  function getStageIcon(status: string) {
     const iconMap = {
-      'idle': 'ant-design:pause-circle-outlined',
-      'running': 'ant-design:loading-outlined',
-      'success': 'ant-design:check-circle-outlined',
-      'failed': 'ant-design:close-circle-outlined',
-      'disabled': 'ant-design:stop-outlined',
+      pending: 'ant-design:clock-circle-outlined',
+      running: 'ant-design:loading-outlined',
+      success: 'ant-design:check-circle-outlined',
+      failed: 'ant-design:close-circle-outlined',
+      skipped: 'ant-design:minus-circle-outlined',
     };
     return iconMap[status] || 'ant-design:question-circle-outlined';
   }
 
   /**
-   * 获取流水线状态文本
+   * 获取阶段状态颜色
    */
-  function getPipelineStatusText(status: string) {
-    const textMap = {
-      'idle': '空闲',
-      'running': '运行中',
-      'success': '成功',
-      'failed': '失败',
-      'disabled': '已禁用',
-    };
-    return textMap[status] || '未知';
-  }
-
-  /**
-   * 获取运行状态颜色
-   */
-  function getRunStatusColor(status: string) {
+  function getStageStatusColor(status: string) {
     const colorMap = {
-      'success': 'success',
-      'failed': 'error',
-      'running': 'processing',
-      'pending': 'default',
+      pending: 'default',
+      running: 'processing',
+      success: 'success',
+      failed: 'error',
+      skipped: 'warning',
     };
     return colorMap[status] || 'default';
   }
 
   /**
-   * 获取运行状态文本
+   * 获取阶段状态文本
    */
-  function getRunStatusText(status: string) {
+  function getStageStatusText(status: string) {
     const textMap = {
-      'success': '成功',
-      'failed': '失败',
-      'running': '运行中',
-      'pending': '等待中',
+      pending: '等待中',
+      running: '运行中',
+      success: '成功',
+      failed: '失败',
+      skipped: '已跳过',
     };
-    return textMap[status] || '未知';
+    return textMap[status] || status;
+  }
+
+  /**
+   * 是否可以重试阶段
+   */
+  function canRetryStage(stage: any) {
+    return stage.status === 'failed';
+  }
+
+  /**
+   * 是否可以跳过阶段
+   */
+  function canSkipStage(stage: any) {
+    return stage.status === 'failed' || stage.status === 'pending';
   }
 
   /**
    * 格式化时间
    */
-  function formatTime(time: string) {
-    return formatToDateTime(time);
+  function formatTime(time?: string) {
+    return time ? formatToDateTime(time) : '-';
   }
 
   /**
-   * 表格变化处理
+   * 开始自动刷新
    */
-  function handleTableChange(pag: any) {
-    pagination.current = pag.current;
-    pagination.pageSize = pag.pageSize;
-    loadPipelineList();
-  }
-
-  /**
-   * 刷新列表
-   */
-  function handleRefresh() {
-    loadPipelineList();
-  }
-
-  /**
-   * 创建流水线
-   */
-  function handleCreatePipeline() {
-    editingPipeline.value = null;
-    openFormModal(true, {});
-  }
-
-  /**
-   * 运行流水线
-   */
-  async function handleRunPipeline(record: any) {
-    try {
-      const result = await runPipeline({ 
-        pipelineId: record.id,
-        projectId: props.projectId 
-      });
-      
-      if (result.success) {
-        createMessage.success('流水线启动成功');
-        record.status = 'running';
-        updatePipelineStats();
+  function startAutoRefresh() {
+    if (refreshTimer) return;
+    
+    refreshTimer = setInterval(() => {
+      if (isRunning.value) {
+        loadPipelineStatus();
       }
-    } catch (error) {
-      console.error('运行流水线失败:', error);
-      createMessage.error('运行流水线失败');
+    }, 5000); // 每5秒刷新一次
+  }
+
+  /**
+   * 停止自动刷新
+   */
+  function stopAutoRefresh() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
     }
   }
 
   /**
-   * 查看流水线详情
+   * 开始日志自动刷新
    */
-  function handleViewPipeline(record: any) {
-    currentPipeline.value = record;
-    openDetailModal(true, {});
-  }
-
-  /**
-   * 编辑流水线
-   */
-  function handleEditPipeline(record: any) {
-    editingPipeline.value = record;
-    openFormModal(true, {});
-  }
-
-  /**
-   * 克隆流水线
-   */
-  function handleClonePipeline(record: any) {
-    const clonedPipeline = {
-      ...record,
-      id: undefined,
-      name: `${record.name} - 副本`,
-    };
-    editingPipeline.value = clonedPipeline;
-    openFormModal(true, {});
-  }
-
-  /**
-   * 删除流水线
-   */
-  function handleDeletePipeline(record: any) {
-    createConfirm({
-      iconType: 'warning',
-      title: '确认删除',
-      content: `确定要删除流水线 "${record.name}" 吗？此操作不可恢复。`,
-      onOk: async () => {
-        try {
-          await deletePipeline({ pipelineId: record.id });
-          createMessage.success('删除成功');
-          loadPipelineList();
-        } catch (error) {
-          console.error('删除流水线失败:', error);
-          createMessage.error('删除失败');
-        }
-      },
-    });
-  }
-
-  /**
-   * 表单提交
-   */
-  async function handleFormSubmit() {
-    try {
-      const formData = await pipelineFormRef.value?.validate();
-      if (!formData) return;
-
-      const apiMethod = editingPipeline.value ? updatePipeline : createPipeline;
-      const params = {
-        ...formData,
-        projectId: props.projectId,
-        ...(editingPipeline.value && { id: editingPipeline.value.id }),
-      };
-
-      const result = await apiMethod(params);
-      if (result.success) {
-        createMessage.success(editingPipeline.value ? '更新成功' : '创建成功');
-        closeFormModal();
-        loadPipelineList();
+  function startLogsAutoRefresh() {
+    if (logsRefreshTimer) return;
+    
+    logsRefreshTimer = setInterval(() => {
+      if (autoRefreshLogs.value && logsModalVisible.value) {
+        loadLogs();
       }
-    } catch (error) {
-      console.error('保存流水线失败:', error);
-      createMessage.error('保存失败');
+    }, 2000); // 每2秒刷新一次日志
+  }
+
+  /**
+   * 停止日志自动刷新
+   */
+  function stopLogsAutoRefresh() {
+    if (logsRefreshTimer) {
+      clearInterval(logsRefreshTimer);
+      logsRefreshTimer = null;
     }
   }
 
   // 组件挂载时加载数据
   onMounted(() => {
-    loadPipelineList();
+    loadPipelineStatus();
+    loadPipelineHistory();
+    startAutoRefresh();
+    startLogsAutoRefresh();
+  });
+
+  // 组件卸载时清理定时器
+  onUnmounted(() => {
+    stopAutoRefresh();
+    stopLogsAutoRefresh();
   });
 </script>
 
 <style lang="less" scoped>
   .pipeline-manager {
+    padding: 16px;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    
+    .pipeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      
+      h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+    }
+    
     .pipeline-overview {
       margin-bottom: 24px;
+      padding: 16px;
+      background: #fafafa;
+      border-radius: 6px;
     }
-
-    .pipeline-list {
-      .pipeline-name {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-
-        .pipeline-icon {
-          color: #1890ff;
+    
+    .pipeline-stages {
+      margin-bottom: 24px;
+      
+      h4 {
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      
+      .stages-container {
+        .stage-item {
+          position: relative;
+          margin-bottom: 24px;
+          padding: 16px;
+          border: 1px solid #d9d9d9;
+          border-radius: 6px;
+          transition: all 0.3s;
+          
+          &.stage-pending {
+            border-color: #d9d9d9;
+            background: #fafafa;
+          }
+          
+          &.stage-running {
+            border-color: #1890ff;
+            background: #f0f8ff;
+          }
+          
+          &.stage-success {
+            border-color: #52c41a;
+            background: #f6ffed;
+          }
+          
+          &.stage-failed {
+            border-color: #ff4d4f;
+            background: #fff2f0;
+          }
+          
+          &.stage-skipped {
+            border-color: #faad14;
+            background: #fffbe6;
+          }
+          
+          .stage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            
+            .stage-info {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              
+              .stage-icon {
+                font-size: 16px;
+              }
+              
+              .stage-name {
+                font-size: 16px;
+                font-weight: 600;
+              }
+            }
+            
+            .stage-actions {
+              display: flex;
+              gap: 8px;
+            }
+          }
+          
+          .stage-content {
+            .stage-meta {
+              display: flex;
+              gap: 16px;
+              margin-bottom: 8px;
+              font-size: 12px;
+              color: #666;
+            }
+            
+            .stage-progress {
+              margin-bottom: 8px;
+            }
+          }
+          
+          .stage-connector {
+            position: absolute;
+            bottom: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            color: #d9d9d9;
+          }
         }
       }
-
-      .last-run-info {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 4px;
-
-        .duration {
+    }
+    
+    .pipeline-history {
+      h4 {
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+    }
+    
+    .logs-container {
+      .logs-header {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      
+      .logs-content {
+        max-height: 400px;
+        overflow: auto;
+        
+        .logs-text {
+          margin: 0;
+          padding: 12px;
+          background: #000;
+          color: #fff;
+          font-family: 'Courier New', monospace;
           font-size: 12px;
-          color: #666;
+          line-height: 1.4;
+          white-space: pre-wrap;
+          word-break: break-all;
         }
       }
-
-      .text-gray {
-        color: #999;
-      }
-
-      .text-red {
-        color: #ff4d4f;
-      }
+    }
+    
+    .history-detail {
+      padding: 16px 0;
     }
   }
 </style>

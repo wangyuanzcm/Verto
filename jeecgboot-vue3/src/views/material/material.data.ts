@@ -71,6 +71,7 @@ export const templateColumns: BasicColumn[] = [
         'component': '组件模板',
         'layout': '布局模板',
         'business': '业务模板',
+        'application': '应用模板',
       };
       return typeMap[text] || text;
     },
@@ -153,8 +154,9 @@ export const templateSearchFormSchema: FormSchema[] = [
     componentProps: {
       options: [
         { label: '页面模板', value: 'page' },
-        { label: '组件模板', value: 'component' },
+        { label: '应用模板', value: 'application' },
         { label: '布局模板', value: 'layout' },
+        { label: '组件模板', value: 'component' },
         { label: '业务模板', value: 'business' },
       ],
     },
@@ -275,8 +277,9 @@ export const templateFormSchema: FormSchema[] = [
     componentProps: {
       options: [
         { label: '页面模板', value: 'page' },
-        { label: '组件模板', value: 'component' },
+        { label: '应用模板', value: 'application' },
         { label: '布局模板', value: 'layout' },
+        { label: '组件模板', value: 'component' },
         { label: '业务模板', value: 'business' },
       ],
     },

@@ -236,6 +236,7 @@
 
       /**
        * 创建应用
+       * 打开模板选择和应用创建的两步流程弹窗
        */
       const handleCreateApp = () => {
         openModal(true, {
@@ -284,9 +285,17 @@
 
       /**
        * 操作成功回调
+       * @param result 创建或更新的应用信息
        */
-      const handleSuccess = () => {
-        loadData();
+      const handleSuccess = (result) => {
+        // 如果是新建应用且有返回结果，跳转到应用详情页
+        if (result && result.id) {
+          console.log('新建应用成功，跳转到详情页:', result);
+          router.push(`/appmanage/detail/${result.id}?tab=basic`);
+        } else {
+          // 否则刷新列表
+          loadData();
+        }
       };
 
       // 组件挂载时加载数据

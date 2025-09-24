@@ -1,5 +1,5 @@
 <template>
-  <div class="basic-info">
+  <div class="app-basic-info">
     <a-row :gutter="24">
       <!-- 应用基本信息 -->
       <a-col :span="16">
@@ -71,6 +71,36 @@
       </a-col>
     </a-row>
 
+    <!-- 初始化命令 -->
+    <a-row :gutter="24" class="mt-4">
+      <a-col :span="24">
+        <a-card title="初始化命令" :bordered="false" v-if="appDetail && (appDetail.initCommand || appDetail.templateType)" class="init-command-card">
+          <div class="init-command-container">
+            <div class="command-header">
+              <span class="command-title">
+                <Icon icon="ant-design:code-outlined" :size="18" />
+                {{ getInitCommandTitle() }}
+              </span>
+              <a-button type="link" @click="copyInitCommand" size="small">
+                <Icon icon="ant-design:copy-outlined" :size="16" />
+                复制命令
+              </a-button>
+            </div>
+            <div class="command-content">
+              <a-alert type="info" show-icon>
+                <template #message>
+                  <div class="command-text">{{ getInitCommand() }}</div>
+                </template>
+                <template #description>
+                  <div class="command-desc">{{ getInitCommandDesc() }}</div>
+                </template>
+              </a-alert>
+            </div>
+          </div>
+        </a-card>
+      </a-col>
+    </a-row>
+
     <!-- Git仓库信息 -->
     <a-row :gutter="24" class="mt-4">
       <a-col :span="24">
@@ -113,8 +143,9 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { Card, Row, Col, Descriptions, Tag } from 'ant-design-vue';
 import Icon from '/@/components/Icon';
+import { useCopyToClipboard } from '@/hooks/web/useCopyToClipboard';
+import { useMessage } from '@/hooks/web/useMessage';
 
 /**
  * 应用信息接口定义
@@ -151,18 +182,37 @@ interface AppInfo {
 
 const props = defineProps<{
   appId: string;
+  appDetail: any;
 }>();
 
+// 剪贴板和消息
+const { clipboardRef, isSuccessRef } = useCopyToClipboard();
+const { createMessage } = useMessage();
+
+/**
+ * 复制文本到剪贴板
+ * @param text 要复制的文本
+ */
+function copy(text: string) {
+  clipboardRef.value = text;
+  if (isSuccessRef.value) {
+    createMessage.success('复制成功');
+  } else {
+    createMessage.error('复制失败');
+  }
+}
+
+// 默认应用信息
 const appInfo = ref<AppInfo>({
-  appName: 'Jeecg Boot Vue3',
-  appCode: 'jeecg-vue3',
-  appType: 'web',
-  status: 'running',
-  owner: '张三',
-  createTime: '2023-01-15 10:30:00',
-  updateTime: '2024-01-15 14:20:00',
-  version: 'v3.5.3',
-  description: '基于Vue3 + TypeScript + Ant Design Vue的企业级后台管理系统',
+  appName: props.appDetail?.appName || 'Jeecg Boot Vue3',
+  appCode: props.appDetail?.appCode || 'jeecg-vue3',
+  appType: props.appDetail?.appType || 'web',
+  status: props.appDetail?.status || 'running',
+  owner: props.appDetail?.owner || '张三',
+  createTime: props.appDetail?.createTime || '2023-01-15 10:30:00',
+  updateTime: props.appDetail?.updateTime || '2024-01-15 14:20:00',
+  version: props.appDetail?.version || 'v3.5.3',
+  description: props.appDetail?.description || '基于Vue3 + TypeScript + Ant Design Vue的企业级后台管理系统',
   techStack: [
     { name: 'Vue3', version: '3.3.4', icon: 'logos:vue' },
     { name: 'TypeScript', version: '5.0.2', icon: 'logos:typescript-icon' },
@@ -175,7 +225,7 @@ const appInfo = ref<AppInfo>({
     { name: '生产环境', url: 'http://prod.jeecg.com', status: 'running' },
   ],
   gitInfo: {
-    repoUrl: 'https://github.com/jeecgboot/jeecg-boot',
+    repoUrl: props.appDetail?.gitUrl || 'https://github.com/jeecgboot/jeecg-boot',
     defaultBranch: 'master',
     lastCommit: 'feat: 新增应用管理功能',
     lastCommitter: '张三',
@@ -183,6 +233,67 @@ const appInfo = ref<AppInfo>({
     branchCount: 15,
   },
 });
+
+/**
+ * 获取初始化命令标题
+ */
+const getInitCommandTitle = () => {
+  if (!props.appDetail) return '初始化命令';
+  
+  if (props.appDetail.templateType === 'application') {
+    return '应用模板初始化命令';
+  } else {
+    return 'Git仓库下载命令';
+  }
+};
+
+/**
+ * 获取初始化命令
+ */
+const getInitCommand = () => {
+  if (!props.appDetail) return '';
+  
+  // 如果有自定义命令，直接返回
+  if (props.appDetail.initCommand) {
+    return props.appDetail.initCommand;
+  }
+  
+  // 根据模板类型生成默认命令
+  if (props.appDetail.templateType === 'application') {
+    return `npm init jeecg-app ${props.appDetail.appName} --template=${props.appDetail.templateId}`;
+  } else {
+    // 空白模板，返回Git克隆命令
+    if (props.appDetail.gitUrl) {
+      return `git clone ${props.appDetail.gitUrl}`;
+    } else {
+      return 'git clone https://github.com/jeecgboot/jeecg-boot-vue3.git';
+    }
+  }
+};
+
+/**
+ * 获取初始化命令描述
+ */
+const getInitCommandDesc = () => {
+  if (!props.appDetail) return '';
+  
+  if (props.appDetail.templateType === 'application') {
+    return '使用此命令初始化应用模板，将创建基于选定模板的新应用。';
+  } else {
+    return '使用此命令从Git仓库下载应用代码，然后可以进行自定义开发。';
+  }
+};
+
+/**
+ * 复制初始化命令
+ */
+const copyInitCommand = async () => {
+  const command = getInitCommand();
+  if (command) {
+    await copy(command);
+    createMessage.success('命令已复制到剪贴板');
+  }
+};
 
 /**
  * 获取应用类型颜色

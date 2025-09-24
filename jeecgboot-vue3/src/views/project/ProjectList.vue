@@ -1,293 +1,140 @@
 <template>
   <div>
+    <!--引用表格-->
     <BasicTable @register="registerTable" :rowSelection="rowSelection">
+      <!--插槽:table标题-->
       <template #tableTitle>
-        <a-button type="primary" @click="handleCreateWizard" preIcon="ant-design:plus-outlined">
-          创建项目
-        </a-button>
-        <a-button @click="handleAdd" preIcon="ant-design:edit-outlined">
-          快速新增
-        </a-button>
-        <a-select
-          v-model:value="currentTaskType"
-          placeholder="选择项目类型"
-          style="width: 150px; margin-left: 8px"
-          @change="handleTaskTypeChange"
-        >
-          <a-select-option value="">全部</a-select-option>
-          <a-select-option :value="TaskType.REQUIREMENT">需求</a-select-option>
-          <a-select-option :value="TaskType.BUG">BUG</a-select-option>
-        </a-select>
-        <a-button
-          type="primary"
-          @click="handleBatchDelete"
-          :disabled="!selectedRowKeys.length"
-          preIcon="ant-design:delete-outlined"
-          danger
-          style="margin-left: 8px"
-        >
-          批量删除
-        </a-button>
+        <a-button type="primary" @click="handleAdd" preIcon="ant-design:plus-outlined"> 新增项目</a-button>
+        <a-button type="primary" preIcon="ant-design:export-outlined" @click="onExportXls"> 导出</a-button>
+        <j-upload-button type="primary" preIcon="ant-design:import-outlined" @click="onImportXls">导入</j-upload-button>
+        <a-dropdown v-if="selectedRowKeys.length > 0">
+          <template #overlay>
+            <a-menu>
+              <a-menu-item key="1" @click="batchHandleDelete">
+                <Icon icon="ant-design:delete-outlined"></Icon>
+                删除
+              </a-menu-item>
+            </a-menu>
+          </template>
+          <a-button>批量操作
+            <Icon icon="mdi:chevron-down"></Icon>
+          </a-button>
+        </a-dropdown>
       </template>
-
-      <!-- 状态列 -->
-      <template #status="{ record }">
-        <a-tag :color="getStatusColor(record.status)">
-          {{ getStatusText(record.status) }}
-        </a-tag>
-      </template>
-
-
-
-      <!-- 任务类型列 -->
-      <template #taskType="{ record }">
-        <a-tag :color="getTaskTypeColor(record.taskType)">
-          {{ getTaskTypeText(record.taskType) }}
-        </a-tag>
-      </template>
-
-      <!-- 需求/BUG ID列 -->
-      <template #taskId="{ record }">
-        <span v-if="record.taskType === 'REQUIREMENT'">
-          <a-tag color="blue">{{ record.requirementId }}</a-tag>
-        </span>
-        <span v-else-if="record.taskType === 'BUG'">
-          <a-tag color="red">{{ record.bugId }}</a-tag>
-        </span>
-        <span v-else>-</span>
-      </template>
-
-      <!-- 开发模式列 -->
-      <template #developmentMode="{ record }">
-        <a-tag :color="getDevelopmentModeColor(record.developmentMode)">
-          {{ getDevelopmentModeText(record.developmentMode) }}
-        </a-tag>
-      </template>
-
-      <!-- Git分支状态列 -->
-      <template #gitBranchStatus="{ record }">
-        <div v-if="record.gitBranches && record.gitBranches.length > 0">
-          <a-tag 
-            v-for="branch in record.gitBranches.slice(0, 2)" 
-            :key="branch.id"
-            :color="getBranchStatusColor(branch.status)"
-            size="small"
-          >
-            {{ branch.branchName }}
-          </a-tag>
-          <a-tag v-if="record.gitBranches.length > 2" size="small">
-            +{{ record.gitBranches.length - 2 }}
-          </a-tag>
-        </div>
-        <span v-else>无分支</span>
-      </template>
-
-
-
-      <!-- 操作列 -->
+      <!--操作栏-->
       <template #action="{ record }">
-        <TableAction
-          :actions="[
-            {
-              icon: 'clarity:info-standard-line',
-              tooltip: '详情',
-              onClick: handleDetail.bind(null, record),
-            },
-            {
-              icon: 'clarity:note-edit-line',
-              tooltip: '编辑',
-              onClick: handleEdit.bind(null, record),
-            },
-            {
-              icon: 'ant-design:delete-outlined',
-              color: 'error',
-              tooltip: '删除',
-              popConfirm: {
-                title: '是否确认删除',
-                placement: 'left',
-                confirm: handleDelete.bind(null, record),
-              },
-            },
-          ]"
-        />
+        <TableAction :actions="getTableAction(record)" />
+      </template>
+      <!--字段回显插槽-->
+      <template #htmlSlot="{ text }">
+        <div v-html="text"></div>
+      </template>
+      <!--省市区字段回显插槽-->
+      <template #pcaSlot="{ text }">
+        {{ getAreaTextByCode(text) }}
+      </template>
+      <template #fileSlot="{ text }">
+        <span v-if="!text" style="font-size: 12px; font-style: italic;">无文件</span>
+        <a-button v-else :ghost="true" type="primary" preIcon="ant-design:download-outlined" size="small" @click="downloadFile(text)">下载</a-button>
       </template>
     </BasicTable>
-
-    <!-- 编辑弹窗 -->
+    <!-- 表单区域 -->
     <ProjectModal @register="registerModal" @success="handleSuccess" />
-    
-    <!-- 项目创建向导 -->
-    <ProjectCreateWizard @register="registerWizardModal" @success="handleSuccess" />
   </div>
 </template>
 
-<script lang="ts" setup>
-  import { reactive, computed, unref, ref } from 'vue';
+<script lang="ts" name="project-list" setup>
+  import { ref, computed, unref } from 'vue';
+  import { useRouter } from 'vue-router';
   import { BasicTable, useTable, TableAction } from '/@/components/Table';
   import { useModal } from '/@/components/Modal';
-  // import { useListPage } from '/@/hooks/system/useListPage';
-  import { 
-    getColumns, 
-    searchFormSchema, 
-    ProjectStatus, 
-    TaskType,
-    DevelopmentMode
-  } from './Project.data';
-  import { getProjectList, deleteProject, batchDeleteProject } from './Project.api';
+  import { useListPage } from '/@/hooks/system/useListPage';
   import ProjectModal from './components/ProjectModal.vue';
-  import ProjectCreateWizard from './components/ProjectCreateWizard.vue';
-  import { useGo } from '/@/hooks/web/usePage';
-  import { Icon } from '/@/components/Icon';
+  import { columns, searchFormSchema } from './Project.data';
+  import { 
+    getProjectList, 
+    deleteProject, 
+    batchDeleteProject, 
+    exportXls, 
+    importExcel 
+  } from './Project.api';
+  import { downloadByData } from '/@/utils/file/download';
+  import { useMessage } from '/@/hooks/web/useMessage';
+  import { getAreaTextByCode } from '/@/components/Form/src/utils/Area';
 
-  const go = useGo();
-
-  // 当前项目类型筛选
-  const currentTaskType = ref('');
-
-  // 表格配置
-  const [registerTable, { reload, getSelectRows, setColumns }] = useTable({
-    title: '项目列表',
-    api: getProjectList,
-    rowKey: 'id',
-    columns: getColumns(),
-    formConfig: {
-      labelWidth: 120,
-      schemas: searchFormSchema,
-      autoSubmitOnEnter: true,
-    },
-    useSearchForm: true,
-    showTableSetting: true,
-    bordered: true,
-    handleSearchInfoFn(info) {
-      console.log('handleSearchInfoFn', info);
-      // 添加项目类型筛选
-      if (currentTaskType.value) {
-        info.taskType = currentTaskType.value;
-      }
-      return info;
-    },
-    actionColumn: {
-      width: 120,
-      title: '操作',
-      dataIndex: 'action',
-      slots: { customRender: 'action' },
-    },
-  });
-
-  /**
-   * 任务类型变化处理
-   */
-  function handleTaskTypeChange(value: string) {
-    currentTaskType.value = value;
-    // 动态更新表格列配置
-    const newColumns = getColumns(value as TaskType);
-    setColumns(newColumns);
-    reload();
-  }
-
-  // 弹窗配置
+  const checkedKeys = ref<Array<string | number>>([]);
+  const { createMessage } = useMessage();
+  const router = useRouter();
+  
+  //注册model
   const [registerModal, { openModal }] = useModal();
-  const [registerWizardModal, { openModal: openWizardModal }] = useModal();
-
-  // 多选
-  const selectedRowKeys = computed(() => {
-    try {
-      return getSelectRows().map(item => item.id);
-    } catch (error) {
-      return [];
-    }
+  
+  //注册table数据
+  const { prefixCls, tableContext, onExportXls, onImportXls } = useListPage({
+    tableProps: {
+      title: '项目管理',
+      api: getProjectList,
+      columns,
+      canResize: false,
+      formConfig: {
+        //labelWidth: 120,
+        schemas: searchFormSchema,
+        autoSubmitOnEnter: true,
+      },
+      actionColumn: {
+        width: 120,
+        fixed: 'right',
+      },
+    },
+    exportApi: exportXls,
+    importApi: importExcel,
   });
-  const selectedRows = computed(() => {
-    try {
-      return getSelectRows();
-    } catch (error) {
-      return [];
-    }
-  });
-  const rowSelection = {
-    type: 'checkbox',
-    selectedRowKeys: unref(selectedRowKeys),
-    onChange: onSelectChange,
-    onSelect: onSelect,
-    onSelectAll: onSelectAll,
-  };
 
-  /**
-   * 选择事件
-   */
-  function onSelectChange(selectedRowKeys: (string | number)[], selectedRows: any[]) {
-    console.log('selectedRowKeys changed: ', selectedRowKeys, selectedRows);
-  }
-
-  /**
-   * 单选事件
-   */
-  function onSelect(record: any, selected: boolean, selectedRows: any[]) {
-    console.log('record', record, selected, selectedRows);
-  }
-
-  /**
-   * 全选事件
-   */
-  function onSelectAll(selected: boolean, selectedRows: any[], changeRows: any[]) {
-    console.log('onSelectAll', selected, selectedRows, changeRows);
-  }
+  const [registerTable, { reload }, { rowSelection, selectedRowKeys }] = tableContext;
 
   /**
    * 新增事件
    */
   function handleAdd() {
-    openModal(true, {
-      isUpdate: false,
-    });
+    console.log('点击新增按钮，准备跳转到新增页面');
+    // 跳转到独立的新增页面
+    router.push('/project/add');
   }
 
   /**
-   * 创建项目向导
-   */
-  function handleCreateWizard() {
-    openWizardModal(true, {});
-  }
-
-  /**
-   * 编辑
+   * 编辑事件
    */
   function handleEdit(record: Recordable) {
-    openModal(true, {
-      record,
-      isUpdate: true,
-    });
+    console.log('点击编辑按钮，准备跳转到编辑页面，记录ID:', record.id);
+    // 跳转到独立的编辑页面
+    router.push(`/project/edit/${record.id}`);
   }
 
   /**
    * 详情
    */
   function handleDetail(record: Recordable) {
-    go(`/project/detail/${record.id}`);
+    console.log('点击详情按钮，准备跳转到详情页面，记录ID:', record.id);
+    // 跳转到独立的详情页面
+    router.push(`/project/detail/${record.id}`);
   }
 
   /**
-   * 复制
+   * 删除事件
    */
-  function handleCopy(record: Recordable) {
-    openModal(true, {
-      record: { ...record, id: undefined, name: `${record.name}_copy` },
-      isUpdate: false,
-    });
+  async function handleDelete(record) {
+    await deleteProject({ id: record.id });
+    createMessage.success('删除成功！');
+    reload();
   }
 
   /**
-   * 删除
+   * 批量删除事件
    */
-  async function handleDelete(record: Recordable) {
-    await deleteProject({ id: record.id }, handleSuccess);
-  }
-
-  /**
-   * 批量删除
-   */
-  async function handleBatchDelete() {
-    await batchDeleteProject({ ids: selectedRowKeys.value.join(',') }, handleSuccess);
+  async function batchHandleDelete() {
+    await batchDeleteProject({ ids: selectedRowKeys.value });
+    createMessage.success('删除成功！');
+    reload();
   }
 
   /**
@@ -298,97 +145,37 @@
   }
 
   /**
-   * 获取状态颜色
+   * 操作栏
    */
-  function getStatusColor(status: ProjectStatus) {
-    const colorMap = {
-      [ProjectStatus.PLANNING]: 'blue',
-      [ProjectStatus.DEVELOPING]: 'processing',
-      [ProjectStatus.TESTING]: 'orange',
-      [ProjectStatus.DEPLOYED]: 'success',
-      [ProjectStatus.MAINTENANCE]: 'warning',
-      [ProjectStatus.ARCHIVED]: 'default',
-    };
-    return colorMap[status] || 'default';
+  function getTableAction(record) {
+    return [
+      {
+        label: '编辑',
+        onClick: handleEdit.bind(null, record),
+      },
+      {
+        label: '详情',
+        onClick: handleDetail.bind(null, record),
+      },
+    ];
   }
 
   /**
-   * 获取状态文本
+   * 下载文件
    */
-  function getStatusText(status: ProjectStatus) {
-    const textMap = {
-      [ProjectStatus.PLANNING]: '规划中',
-      [ProjectStatus.DEVELOPING]: '开发中',
-      [ProjectStatus.TESTING]: '测试中',
-      [ProjectStatus.DEPLOYED]: '已部署',
-      [ProjectStatus.MAINTENANCE]: '维护中',
-      [ProjectStatus.ARCHIVED]: '已归档',
-    };
-    return textMap[status] || '未知';
-  }
-
-
-
-
-
-  /**
-   * 获取任务类型颜色
-   */
-  function getTaskTypeColor(taskType: TaskType) {
-    const colorMap = {
-      [TaskType.REQUIREMENT]: 'blue',
-      [TaskType.BUG]: 'red',
-    };
-    return colorMap[taskType] || 'default';
-  }
-
-  /**
-   * 获取任务类型文本
-   */
-  function getTaskTypeText(taskType: TaskType) {
-    const textMap = {
-      [TaskType.REQUIREMENT]: '需求',
-      [TaskType.BUG]: 'BUG',
-    };
-    return textMap[taskType] || '未知';
-  }
-
-  /**
-   * 获取开发模式颜色
-   */
-  function getDevelopmentModeColor(mode: DevelopmentMode) {
-    const colorMap = {
-      [DevelopmentMode.L1]: 'green',
-      [DevelopmentMode.L2]: 'blue',
-      [DevelopmentMode.L3]: 'purple',
-    };
-    return colorMap[mode] || 'default';
-  }
-
-  /**
-   * 获取开发模式文本
-   */
-  function getDevelopmentModeText(mode: DevelopmentMode) {
-    const textMap = {
-      [DevelopmentMode.L1]: 'L1-直接开发',
-      [DevelopmentMode.L2]: 'L2-模板开发',
-      [DevelopmentMode.L3]: 'L3-可视化配置',
-    };
-    return textMap[mode] || '未知';
-  }
-
-  /**
-   * 获取分支状态颜色
-   */
-  function getBranchStatusColor(status: string) {
-    const colorMap = {
-      'ACTIVE': 'processing',
-      'MERGED': 'success',
-      'DELETED': 'default',
-    };
-    return colorMap[status] || 'default';
+  function downloadFile(text) {
+    if (!text) {
+      createMessage.warning('无文件可下载');
+      return;
+    }
+    if (text.indexOf(',') > 0) {
+      text = text.substring(0, text.indexOf(','));
+    }
+    let url = text.split('_')[1];
+    downloadByData(url, url);
   }
 </script>
 
-<style lang="less" scoped>
+<style scoped>
+
 </style>
