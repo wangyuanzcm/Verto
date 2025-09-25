@@ -2,6 +2,8 @@
 ## 此文件用于配置GitLab的各种设置
 
 # 外部URL配置
+# 注意：此配置应与docker-compose中的GITLAB_OMNIBUS_CONFIG保持一致
+# 实际的external_url由docker-compose.yml中的环境变量控制
 external_url 'http://localhost:8800'
 
 # SSH配置
