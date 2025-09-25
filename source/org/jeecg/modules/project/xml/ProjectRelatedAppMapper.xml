@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.project.mapper.ProjectRelatedAppMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="org.jeecg.modules.project.entity.ProjectRelatedApp">
+        <id column="id" property="id" />
+        <result column="project_id" property="projectId" />
+        <result column="app_name" property="appName" />
+        <result column="app_code" property="appCode" />
+        <result column="app_type" property="appType" />
+        <result column="description" property="description" />
+        <result column="git_url" property="gitUrl" />
+        <result column="git_branch" property="gitBranch" />
+        <result column="build_command" property="buildCommand" />
+        <result column="deploy_command" property="deployCommand" />
+        <result column="port" property="port" />
+        <result column="health_check_url" property="healthCheckUrl" />
+        <result column="status" property="status" />
+        <result column="sort_order" property="sortOrder" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, project_id, app_name, app_code, app_type, description, git_url, git_branch, 
+        build_command, deploy_command, port, health_check_url, status, sort_order, 
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 根据项目ID查询关联应用列表 -->
+    <select id="getAppsByProjectId" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM project_related_app
+        WHERE project_id = #{projectId} AND del_flag = '0'
+        ORDER BY sort_order ASC, create_time DESC
+    </select>
+
+</mapper>
