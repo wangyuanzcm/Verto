@@ -9,8 +9,13 @@
             style="width: 120px"
             @change="handleEnvironmentChange"
           >
-            <a-select-option value="test">测试环境</a-select-option>
-            <a-select-option value="production">生产环境</a-select-option>
+            <a-select-option 
+              v-for="env in pipelineConfig.environments || []" 
+              :key="env.name" 
+              :value="env.name"
+            >
+              {{ env.displayName || env.name }}
+            </a-select-option>
           </a-select>
           <a-button
             type="primary"
@@ -31,219 +36,193 @@
         </a-space>
       </template>
 
-      <!-- BPM风格的流程图 -->
-      <div class="bmp-pipeline-flow">
+      <!-- 流水线流程图 -->
+      <div class="pipeline-flow">
         <!-- 流水线信息头部 -->
-        <div class="pipeline-header">
-          <div class="pipeline-title">
-            <span class="pipeline-name">{{ pipelineConfig.name }}</span>
+        <div v-if="pipelineConfig.name" class="pipeline-header">
+          <div class="pipeline-info">
+            <h3 class="pipeline-name">{{ pipelineConfig.name }}</h3>
             <a-tag v-if="currentBuild" :color="getBuildStatusColor(currentBuild.status)">
               构建 #{{ currentBuild.buildNumber }}
             </a-tag>
           </div>
           <div class="pipeline-meta">
-            <div class="meta-item">
+            <span class="meta-item">
               <BranchesOutlined />
-              <span>{{ currentBuild?.branch || 'main' }}</span>
-            </div>
-            <div class="meta-item">
+              {{ currentBuild?.branch || 'main' }}
+            </span>
+            <span class="meta-item">
               <ClockCircleOutlined />
-              <span>{{ currentBuild?.startTime || '未开始' }}</span>
-            </div>
-            <div class="meta-item">
+              {{ currentBuild?.startTime || '未开始' }}
+            </span>
+            <span class="meta-item">
               <UserOutlined />
-              <span>{{ currentBuild?.triggeredBy || 'System' }}</span>
-            </div>
+              {{ currentBuild?.triggeredBy || 'System' }}
+            </span>
           </div>
         </div>
 
-        <!-- BPM流程图容器 -->
-        <div class="bmp-flow-container">
+        <!-- 流程图容器 -->
+        <div v-if="currentStages.length > 0" class="flow-container">
           <!-- 开始节点 -->
-          <div class="bmp-node start-node">
-            <div class="node-content">
-              <div class="node-icon">
-                <PlayCircleOutlined />
-              </div>
-              <div class="node-label">开始</div>
+          <div class="flow-node start-node">
+            <div class="node-icon">
+              <PlayCircleOutlined />
             </div>
+            <div class="node-label">开始</div>
           </div>
 
-          <!-- 连接线 -->
-          <div class="flow-connector"></div>
-
-          <!-- 流水线阶段节点 -->
+          <!-- 流水线阶段 -->
           <template v-for="(stage, index) in currentStages" :key="stage.name">
+            <!-- 连接线 -->
+            <div class="flow-arrow">
+              <ArrowRightOutlined />
+            </div>
+
             <!-- 阶段节点 -->
             <div 
-              class="bmp-stage-node"
+              class="flow-node stage-node"
               :class="[
-                `stage-${stage.status}`,
-                { 'stage-clickable': isStageClickable(stage) }
+                `status-${stage.status}`,
+                { 'clickable': isStageClickable(stage) }
               ]"
               @click="handleStageClick(stage)"
             >
-              <div class="node-content">
-                <!-- 节点图标和状态 -->
-                <div class="node-header">
-                  <div class="node-icon">
-                    <component :is="getStageIcon(stage.type)" />
-                  </div>
-                  <div class="status-indicator" :class="stage.status">
-                    <CheckCircleOutlined v-if="stage.status === 'success'" />
-                    <CloseCircleOutlined v-else-if="stage.status === 'failed'" />
-                    <LoadingOutlined v-else-if="stage.status === 'running'" />
-                    <ClockCircleOutlined v-else />
-                  </div>
+              <div class="node-header">
+                <div class="node-icon">
+                  <component :is="getStageIcon(stage.type)" />
                 </div>
-                
-                <!-- 节点信息 -->
-                <div class="node-info">
-                  <div class="node-title">{{ stage.displayName }}</div>
-                  <div class="node-status">{{ getBuildStatusText(stage.status) }}</div>
-                  <div v-if="stage.duration" class="node-duration">
-                    {{ formatDuration(stage.duration) }}
-                  </div>
-                </div>
-
-                <!-- 手动卡点操作 -->
-                <div v-if="isStageClickable(stage)" class="node-actions">
-                  <a-tooltip title="点击继续">
-                    <a-button 
-                      type="primary" 
-                      size="small" 
-                      shape="circle"
-                      @click.stop="handleContinueStage(stage)"
-                    >
-                      <template #icon>
-                        <CaretRightOutlined />
-                      </template>
-                    </a-button>
-                  </a-tooltip>
-                  <a-dropdown :trigger="['click']" @click.stop>
-                    <a-button size="small" shape="circle">
-                      <template #icon>
-                        <MoreOutlined />
-                      </template>
-                    </a-button>
-                    <template #overlay>
-                      <a-menu>
-                        <a-menu-item key="logs" @click="handleViewStageLogs(stage)">
-                          <template #icon><FileTextOutlined /></template>
-                          查看日志
-                        </a-menu-item>
-                        <a-menu-item key="retry" @click="handleRetryStage(stage)">
-                          <template #icon><ReloadOutlined /></template>
-                          重试
-                        </a-menu-item>
-                        <a-menu-item key="skip" @click="handleSkipStage(stage)">
-                          <template #icon><FastForwardOutlined /></template>
-                          跳过
-                        </a-menu-item>
-                        <a-menu-item key="cancel" @click="handleCancelStage(stage)">
-                          <template #icon><StopOutlined /></template>
-                          取消
-                        </a-menu-item>
-                      </a-menu>
-                    </template>
-                  </a-dropdown>
-                </div>
-
-                <!-- 进度条（运行中状态） -->
-                <div v-if="stage.status === 'running'" class="node-progress">
-                  <a-progress 
-                    :percent="getStageProgress(stage)" 
-                    size="small" 
-                    :show-info="false"
-                  />
-                </div>
-
-                <!-- 错误信息（失败状态） -->
-                <div v-if="stage.status === 'failed'" class="node-error">
-                  <a-alert 
-                    :message="getStageErrorMessage(stage)" 
-                    type="error" 
-                    size="small"
-                    show-icon
-                  />
+                <div class="status-icon">
+                  <CheckCircleOutlined v-if="stage.status === 'success'" />
+                  <CloseCircleOutlined v-else-if="stage.status === 'failed'" />
+                  <LoadingOutlined v-else-if="stage.status === 'running'" spin />
+                  <ClockCircleOutlined v-else />
                 </div>
               </div>
-            </div>
+              
+              <div class="node-content">
+                <div class="node-title">{{ stage.displayName || stage.name }}</div>
+                <div class="node-status">{{ getBuildStatusText(stage.status) }}</div>
+                <div v-if="stage.duration" class="node-duration">
+                  {{ formatDuration(stage.duration) }}
+                </div>
+              </div>
 
-            <!-- 连接线（非最后一个节点） -->
-            <div 
-              v-if="index < currentStages.length - 1" 
-              class="flow-connector"
-              :class="getConnectorClass(stage, currentStages[index + 1])"
-            ></div>
+              <!-- 进度条 -->
+              <div v-if="stage.status === 'running'" class="node-progress">
+                <a-progress 
+                  :percent="getStageProgress(stage)" 
+                  size="small" 
+                  :show-info="false"
+                />
+              </div>
+
+              <!-- 操作按钮 -->
+              <div v-if="isStageClickable(stage)" class="node-actions">
+                <a-button 
+                  type="primary" 
+                  size="small"
+                  @click.stop="handleContinueStage(stage)"
+                >
+                  继续
+                </a-button>
+                <a-dropdown :trigger="['click']" @click.stop>
+                  <a-button size="small">
+                    <MoreOutlined />
+                  </a-button>
+                  <template #overlay>
+                    <a-menu>
+                      <a-menu-item @click="handleViewStageLogs(stage)">
+                        <FileTextOutlined />
+                        查看日志
+                      </a-menu-item>
+                      <a-menu-item @click="handleRetryStage(stage)">
+                        <ReloadOutlined />
+                        重试
+                      </a-menu-item>
+                      <a-menu-item @click="handleSkipStage(stage)">
+                        <FastForwardOutlined />
+                        跳过
+                      </a-menu-item>
+                      <a-menu-item @click="handleCancelStage(stage)">
+                        <StopOutlined />
+                        取消
+                      </a-menu-item>
+                    </a-menu>
+                  </template>
+                </a-dropdown>
+              </div>
+
+              <!-- 错误信息 -->
+              <div v-if="stage.status === 'failed'" class="node-error">
+                <a-alert 
+                  :message="getStageErrorMessage(stage)" 
+                  type="error" 
+                  size="small"
+                  show-icon
+                />
+              </div>
+            </div>
           </template>
 
-          <!-- 连接线 -->
-          <div class="flow-connector"></div>
+          <!-- 最后的连接线 -->
+          <div class="flow-arrow">
+            <ArrowRightOutlined />
+          </div>
 
           <!-- 结束节点 -->
-          <div class="bmp-node end-node" :class="getEndNodeClass()">
-            <div class="node-content">
-              <div class="node-icon">
-                <CheckCircleOutlined v-if="isAllStagesCompleted()" />
-                <CloseCircleOutlined v-else-if="hasFailedStage()" />
-                <FlagOutlined v-else />
-              </div>
-              <div class="node-label">
-                {{ getEndNodeLabel() }}
-              </div>
+          <div class="flow-node end-node" :class="getEndNodeClass()">
+            <div class="node-icon">
+              <CheckCircleOutlined v-if="isAllStagesCompleted()" />
+              <CloseCircleOutlined v-else-if="hasFailedStage()" />
+              <FlagOutlined v-else />
             </div>
+            <div class="node-label">{{ getEndNodeLabel() }}</div>
           </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else class="empty-state">
+          <a-empty description="暂无流水线配置">
+            <a-button type="primary" @click="handleRefresh">
+              刷新配置
+            </a-button>
+          </a-empty>
         </div>
 
         <!-- 构建总结 -->
         <div v-if="currentBuild" class="build-summary">
-          <div class="summary-content">
-            <div class="summary-info">
-              <div class="info-item">
-                <span class="label">构建状态</span>
-                <a-tag :color="getBuildStatusColor(currentBuild.status)">
-                  {{ getBuildStatusText(currentBuild.status) }}
-                </a-tag>
-              </div>
-              <div class="info-item">
-                <span class="label">触发方式</span>
-                <span class="value">{{ currentBuild.trigger || '手动触发' }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">总耗时</span>
-                <span class="value">{{ formatDuration(currentBuild.duration) }}</span>
-              </div>
-            </div>
-          </div>
+          <a-descriptions title="构建信息" :column="3" size="small">
+            <a-descriptions-item label="构建状态">
+              <a-tag :color="getBuildStatusColor(currentBuild.status)">
+                {{ getBuildStatusText(currentBuild.status) }}
+              </a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="触发方式">
+              {{ currentBuild.trigger || '手动触发' }}
+            </a-descriptions-item>
+            <a-descriptions-item label="总耗时">
+              {{ formatDuration(currentBuild.duration) }}
+            </a-descriptions-item>
+          </a-descriptions>
         </div>
-      </div>
-
-      <!-- 当前构建信息 -->
-      <div v-if="currentBuild" class="current-build">
-        <a-alert
-          :message="`构建 #${currentBuild.buildNumber} - ${currentBuild.status === 'running' ? '正在运行' : '已完成'}`"
-          :type="getBuildAlertType(currentBuild.status)"
-          :description="`分支: ${currentBuild.branch} | 触发人: ${currentBuild.triggeredBy} | 开始时间: ${currentBuild.startTime}`"
-          show-icon
-        />
       </div>
     </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, withDefaults } from 'vue';
 import {
   PlayCircleOutlined,
   ReloadOutlined,
-  ApartmentOutlined,
+  BranchesOutlined,
   ClockCircleOutlined,
   UserOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   LoadingOutlined,
-  CaretRightOutlined,
+  ArrowRightOutlined,
   MoreOutlined,
   FlagOutlined,
   FileTextOutlined,
@@ -256,15 +235,21 @@ import {
 } from '@ant-design/icons-vue';
 import type { PipelineStage, PipelineBuild, PipelineConfig } from '../types/pipeline';
 
-// Props定义
+/**
+ * 组件属性定义
+ */
 interface Props {
   pipelineConfig: PipelineConfig;
   currentBuild: PipelineBuild | null;
-  selectedEnvironment: 'test' | 'production';
+  currentPipeline?: any;
   triggering: boolean;
+  configLoading?: boolean;
+  selectedEnvironment?: 'test' | 'production';
 }
 
-// Emits定义
+/**
+ * 组件事件定义
+ */
 interface Emits {
   (e: 'environmentChange', value: 'test' | 'production'): void;
   (e: 'triggerPipeline'): void;
@@ -277,16 +262,22 @@ interface Emits {
   (e: 'cancelStage', stage: PipelineStage): void;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  selectedEnvironment: 'test',
+  configLoading: false
+});
+
 const emit = defineEmits<Emits>();
 
-// 计算属性
+/**
+ * 计算当前环境的阶段列表
+ */
 const currentStages = computed(() => {
+  if (!props.pipelineConfig?.environments) return [];
   const env = props.pipelineConfig.environments.find(e => e.name === props.selectedEnvironment);
   return env?.stages || [];
 });
 
-// 事件处理方法
 /**
  * 处理环境变更
  */
@@ -350,7 +341,6 @@ const handleCancelStage = (stage: PipelineStage) => {
   emit('cancelStage', stage);
 };
 
-// 工具方法
 /**
  * 判断阶段是否可点击（手动卡点）
  */
@@ -380,7 +370,8 @@ const getBuildStatusColor = (status: string) => {
     'running': 'processing',
     'success': 'success',
     'failed': 'error',
-    'cancelled': 'warning'
+    'cancelled': 'warning',
+    'waiting': 'orange'
   };
   return colorMap[status] || 'default';
 };
@@ -401,26 +392,11 @@ const getBuildStatusText = (status: string) => {
 };
 
 /**
- * 获取连接线样式类
- */
-const getConnectorClass = (currentStage: PipelineStage, nextStage: PipelineStage) => {
-  if (currentStage.status === 'success') {
-    return 'connector-success';
-  } else if (currentStage.status === 'failed') {
-    return 'connector-failed';
-  } else if (currentStage.status === 'running') {
-    return 'connector-running';
-  }
-  return 'connector-pending';
-};
-
-/**
  * 获取阶段进度
  */
 const getStageProgress = (stage: PipelineStage) => {
-  // 模拟进度，实际应该从后端获取
   if (stage.status === 'running') {
-    return Math.floor(Math.random() * 80) + 10; // 10-90之间的随机数
+    return Math.floor(Math.random() * 80) + 10;
   }
   return 0;
 };
@@ -429,7 +405,6 @@ const getStageProgress = (stage: PipelineStage) => {
  * 获取阶段错误信息
  */
 const getStageErrorMessage = (stage: PipelineStage) => {
-  // 模拟错误信息，实际应该从后端获取
   const errorMessages = {
     'git': 'Git拉取失败：无法连接到远程仓库',
     'build': '构建失败：编译错误',
@@ -478,19 +453,6 @@ const hasFailedStage = () => {
 };
 
 /**
- * 获取构建警告类型
- */
-const getBuildAlertType = (status: string) => {
-  const typeMap = {
-    running: 'info',
-    success: 'success',
-    failed: 'error',
-    cancelled: 'warning'
-  };
-  return typeMap[status] || 'info';
-};
-
-/**
  * 格式化时长
  */
 const formatDuration = (seconds?: number) => {
@@ -508,8 +470,7 @@ const formatDuration = (seconds?: number) => {
 
 <style lang="less" scoped>
 .pipeline-flow-chart {
-  // BMP流程图样式
-  .bmp-flow-container {
+  .pipeline-flow {
     .pipeline-header {
       background: #f8f9fa;
       border: 1px solid #e9ecef;
@@ -517,13 +478,14 @@ const formatDuration = (seconds?: number) => {
       padding: 16px;
       margin-bottom: 24px;
       
-      .pipeline-title {
+      .pipeline-info {
         display: flex;
         align-items: center;
         gap: 12px;
         margin-bottom: 12px;
         
         .pipeline-name {
+          margin: 0;
           font-size: 18px;
           font-weight: 600;
           color: #2c3e50;
@@ -544,175 +506,132 @@ const formatDuration = (seconds?: number) => {
       }
     }
     
-    .bmp-flow-container {
+    .flow-container {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 0;
-      padding: 40px 20px;
+      justify-content: flex-start;
+      gap: 16px;
+      padding: 24px;
       overflow-x: auto;
       min-height: 200px;
+      background: #fafafa;
+      border-radius: 8px;
       
-      .bmp-node {
+      .flow-node {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        min-width: 80px;
-        min-height: 80px;
-        border-radius: 50%;
+        min-width: 120px;
+        padding: 16px;
         background: white;
-        border: 3px solid #e9ecef;
-        position: relative;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
         transition: all 0.3s ease;
         
-        &.start-node {
-          border-color: #52c41a;
-          background: #f6ffed;
+        &.start-node, &.end-node {
+          min-width: 80px;
           
           .node-icon {
+            font-size: 24px;
             color: #52c41a;
-            font-size: 24px;
+            margin-bottom: 8px;
           }
-        }
-        
-        &.end-node {
-          &.success {
-            border-color: #52c41a;
-            background: #f6ffed;
-            
-            .node-icon {
-              color: #52c41a;
-            }
-          }
-          
-          &.failed {
-            border-color: #ff4d4f;
-            background: #fff2f0;
-            
-            .node-icon {
-              color: #ff4d4f;
-            }
-          }
-          
-          &.pending {
-            border-color: #d9d9d9;
-            background: #fafafa;
-            
-            .node-icon {
-              color: #8c8c8c;
-            }
-          }
-          
-          .node-icon {
-            font-size: 24px;
-          }
-        }
-        
-        .node-content {
-          text-align: center;
           
           .node-label {
             font-size: 12px;
             font-weight: 500;
-            margin-top: 4px;
             color: #666;
           }
         }
-      }
-      
-      .bmp-stage-node {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        min-width: 160px;
-        background: white;
-        border: 2px solid #e9ecef;
-        border-radius: 12px;
-        padding: 16px;
-        position: relative;
-        transition: all 0.3s ease;
-        cursor: default;
         
-        &.stage-pending {
-          border-color: #d9d9d9;
-          background: #fafafa;
-        }
-        
-        &.stage-running {
-          border-color: #1890ff;
-          background: #f0f8ff;
-          animation: pulse 2s infinite;
-        }
-        
-        &.stage-success {
-          border-color: #52c41a;
-          background: #f6ffed;
-        }
-        
-        &.stage-failed {
-          border-color: #ff4d4f;
-          background: #fff2f0;
-        }
-        
-        &.stage-waiting {
-          border-color: #faad14;
-          background: #fffbe6;
-          cursor: pointer;
+        &.end-node {
+          &.success .node-icon {
+            color: #52c41a;
+          }
           
-          &:hover {
-            border-color: #fa8c16;
-            box-shadow: 0 4px 12px rgba(250, 173, 20, 0.3);
+          &.failed .node-icon {
+            color: #ff4d4f;
+          }
+          
+          &.pending .node-icon {
+            color: #8c8c8c;
           }
         }
         
-        &.stage-clickable {
-          cursor: pointer;
+        &.stage-node {
+          position: relative;
           
-          &:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          &.status-pending {
+            border-color: #d9d9d9;
+            background: #fafafa;
           }
-        }
-        
-        .node-content {
-          width: 100%;
-          text-align: center;
+          
+          &.status-running {
+            border-color: #1890ff;
+            background: #f0f8ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+          }
+          
+          &.status-success {
+            border-color: #52c41a;
+            background: #f6ffed;
+          }
+          
+          &.status-failed {
+            border-color: #ff4d4f;
+            background: #fff2f0;
+          }
+          
+          &.status-waiting {
+            border-color: #faad14;
+            background: #fffbe6;
+          }
+          
+          &.clickable {
+            cursor: pointer;
+            
+            &:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            }
+          }
           
           .node-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            width: 100%;
             margin-bottom: 8px;
             
             .node-icon {
-              font-size: 20px;
+              font-size: 18px;
               color: #666;
             }
             
-            .status-indicator {
+            .status-icon {
               font-size: 16px;
               
-              &.running {
+              &:has(.anticon-loading) {
                 color: #1890ff;
-                animation: spin 1s linear infinite;
               }
               
-              &.success {
+              &:has(.anticon-check-circle) {
                 color: #52c41a;
               }
               
-              &.failed {
+              &:has(.anticon-close-circle) {
                 color: #ff4d4f;
               }
               
-              &.pending, &.waiting {
+              &:has(.anticon-clock-circle) {
                 color: #8c8c8c;
               }
             }
           }
           
-          .node-info {
-            margin-bottom: 12px;
+          .node-content {
+            text-align: center;
+            margin-bottom: 8px;
             
             .node-title {
               font-weight: 600;
@@ -733,15 +652,14 @@ const formatDuration = (seconds?: number) => {
             }
           }
           
+          .node-progress {
+            width: 100%;
+            margin-bottom: 8px;
+          }
+          
           .node-actions {
             display: flex;
             gap: 8px;
-            justify-content: center;
-            margin-bottom: 12px;
-          }
-          
-          .node-progress {
-            width: 100%;
             margin-bottom: 8px;
           }
           
@@ -751,111 +669,45 @@ const formatDuration = (seconds?: number) => {
         }
       }
       
-      .flow-connector {
-        width: 60px;
-        height: 2px;
-        background: #d9d9d9;
-        position: relative;
-        margin: 0 -1px;
-        
-        &::after {
-          content: '';
-          position: absolute;
-          right: -6px;
-          top: -4px;
-          width: 0;
-          height: 0;
-          border-left: 6px solid #d9d9d9;
-          border-top: 5px solid transparent;
-          border-bottom: 5px solid transparent;
-        }
-        
-        &.connector-success {
-          background: #52c41a;
-          
-          &::after {
-            border-left-color: #52c41a;
-          }
-        }
-        
-        &.connector-running {
-          background: #1890ff;
-          animation: flow 2s linear infinite;
-          
-          &::after {
-            border-left-color: #1890ff;
-          }
-        }
-        
-        &.connector-failed {
-          background: #ff4d4f;
-          
-          &::after {
-            border-left-color: #ff4d4f;
-          }
-        }
+      .flow-arrow {
+        display: flex;
+        align-items: center;
+        color: #8c8c8c;
+        font-size: 16px;
+        min-width: 20px;
       }
     }
     
+    .empty-state {
+      padding: 40px;
+      text-align: center;
+    }
+    
     .build-summary {
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 8px;
-      padding: 16px;
       margin-top: 24px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .pipeline-flow-chart {
+    .flow-container {
+      flex-direction: column;
+      align-items: stretch;
       
-      .summary-content {
-        .summary-info {
-          display: flex;
-          gap: 24px;
-          
-          .info-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            
-            .label {
-              font-weight: 500;
-              color: #666;
-            }
-            
-            .value {
-              color: #2c3e50;
-            }
-          }
-        }
+      .flow-arrow {
+        transform: rotate(90deg);
+        margin: 8px 0;
       }
-    }
-  }
-  
-  .current-build {
-    margin-top: 16px;
-  }
-  
-  @keyframes pulse {
-    0%, 100% {
-      box-shadow: 0 0 0 0 rgba(24, 144, 255, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 0 8px rgba(24, 144, 255, 0);
-    }
-  }
-  
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  
-  @keyframes flow {
-    0% {
-      background-position: 0 0;
-    }
-    100% {
-      background-position: 20px 0;
+      
+      .flow-node {
+        min-width: auto;
+        width: 100%;
+      }
     }
   }
 }
