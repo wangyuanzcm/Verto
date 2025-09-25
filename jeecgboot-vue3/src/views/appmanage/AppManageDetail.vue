@@ -71,6 +71,7 @@
               :is="tab.component"
               :app-detail="appDetail"
               :app-id="appDetail.id"
+              @switchToConfig="handleSwitchToConfig"
             />
           </a-tab-pane>
         </a-tabs>
@@ -264,6 +265,18 @@
         activeTabKey.value = key;
       };
 
+      /**
+       * 处理配置切换事件
+       * @param configType 配置类型
+       */
+      const handleSwitchToConfig = (configType: string) => {
+        // 根据配置类型切换到对应的Tab
+        if (configType === 'pipeline') {
+          activeTabKey.value = 'pipelineConfig';
+        }
+        // 可以根据需要添加其他配置类型的处理
+      };
+
       // 组件挂载时加载数据
       onMounted(() => {
         loadAppDetail();
@@ -286,6 +299,7 @@
         copyGitUrl,
         formatDate,
         handleSuccess,
+        handleSwitchToConfig,
       };
     },
   });

@@ -6,6 +6,7 @@
 import TrackingManage from './TrackingManage.vue';
 import CodeReviewManage from './CodeReview.vue';
 import PipelineManage from './PipelineManage.vue';
+import AppPipelineConfig from './AppPipelineConfig.vue';
 import TemplateInit from './TemplateInit.vue';
 import AdvancedSettings from './AdvancedSettings.vue';
 import PageManage from './PageManage.vue';
@@ -57,10 +58,10 @@ export const appDetailTabs: TabItem[] = [
     icon: 'ant-design:audit-outlined',
   },
   {
-    key: 'pipeline',
-    name: '流水线管理',
-    component: PipelineManage,
-    icon: 'ant-design:deployment-unit-outlined',
+    key: 'pipelineConfig',
+    name: '流水线配置',
+    component: AppPipelineConfig,
+    icon: 'ant-design:setting-outlined',
   },
   {
     key: 'pageManage',

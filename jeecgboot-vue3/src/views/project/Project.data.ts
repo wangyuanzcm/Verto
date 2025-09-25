@@ -141,6 +141,52 @@ export interface PipelineLog {
 }
 
 /**
+ * 流水线构建记录接口
+ */
+export interface PipelineBuild {
+  id: string; // 构建ID
+  buildNumber: number; // 构建编号
+  status: 'pending' | 'running' | 'success' | 'failed' | 'cancelled'; // 构建状态
+  startTime: string; // 开始时间
+  endTime?: string; // 结束时间
+  duration?: number; // 持续时间（分钟）
+  triggerType: 'manual' | 'auto' | 'schedule' | 'webhook'; // 触发类型
+  triggeredBy: string; // 触发人
+  branch: string; // 分支名称
+  commitId: string; // 提交ID
+  commitMessage: string; // 提交信息
+  environment: string; // 环境名称
+  stages: PipelineBuildStage[]; // 构建阶段
+}
+
+/**
+ * 流水线构建阶段接口
+ */
+export interface PipelineBuildStage {
+  name: string; // 阶段名称
+  status: 'pending' | 'running' | 'success' | 'failed' | 'cancelled' | 'skipped'; // 阶段状态
+  duration?: number; // 持续时间（分钟）
+  startTime?: string; // 开始时间
+  endTime?: string; // 结束时间
+  logs?: string[]; // 阶段日志
+}
+
+
+
+/**
+ * 流水线环境接口
+ */
+export interface PipelineEnvironment {
+  name: string; // 环境名称
+  displayName: string; // 显示名称
+  enabled: boolean; // 是否启用
+  autoTrigger: boolean; // 是否自动触发
+  stages: PipelineStage[]; // 环境阶段配置
+  variables?: Record<string, string>; // 环境变量
+  secrets?: Record<string, string>; // 环境密钥
+}
+
+/**
  * 项目列表表格列配置
  */
 export const columns: BasicColumn[] = [

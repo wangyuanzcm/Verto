@@ -1,5 +1,27 @@
 <template>
   <div class="project-detail">
+    <!-- 页面头部 -->
+    <div class="detail-header">
+      <a-button type="link" @click="goBack" class="back-btn">
+        <Icon icon="ant-design:arrow-left-outlined" size="16" />
+        返回列表
+      </a-button>
+      <div class="header-actions">
+        <a-button type="primary" @click="handleEdit">
+          <Icon icon="ant-design:edit-outlined" size="16" />
+          编辑项目
+        </a-button>
+        <a-button @click="handleCreateGitBranch" :loading="gitBranchLoading">
+          <Icon icon="ant-design:branch-outlined" size="16" />
+          创建Git分支
+        </a-button>
+        <a-button @click="handleTriggerPipeline" :loading="pipelineLoading">
+          <Icon icon="ant-design:play-circle-outlined" size="16" />
+          触发流水线
+        </a-button>
+      </div>
+    </div>
+
     <PageWrapper dense contentFullHeight fixedHeight contentClass="flex">
       <template #headerContent>
         <div class="project-header">
@@ -16,20 +38,6 @@
                 {{ projectData?.requirementId || projectData?.bugId || '' }}
               </span>
             </div>
-          </div>
-          <div class="project-actions">
-            <a-button type="primary" @click="handleEdit">
-              <Icon icon="ant-design:edit-outlined" />
-              编辑项目
-            </a-button>
-            <a-button @click="handleCreateGitBranch" :loading="gitBranchLoading">
-              <Icon icon="ant-design:branch-outlined" />
-              创建Git分支
-            </a-button>
-            <a-button @click="handleTriggerPipeline" :loading="pipelineLoading">
-              <Icon icon="ant-design:play-circle-outlined" />
-              触发流水线
-            </a-button>
           </div>
         </div>
       </template>
@@ -149,7 +157,7 @@
 
 <script lang="ts" setup>
   import { ref, reactive, onMounted, computed } from 'vue';
-  import { useRoute } from 'vue-router';
+  import { useRoute, useRouter } from 'vue-router';
   import { PageWrapper } from '/@/components/Page';
   import { BasicModal, useModal } from '/@/components/Modal';
   import { Icon } from '/@/components/Icon';
@@ -168,6 +176,7 @@
   import { formatToDateTime } from '/@/utils/dateUtil';
 
   const route = useRoute();
+  const router = useRouter();
   const { createMessage } = useMessage();
   
   // 项目ID
@@ -211,6 +220,13 @@
     } finally {
       loading.value = false;
     }
+  }
+
+  /**
+   * 返回列表
+   */
+  function goBack() {
+    router.push('/project/list');
   }
 
   /**
@@ -344,6 +360,38 @@
 
 <style lang="less" scoped>
   .project-detail {
+    padding: 24px;
+    background-color: #f0f2f5;
+    min-height: calc(100vh - 64px);
+
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding: 16px 24px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+      .back-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0;
+        font-size: 16px;
+        color: #1890ff;
+
+        &:hover {
+          color: #40a9ff;
+        }
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 12px;
+      }
+    }
     .project-header {
       display: flex;
       justify-content: space-between;

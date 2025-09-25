@@ -268,6 +268,10 @@ const props = defineProps<{
   appId: string;
 }>();
 
+const emit = defineEmits<{
+  switchToConfig: [configType: string];
+}>();
+
 // 配置概览数据
 const configOverview = ref([
   {
@@ -395,7 +399,8 @@ const handleConfigClick = (configKey: string) => {
  * 处理流水线配置
  */
 const handlePipelineConfig = () => {
-  message.info('编辑流水线配置');
+  // 触发事件，通知父组件切换到流水线配置页面
+  emit('switchToConfig', 'pipeline');
 };
 
 /**
