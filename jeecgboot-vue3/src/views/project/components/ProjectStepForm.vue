@@ -32,16 +32,20 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, watch, computed } from 'vue';
+import { ref, reactive, watch, computed, onMounted, onUnmounted } from 'vue';
 import { message } from 'ant-design-vue';
 import Step1 from './step/Step1.vue';
 import Step2 from './step/Step2.vue';
 import Step3 from './step/Step3.vue';
 import { ProjectFormData } from '../Project.data';
 import { saveProject, updateProject } from '../Project.api';
+import { useProjectFormStore } from '/@/store/modules/projectForm';
 
 // 本地存储键名
 const STORAGE_KEY = 'project_step_form_data';
+
+// 使用项目表单store
+const projectFormStore = useProjectFormStore();
 
 interface Props {
   visible?: boolean;
@@ -63,29 +67,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>();
 
-// 当前步骤
-const current = ref(0);
-
-// 表单数据
-const formData = reactive<ProjectFormData>({
-  id: '',
-  type: 'requirement',
-  requirementId: '',
-  bugId: '',
-  title: '',
-  description: '',
-  appId: '',
-  developerId: '',
-  status: 'planning',
-  priority: 'medium',
-  gitBranch: '',
-  designLinks: [],
-  startTime: '',
-  testTime: '',
-  onlineTime: '',
-  releaseTime: '',
-  remark: '',
-});
+// 使用store中的状态
+const current = computed(() => projectFormStore.getCurrentStep);
+const formData = computed(() => projectFormStore.getFormData);
 
 /**
  * 监听编辑数据变化，初始化表单数据
@@ -94,36 +78,15 @@ watch(
   () => props.editData,
   (newRecord) => {
     if (newRecord) {
-      Object.assign(formData, {
-        ...newRecord,
-        designLinks: newRecord.designLinks || [],
-      });
+      // 初始化store数据
+      projectFormStore.initFormData(newRecord);
     } else {
-      // 重置表单数据
-      Object.assign(formData, {
-        id: '',
-        type: 'requirement',
-        requirementId: '',
-        bugId: '',
-        title: '',
-        description: '',
-        appId: '',
-        developerId: '',
-        status: 'planning',
-        priority: 'medium',
-        gitBranch: '',
-        designLinks: [],
-        startTime: '',
-        testTime: '',
-        onlineTime: '',
-        releaseTime: '',
-        remark: '',
-      });
+      // 重置store数据
+      projectFormStore.resetFormData();
     }
   },
   { immediate: true }
 );
-
 /**
  * 监听弹框显示状态，重置步骤
  */
@@ -131,8 +94,8 @@ watch(
   () => props.visible,
   (visible) => {
     if (visible) {
-      current.value = 0;
-      // 只在模态框模式下尝试加载本地存储的数据
+      projectFormStore.setCurrentStep(0);
+      // 在新建模式下尝试加载本地存储的数据
       if (shouldUseLocalStorage.value) {
         loadFromLocalStorage();
       }
@@ -140,8 +103,8 @@ watch(
   }
 );
 
-// 只在模态框模式下使用本地存储
-const shouldUseLocalStorage = computed(() => props.isModal && !props.editData?.id);
+// 在非编辑模式下使用本地存储（新建项目时）
+const shouldUseLocalStorage = computed(() => !projectFormStore.getIsEdit);
 
 /**
  * 保存表单数据到本地存储
@@ -151,9 +114,9 @@ const saveToLocalStorage = () => {
   
   try {
     const dataToSave = {
-      ...formData,
+      ...projectFormStore.getFormData,
       timestamp: Date.now(),
-      step: current.value
+      step: projectFormStore.getCurrentStep
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
   } catch (error) {
@@ -175,13 +138,24 @@ const loadFromLocalStorage = () => {
       const isRecent = parsedData.timestamp && (Date.now() - parsedData.timestamp) < 24 * 60 * 60 * 1000;
       
       if (isRecent) {
-        Object.assign(formData, parsedData);
-        current.value = parsedData.step || 0;
+        // 使用store更新数据
+        const formDataToUpdate: Partial<ProjectFormData> = {};
+        Object.keys(parsedData).forEach(key => {
+          if (key !== 'timestamp' && key !== 'step' && parsedData[key] !== '' && parsedData[key] != null) {
+            formDataToUpdate[key] = parsedData[key];
+          }
+        });
+        projectFormStore.updateFormData(formDataToUpdate);
+        projectFormStore.setCurrentStep(parsedData.step || 0);
         message.info('已恢复之前未完成的表单数据');
+      } else {
+        // 清除过期数据
+        clearLocalStorage();
       }
     }
   } catch (error) {
     console.warn('从本地存储加载表单数据失败:', error);
+    clearLocalStorage();
   }
 };
 
@@ -199,10 +173,23 @@ const clearLocalStorage = () => {
 };
 
 /**
+ * 监听页面初始化，加载本地存储数据
+ */
+watch(
+  () => shouldUseLocalStorage.value,
+  (shouldUse) => {
+    if (shouldUse) {
+      loadFromLocalStorage();
+    }
+  },
+  { immediate: true }
+);
+
+/**
  * 更新表单数据
  */
 const updateFormData = (data: Partial<ProjectFormData>) => {
-  Object.assign(formData, data);
+  projectFormStore.updateFormData(data);
   // 自动保存到本地存储
   saveToLocalStorage();
 };
@@ -211,22 +198,18 @@ const updateFormData = (data: Partial<ProjectFormData>) => {
  * 下一步
  */
 const nextStep = () => {
-  if (current.value < 2) {
-    current.value++;
-    // 保存当前步骤到本地存储
-    saveToLocalStorage();
-  }
+  projectFormStore.nextStep();
+  // 保存当前步骤到本地存储
+  saveToLocalStorage();
 };
 
 /**
  * 上一步
  */
 const prevStep = () => {
-  if (current.value > 0) {
-    current.value--;
-    // 保存当前步骤到本地存储
-    saveToLocalStorage();
-  }
+  projectFormStore.prevStep();
+  // 保存当前步骤到本地存储
+  saveToLocalStorage();
 };
 
 /**
@@ -234,9 +217,9 @@ const prevStep = () => {
  */
 const handleSubmit = async () => {
   try {
-    const submitData = { ...formData };
+    const submitData = { ...projectFormStore.getFormData };
     
-    if (props.isEdit) {
+    if (projectFormStore.getIsEdit) {
       await updateProject(submitData);
       message.success('项目更新成功！');
     } else {
@@ -246,6 +229,8 @@ const handleSubmit = async () => {
       clearLocalStorage();
     }
     
+    // 清除store数据
+    projectFormStore.clearAll();
     emit('success');
   } catch (error) {
     console.error('提交失败:', error);
@@ -257,8 +242,9 @@ const handleSubmit = async () => {
  * 取消操作
  */
 const handleCancel = () => {
-  current.value = 0;
-  // 询问是否保存草稿
+  projectFormStore.setCurrentStep(0);
+  // 询问是否保存草稿（仅在新建模式下）
+  const formData = projectFormStore.getFormData;
   if (shouldUseLocalStorage.value && Object.keys(formData).some(key => formData[key] && key !== 'id')) {
     // 有数据时保存到本地存储作为草稿
     saveToLocalStorage();

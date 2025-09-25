@@ -19,6 +19,7 @@ import { BasicForm, useForm } from '/@/components/Form';
 import { step3Schemas } from '../../Project.data';
 import { ProjectFormData } from '../../Project.data';
 import { message } from 'ant-design-vue';
+import { useProjectFormStore } from '/@/store/modules/projectForm';
 
 interface Props {
   formData: ProjectFormData;
@@ -33,6 +34,9 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
+// 使用项目表单store
+const projectFormStore = useProjectFormStore();
+
 const [registerForm, { validate, setFieldsValue, getFieldsValue }] = useForm({
   labelWidth: 120,
   schemas: step3Schemas,
@@ -43,16 +47,30 @@ const [registerForm, { validate, setFieldsValue, getFieldsValue }] = useForm({
 /**
  * 是否为编辑模式
  */
-const isEdit = computed(() => !!props.formData.id);
+const isEdit = computed(() => projectFormStore.getIsEdit);
 
 /**
- * 监听表单数据变化，同步到表单
+ * 监听store中的表单数据变化，同步到表单
+ */
+watch(
+  () => projectFormStore.getFormData,
+  (formData) => {
+    if (formData) {
+      // 使用toRaw确保传递的是普通对象，避免响应式对象导致的错误
+      const rawData = toRaw(formData);
+      setFieldsValue(rawData);
+    }
+  },
+  { immediate: true, deep: true }
+);
+
+/**
+ * 监听props变化（兼容性保持）
  */
 watch(
   () => props.formData,
   (formData) => {
     if (formData) {
-      // 使用toRaw确保传递的是普通对象，避免响应式对象导致的错误
       const rawData = toRaw(formData);
       setFieldsValue(rawData);
     }

@@ -508,9 +508,10 @@ export const step2Schemas: FormSchema[] = [
     required: true,
     componentProps: {
       api: getAppList, // 调用应用列表API
-      labelField: 'name',
+      labelField: 'appName',
       valueField: 'id',
       placeholder: '请选择关联的应用',
+      resultField: 'records', // 从分页数据中提取 records 字段
     },
     colProps: { span: 12 },
   },
@@ -524,6 +525,7 @@ export const step2Schemas: FormSchema[] = [
       labelField: 'realname',
       valueField: 'id',
       placeholder: '请选择开发人员',
+      resultField: 'records', // 从分页数据中提取 records 字段
     },
     colProps: { span: 12 },
   },

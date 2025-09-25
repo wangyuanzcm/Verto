@@ -29,10 +29,14 @@ enum Api {
   getPipelineHistory = '/project/pipeline/history',
   retryPipelineStage = '/project/pipeline/retry',
   skipPipelineStage = '/project/pipeline/skip',
+  getPipelineConfig = '/project/pipeline/config/get',
+  savePipelineConfig = '/project/pipeline/config/save',
+  togglePipelineConfig = '/project/pipeline/config/toggle',
+  cancelPipeline = '/project/pipeline/cancel',
   
   // 关联数据API
-  getAppList = '/app/list',
-  getUserList = '/user/list',
+  getAppList = '/appmanage/app/list',
+  getUserList = '/sys/staff/list',
 }
 
 /**
@@ -192,6 +196,34 @@ export const retryPipelineStage = (params: { projectId: string; stage: string })
  */
 export const skipPipelineStage = (params: { projectId: string; stage: string }) =>
   defHttp.post<any>({ url: Api.skipPipelineStage, params });
+
+/**
+ * 获取流水线配置
+ * @param params 查询参数
+ */
+export const getPipelineConfig = (params: { projectId: string }) =>
+  defHttp.get<any>({ url: Api.getPipelineConfig, params });
+
+/**
+ * 保存流水线配置
+ * @param params 配置参数
+ */
+export const savePipelineConfig = (params: any) =>
+  defHttp.post<any>({ url: Api.savePipelineConfig, params });
+
+/**
+ * 切换流水线配置状态
+ * @param params 切换参数
+ */
+export const togglePipelineConfig = (params: { projectId: string; enabled: boolean }) =>
+  defHttp.post<any>({ url: Api.togglePipelineConfig, params });
+
+/**
+ * 取消流水线构建
+ * @param params 取消参数
+ */
+export const cancelPipeline = (params: { projectId: string; buildId: string }) =>
+  defHttp.post<any>({ url: Api.cancelPipeline, params });
 
 /**
  * 获取应用列表
