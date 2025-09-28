@@ -24,8 +24,8 @@ echo 检查服务健康状态...
 echo.
 
 REM 检查GitLab
-echo 检查GitLab (http://localhost:8080)...
-curl -s -o nul -w "GitLab HTTP状态: %%{http_code}\n" http://localhost:8080 2>nul
+echo 检查GitLab (http://localhost:8800)...
+curl -s -o nul -w "GitLab HTTP状态: %%{http_code}\n" http://localhost:8800 2>nul
 if %errorlevel% neq 0 (
     echo GitLab: 无法连接
 ) else (
@@ -33,8 +33,8 @@ if %errorlevel% neq 0 (
 )
 
 REM 检查Jenkins
-echo 检查Jenkins (http://localhost:8081)...
-curl -s -o nul -w "Jenkins HTTP状态: %%{http_code}\n" http://localhost:8081 2>nul
+echo 检查Jenkins (http://localhost:8803)...
+curl -s -o nul -w "Jenkins HTTP状态: %%{http_code}\n" http://localhost:8803 2>nul
 if %errorlevel% neq 0 (
     echo Jenkins: 无法连接
 ) else (
