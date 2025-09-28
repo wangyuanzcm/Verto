@@ -17,7 +17,6 @@ import { setupI18n } from '/@/locales/setupI18n';
 import { setupElectron } from "@/electron";
 import { registerGlobComp } from '/@/components/registerGlobComp';
 import { registerThirdComp } from '/@/settings/registerThirdComp';
-import { registerSuper } from '/@/views/super/registerSuper';
 import { useSso } from '/@/hooks/web/useSso';
 import { checkIsQiankunMicro } from "/@/qiankun/micro";
 import { autoUseQiankunMicro } from "/@/qiankun/micro/qiankunMicro";
@@ -73,7 +72,7 @@ async function bootstrap(props?: MainAppProps) {
   await useSso().ssoLogin();
 
   // 注册super应用路由
-  await registerSuper(app);
+  // await registerSuper(app);
   
   // 配置路由
   setupRouter(app);

@@ -78,7 +78,7 @@
       </a-card>
 
       <!-- Git仓库信息 -->
-      <a-card class="git-info-card" v-if="appDetail.gitUrl">
+      <!-- <a-card class="git-info-card" v-if="appDetail.gitUrl">
         <div class="git-info">
           <div class="git-actions">
             <a-button type="primary" @click="openGitRepo">
@@ -95,7 +95,7 @@
             <span>{{ appDetail.gitUrl }}</span>
           </div>
         </div>
-      </a-card>
+      </a-card> -->
     </div>
 
     <!-- 数据不存在 -->

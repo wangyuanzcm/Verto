@@ -58,7 +58,7 @@ enum Api {
   
   // 关联数据API
   getAppList = '/appmanage/app/list',
-  getUserList = '/sys/staff/list',
+  getUserList = '/staff/list',
 }
 
 /**

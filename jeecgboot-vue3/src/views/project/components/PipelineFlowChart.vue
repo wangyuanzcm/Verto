@@ -36,149 +36,129 @@
         </a-space>
       </template>
 
-      <!-- 流水线流程图 -->
+      <!-- 流水线流程 -->
       <div class="pipeline-flow">
         <!-- 流水线信息头部 -->
         <div v-if="pipelineConfig.name" class="pipeline-header">
-          <div class="pipeline-info">
-            <h3 class="pipeline-name">{{ pipelineConfig.name }}</h3>
-            <a-tag v-if="currentBuild" :color="getBuildStatusColor(currentBuild.status)">
-              构建 #{{ currentBuild.buildNumber }}
-            </a-tag>
-          </div>
-          <div class="pipeline-meta">
-            <span class="meta-item">
+          <a-descriptions :column="3" size="small">
+            <a-descriptions-item label="流水线名称">
+              {{ pipelineConfig.name }}
+            </a-descriptions-item>
+            <a-descriptions-item label="当前构建" v-if="currentBuild">
+              <a-tag :color="getBuildStatusColor(currentBuild.status)">
+                #{{ currentBuild.buildNumber }}
+              </a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="分支">
               <BranchesOutlined />
               {{ currentBuild?.branch || 'main' }}
-            </span>
-            <span class="meta-item">
-              <ClockCircleOutlined />
-              {{ currentBuild?.startTime || '未开始' }}
-            </span>
-            <span class="meta-item">
+            </a-descriptions-item>
+            <a-descriptions-item label="触发者">
               <UserOutlined />
               {{ currentBuild?.triggeredBy || 'System' }}
-            </span>
-          </div>
+            </a-descriptions-item>
+            <a-descriptions-item label="开始时间">
+              <ClockCircleOutlined />
+              {{ currentBuild?.startTime || '未开始' }}
+            </a-descriptions-item>
+            <a-descriptions-item label="总耗时" v-if="currentBuild?.duration">
+              {{ formatDuration(currentBuild.duration) }}
+            </a-descriptions-item>
+          </a-descriptions>
         </div>
 
-        <!-- 流程图容器 -->
-        <div v-if="currentStages.length > 0" class="flow-container">
-          <!-- 开始节点 -->
-          <div class="flow-node start-node">
-            <div class="node-icon">
-              <PlayCircleOutlined />
-            </div>
-            <div class="node-label">开始</div>
-          </div>
-
-          <!-- 流水线阶段 -->
-          <template v-for="(stage, index) in currentStages" :key="stage.name">
-            <!-- 连接线 -->
-            <div class="flow-arrow">
-              <ArrowRightOutlined />
-            </div>
-
-            <!-- 阶段节点 -->
-            <div 
-              class="flow-node stage-node"
-              :class="[
-                `status-${stage.status}`,
-                { 'clickable': isStageClickable(stage) }
-              ]"
-              @click="handleStageClick(stage)"
+        <!-- Steps 流程步骤 -->
+        <div v-if="currentStages.length > 0" class="pipeline-steps">
+          <a-steps 
+            :current="getCurrentStepIndex()" 
+            :status="getStepsStatus()"
+            direction="horizontal"
+            size="small"
+          >
+            <a-step 
+              v-for="(stage, index) in currentStages" 
+              :key="stage.name"
+              :title="stage.displayName || stage.name"
+              :status="getStepStatus(stage)"
             >
-              <div class="node-header">
-                <div class="node-icon">
-                  <component :is="getStageIcon(stage.type)" />
+              <template #description>
+                <div class="step-description">
+                  <!-- 状态信息 -->
+                  <div class="step-status">
+                    <a-tag :color="getBuildStatusColor(stage.status)" size="small">
+                      <template #icon>
+                        <component :is="getStatusIcon(stage.status)" :spin="stage.status === 'running'" />
+                      </template>
+                      {{ getBuildStatusText(stage.status) }}
+                    </a-tag>
+                    <span v-if="stage.duration" class="step-duration">
+                      {{ formatDuration(stage.duration) }}
+                    </span>
+                  </div>
+
+                  <!-- 进度条 -->
+                  <div v-if="stage.status === 'running'" class="step-progress">
+                    <a-progress 
+                      :percent="getStageProgress(stage)" 
+                      size="small" 
+                      :show-info="false"
+                    />
+                  </div>
+
+                  <!-- 错误信息 -->
+                  <div v-if="stage.status === 'failed'" class="step-error">
+                    <a-alert 
+                      :message="getStageErrorMessage(stage)" 
+                      type="error" 
+                      size="small"
+                      show-icon
+                    />
+                  </div>
+
+                  <!-- 操作按钮 -->
+                  <div v-if="isStageClickable(stage)" class="step-actions">
+                    <a-space size="small">
+                      <a-button 
+                        type="primary" 
+                        size="small"
+                        @click="handleContinueStage(stage)"
+                      >
+                        继续
+                      </a-button>
+                      <a-dropdown :trigger="['click']">
+                        <a-button size="small">
+                          <MoreOutlined />
+                        </a-button>
+                        <template #overlay>
+                          <a-menu>
+                            <a-menu-item @click="handleViewStageLogs(stage)">
+                              <FileTextOutlined />
+                              查看日志
+                            </a-menu-item>
+                            <a-menu-item @click="handleRetryStage(stage)">
+                              <ReloadOutlined />
+                              重试
+                            </a-menu-item>
+                            <a-menu-item @click="handleSkipStage(stage)">
+                              <FastForwardOutlined />
+                              跳过
+                            </a-menu-item>
+                            <a-menu-item @click="handleCancelStage(stage)">
+                              <StopOutlined />
+                              取消
+                            </a-menu-item>
+                          </a-menu>
+                        </template>
+                      </a-dropdown>
+                    </a-space>
+                  </div>
                 </div>
-                <div class="status-icon">
-                  <CheckCircleOutlined v-if="stage.status === 'success'" />
-                  <CloseCircleOutlined v-else-if="stage.status === 'failed'" />
-                  <LoadingOutlined v-else-if="stage.status === 'running'" spin />
-                  <ClockCircleOutlined v-else />
-                </div>
-              </div>
-              
-              <div class="node-content">
-                <div class="node-title">{{ stage.displayName || stage.name }}</div>
-                <div class="node-status">{{ getBuildStatusText(stage.status) }}</div>
-                <div v-if="stage.duration" class="node-duration">
-                  {{ formatDuration(stage.duration) }}
-                </div>
-              </div>
-
-              <!-- 进度条 -->
-              <div v-if="stage.status === 'running'" class="node-progress">
-                <a-progress 
-                  :percent="getStageProgress(stage)" 
-                  size="small" 
-                  :show-info="false"
-                />
-              </div>
-
-              <!-- 操作按钮 -->
-              <div v-if="isStageClickable(stage)" class="node-actions">
-                <a-button 
-                  type="primary" 
-                  size="small"
-                  @click.stop="handleContinueStage(stage)"
-                >
-                  继续
-                </a-button>
-                <a-dropdown :trigger="['click']" @click.stop>
-                  <a-button size="small">
-                    <MoreOutlined />
-                  </a-button>
-                  <template #overlay>
-                    <a-menu>
-                      <a-menu-item @click="handleViewStageLogs(stage)">
-                        <FileTextOutlined />
-                        查看日志
-                      </a-menu-item>
-                      <a-menu-item @click="handleRetryStage(stage)">
-                        <ReloadOutlined />
-                        重试
-                      </a-menu-item>
-                      <a-menu-item @click="handleSkipStage(stage)">
-                        <FastForwardOutlined />
-                        跳过
-                      </a-menu-item>
-                      <a-menu-item @click="handleCancelStage(stage)">
-                        <StopOutlined />
-                        取消
-                      </a-menu-item>
-                    </a-menu>
-                  </template>
-                </a-dropdown>
-              </div>
-
-              <!-- 错误信息 -->
-              <div v-if="stage.status === 'failed'" class="node-error">
-                <a-alert 
-                  :message="getStageErrorMessage(stage)" 
-                  type="error" 
-                  size="small"
-                  show-icon
-                />
-              </div>
-            </div>
-          </template>
-
-          <!-- 最后的连接线 -->
-          <div class="flow-arrow">
-            <ArrowRightOutlined />
-          </div>
-
-          <!-- 结束节点 -->
-          <div class="flow-node end-node" :class="getEndNodeClass()">
-            <div class="node-icon">
-              <CheckCircleOutlined v-if="isAllStagesCompleted()" />
-              <CloseCircleOutlined v-else-if="hasFailedStage()" />
-              <FlagOutlined v-else />
-            </div>
-            <div class="node-label">{{ getEndNodeLabel() }}</div>
-          </div>
+              </template>
+              <template #icon>
+                <component :is="getStageIcon(stage.type)" />
+              </template>
+            </a-step>
+          </a-steps>
         </div>
 
         <!-- 空状态 -->
@@ -188,23 +168,6 @@
               刷新配置
             </a-button>
           </a-empty>
-        </div>
-
-        <!-- 构建总结 -->
-        <div v-if="currentBuild" class="build-summary">
-          <a-descriptions title="构建信息" :column="3" size="small">
-            <a-descriptions-item label="构建状态">
-              <a-tag :color="getBuildStatusColor(currentBuild.status)">
-                {{ getBuildStatusText(currentBuild.status) }}
-              </a-tag>
-            </a-descriptions-item>
-            <a-descriptions-item label="触发方式">
-              {{ currentBuild.trigger || '手动触发' }}
-            </a-descriptions-item>
-            <a-descriptions-item label="总耗时">
-              {{ formatDuration(currentBuild.duration) }}
-            </a-descriptions-item>
-          </a-descriptions>
         </div>
       </div>
     </a-card>
@@ -339,6 +302,66 @@ const handleSkipStage = (stage: PipelineStage) => {
  */
 const handleCancelStage = (stage: PipelineStage) => {
   emit('cancelStage', stage);
+};
+
+/**
+ * 获取当前步骤索引
+ */
+const getCurrentStepIndex = () => {
+  const runningIndex = currentStages.value.findIndex(stage => stage.status === 'running');
+  if (runningIndex !== -1) return runningIndex;
+  
+  const failedIndex = currentStages.value.findIndex(stage => stage.status === 'failed');
+  if (failedIndex !== -1) return failedIndex;
+  
+  const completedCount = currentStages.value.filter(stage => stage.status === 'success').length;
+  return completedCount;
+};
+
+/**
+ * 获取Steps整体状态
+ */
+const getStepsStatus = () => {
+  if (hasFailedStage()) return 'error';
+  if (currentStages.value.some(stage => stage.status === 'running')) return 'process';
+  if (isAllStagesCompleted()) return 'finish';
+  return 'wait';
+};
+
+/**
+ * 获取单个步骤状态
+ */
+const getStepStatus = (stage: PipelineStage) => {
+  switch (stage.status) {
+    case 'success':
+      return 'finish';
+    case 'failed':
+      return 'error';
+    case 'running':
+      return 'process';
+    case 'waiting':
+      return 'wait';
+    default:
+      return 'wait';
+  }
+};
+
+/**
+ * 获取状态图标
+ */
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case 'success':
+      return CheckCircleOutlined;
+    case 'failed':
+      return CloseCircleOutlined;
+    case 'running':
+      return LoadingOutlined;
+    case 'waiting':
+      return ClockCircleOutlined;
+    default:
+      return ClockCircleOutlined;
+  }
 };
 
 /**
@@ -477,237 +500,108 @@ const formatDuration = (seconds?: number) => {
       border-radius: 8px;
       padding: 16px;
       margin-bottom: 24px;
-      
-      .pipeline-info {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 12px;
-        
-        .pipeline-name {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 600;
-          color: #2c3e50;
-        }
-      }
-      
-      .pipeline-meta {
-        display: flex;
-        gap: 16px;
-        font-size: 14px;
-        color: #6c757d;
-        
-        .meta-item {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-      }
     }
     
-    .flow-container {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 16px;
-      padding: 24px;
-      overflow-x: auto;
-      min-height: 200px;
-      background: #fafafa;
-      border-radius: 8px;
-      
-      .flow-node {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        min-width: 120px;
-        padding: 16px;
-        background: white;
-        border: 2px solid #e9ecef;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        
-        &.start-node, &.end-node {
-          min-width: 80px;
-          
-          .node-icon {
-            font-size: 24px;
-            color: #52c41a;
-            margin-bottom: 8px;
-          }
-          
-          .node-label {
-            font-size: 12px;
-            font-weight: 500;
-            color: #666;
-          }
-        }
-        
-        &.end-node {
-          &.success .node-icon {
-            color: #52c41a;
-          }
-          
-          &.failed .node-icon {
-            color: #ff4d4f;
-          }
-          
-          &.pending .node-icon {
-            color: #8c8c8c;
-          }
-        }
-        
-        &.stage-node {
-          position: relative;
-          
-          &.status-pending {
-            border-color: #d9d9d9;
-            background: #fafafa;
-          }
-          
-          &.status-running {
-            border-color: #1890ff;
-            background: #f0f8ff;
-            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-          }
-          
-          &.status-success {
-            border-color: #52c41a;
-            background: #f6ffed;
-          }
-          
-          &.status-failed {
-            border-color: #ff4d4f;
-            background: #fff2f0;
-          }
-          
-          &.status-waiting {
-            border-color: #faad14;
-            background: #fffbe6;
-          }
-          
-          &.clickable {
-            cursor: pointer;
-            
-            &:hover {
-              transform: translateY(-2px);
-              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            }
-          }
-          
-          .node-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            margin-bottom: 8px;
-            
-            .node-icon {
-              font-size: 18px;
-              color: #666;
-            }
-            
-            .status-icon {
-              font-size: 16px;
-              
-              &:has(.anticon-loading) {
-                color: #1890ff;
-              }
-              
-              &:has(.anticon-check-circle) {
-                color: #52c41a;
-              }
-              
-              &:has(.anticon-close-circle) {
-                color: #ff4d4f;
-              }
-              
-              &:has(.anticon-clock-circle) {
-                color: #8c8c8c;
-              }
-            }
-          }
-          
-          .node-content {
-            text-align: center;
-            margin-bottom: 8px;
-            
-            .node-title {
-              font-weight: 600;
-              font-size: 14px;
-              color: #2c3e50;
-              margin-bottom: 4px;
-            }
-            
-            .node-status {
-              font-size: 12px;
-              color: #666;
-              margin-bottom: 4px;
-            }
-            
-            .node-duration {
-              font-size: 11px;
-              color: #999;
-            }
-          }
-          
-          .node-progress {
-            width: 100%;
-            margin-bottom: 8px;
-          }
-          
-          .node-actions {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 8px;
-          }
-          
-          .node-error {
-            width: 100%;
-          }
-        }
-      }
-      
-      .flow-arrow {
-        display: flex;
-        align-items: center;
-        color: #8c8c8c;
-        font-size: 16px;
-        min-width: 20px;
-      }
-    }
+    .pipeline-steps {
+       padding: 16px;
+       background: #fafafa;
+       border-radius: 8px;
+       overflow-x: auto;
+       
+       .step-description {
+         margin-top: 8px;
+         
+         .step-status {
+           display: flex;
+           align-items: center;
+           justify-content: center;
+           gap: 8px;
+           margin-bottom: 8px;
+           
+           .step-duration {
+             font-size: 12px;
+             color: #666;
+           }
+         }
+         
+         .step-progress {
+           margin-bottom: 8px;
+         }
+         
+         .step-error {
+           margin-bottom: 8px;
+         }
+         
+         .step-actions {
+           margin-top: 8px;
+           display: flex;
+           justify-content: center;
+         }
+       }
+     }
     
     .empty-state {
       padding: 40px;
       text-align: center;
     }
-    
-    .build-summary {
-      margin-top: 24px;
-      padding: 16px;
-      background: #f8f9fa;
-      border-radius: 8px;
-    }
   }
 }
+
+// 自定义Steps样式
+:deep(.ant-steps-item) {
+  .ant-steps-item-icon {
+    margin-right: 12px;
+  }
+  
+  .ant-steps-item-content {
+    min-height: auto;
+  }
+  
+  .ant-steps-item-title {
+    font-weight: 600;
+    font-size: 14px;
+  }
+  
+  .ant-steps-item-description {
+    margin-top: 4px;
+  }
+}
+
+:deep(.ant-steps-horizontal) {
+   .ant-steps-item {
+     flex: 1;
+     
+     .ant-steps-item-icon {
+       margin-right: 8px;
+     }
+     
+     .ant-steps-item-content {
+       min-height: auto;
+       margin-top: 8px;
+     }
+     
+     .ant-steps-item-title {
+       font-weight: 600;
+       font-size: 14px;
+       text-align: center;
+     }
+     
+     .ant-steps-item-description {
+       margin-top: 4px;
+       text-align: center;
+     }
+   }
+   
+   .ant-steps-item-tail {
+     top: 12px;
+   }
+ }
 
 // 响应式设计
 @media (max-width: 768px) {
   .pipeline-flow-chart {
-    .flow-container {
-      flex-direction: column;
-      align-items: stretch;
-      
-      .flow-arrow {
-        transform: rotate(90deg);
-        margin: 8px 0;
-      }
-      
-      .flow-node {
-        min-width: auto;
-        width: 100%;
-      }
+    .pipeline-steps {
+      padding: 12px;
     }
   }
 }

@@ -5,15 +5,15 @@ import { Modal } from 'ant-design-vue';
  * 人员管理API枚举
  */
 enum Api {
-  list = '/sys/staff/list',
-  save = '/sys/staff/add',
-  edit = '/sys/staff/edit',
-  deleteStaff = '/sys/staff/delete',
-  deleteBatch = '/sys/staff/deleteBatch',
-  importExcel = '/sys/staff/importExcel',
-  exportXls = '/sys/staff/exportXls',
+  list = '/staff/list',
+  save = '/staff/add',
+  edit = '/staff/edit',
+  deleteStaff = '/staff/delete',
+  deleteBatch = '/staff/deleteBatch',
+  importExcel = '/staff/importExcel',
+  exportXls = '/staff/exportXls',
   duplicateCheck = '/sys/duplicate/check',
-  getStaffById = '/sys/staff/queryById',
+  getStaffById = '/staff/queryById',
   getSkillDict = '/sys/dict/getDictItems/staff_skills',
 }
 
