@@ -15,6 +15,10 @@ enum Api {
   duplicateCheck = '/sys/duplicate/check',
   getStaffById = '/staff/queryById',
   getSkillDict = '/sys/dict/getDictItems/staff_skills',
+  skillsStats = '/staff/skillsStats',
+  departmentStats = '/staff/departmentStats',
+  checkEmployeeNo = '/staff/checkEmployeeNo',
+  checkEmail = '/staff/checkEmail',
 }
 
 /**
@@ -121,3 +125,27 @@ export const duplicateCheckDelay = (params) => {
  * @param params 查询参数
  */
 export const getSkillDict = (params) => defHttp.get({ url: Api.getSkillDict, params });
+
+/**
+ * 获取技能统计
+ */
+export const getSkillsStats = () => defHttp.get({ url: Api.skillsStats });
+
+/**
+ * 获取部门统计
+ */
+export const getDepartmentStats = () => defHttp.get({ url: Api.departmentStats });
+
+/**
+ * 检查工号是否重复
+ * @param employeeNo 工号
+ * @param id 当前记录ID（编辑时排除自己）
+ */
+export const checkEmployeeNo = (employeeNo, id) => defHttp.get({ url: Api.checkEmployeeNo, params: { employeeNo, id } });
+
+/**
+ * 检查邮箱是否重复
+ * @param email 邮箱
+ * @param id 当前记录ID（编辑时排除自己）
+ */
+export const checkEmail = (email, id) => defHttp.get({ url: Api.checkEmail, params: { email, id } });
