@@ -1,0 +1,88 @@
+spring:
+  # 鏁版嵁婧愰厤缃?
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:13306/verto_api?characterEncoding=UTF-8&useUnicode=true&useSSL=false&tinyInt1isBit=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+    druid:
+      # 杩炴帴姹犻厤缃?
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      max-wait: 60000
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      validation-query: SELECT 1
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      pool-prepared-statements: true
+      max-pool-prepared-statement-per-connection-size: 20
+      # 鐩戞帶閰嶇疆
+      filters: stat,slf4j
+      stat-view-servlet:
+        enabled: true
+        url-pattern: /druid/*
+        login-username: admin
+        login-password: admin123
+        allow: 127.0.0.1
+      web-stat-filter:
+        enabled: true
+        url-pattern: /*
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+  
+  # Redis閰嶇疆
+  redis:
+    host: 127.0.0.1
+    port: 16379
+    password: 
+    database: 0
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-wait: -1ms
+        max-idle: 8
+        min-idle: 0
+
+# MyBatis-Plus閰嶇疆
+mybatis-plus:
+  mapper-locations: classpath*:com/verto/vertomanagement/**/xml/*Mapper.xml
+  global-config:
+    # 鍏抽棴MP3.0鑷甫鐨刡anner
+    banner: false
+    db-config:
+      #涓婚敭绫诲瀷  0:"鏁版嵁搴揑D鑷",1:"璇ョ被鍨嬩负鏈缃富閿被?, 2:"鐢ㄦ埛杈撳叆ID",3:"鍏ㄥ眬鍞竴ID (鏁板瓧绫诲瀷鍞竴ID)", 4:"鍏ㄥ眬鍞竴ID UUID";
+      id-type: ASSIGN_ID
+      #瀛楁绛栫暐 IGNORED:"蹇界暐鍒ゆ柇",NOT_NULL:"?NULL 鍒ゆ柇"),NOT_EMPTY:"闈炵┖鍒ゆ柇"
+      field-strategy: NOT_NULL
+      # 榛樿鏁版嵁搴撹〃涓嬪垝绾垮懡?      table-underline: true
+  configuration:
+    # 杩欎釜閰嶇疆浼氬皢鎵ц鐨剆ql鎵撳嵃鍑烘潵锛屽湪寮€鍙戞垨娴嬭瘯鐨勬椂鍊欏彲浠ョ敤
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 杩斿洖绫诲瀷涓篗ap,鏄剧ずnull瀵瑰簲鐨勫瓧?    call-setters-on-nulls: true
+
+# 鏃ュ織閰嶇疆
+logging:
+  level:
+    root: info
+    com.verto.vertomanagement: debug
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: debug
+  file:
+    name: logs/staff-management.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+
+# 功能开关（为保证基础框架先启动，临时关闭存在依赖问题的控制器）
+feature:
+  user-controller:
+    enabled: false
+
+# 服务器端口（避免与本机其它服务冲突）
+server:
+  port: 8081
+

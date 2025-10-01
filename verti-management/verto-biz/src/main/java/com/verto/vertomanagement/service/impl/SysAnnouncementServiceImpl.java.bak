@@ -1,0 +1,144 @@
+package com.verto.vertomanagement.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.verto.vertomanagement.entity.SysAnnouncement;
+import com.verto.vertomanagement.mapper.SysAnnouncementMapper;
+import com.verto.vertomanagement.service.ISysAnnouncementService;
+import com.verto.vertomanagement.service.ISysAnnouncementSendService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.Date;
+import java.util.List;
+
+/**
+ * 系统通告服务实现类 
+ * @author verto
+ * @since 2024-01-01
+ */
+@Slf4j
+@Service
+public class SysAnnouncementServiceImpl extends ServiceImpl<SysAnnouncementMapper, SysAnnouncement> implements ISysAnnouncementService {
+
+    @Autowired
+    private SysAnnouncementMapper sysAnnouncementMapper;
+
+    @Autowired
+    private ISysAnnouncementSendService sysAnnouncementSendService;
+
+    @Override
+    public Page<SysAnnouncement> querySysCementPageByUserId(Page<SysAnnouncement> page, String userId, 
+                                                           String msgCategory, String noticeType, Date lastMonthStartDay) {
+        try {
+            IPage<SysAnnouncement> result = sysAnnouncementMapper.querySysCementPageByUserId(page, userId, msgCategory, noticeType, lastMonthStartDay);
+            return (Page<SysAnnouncement>) result;
+        } catch (Exception e) {
+            log.error("查询用户通告分页数据失败", e);
+            return page;
+        }
+    }
+
+    @Override
+    public Integer getUnreadMessageCountByUserId(String userId, Date lastMonthStartDay, String noticeType) {
+        try {
+            return sysAnnouncementMapper.getUnreadMessageCountByUserId(userId, lastMonthStartDay, noticeType);
+        } catch (Exception e) {
+            log.error("获取用户未读消息数量失败", e);
+            return 0;
+        }
+    }
+
+    @Override
+    public List<SysAnnouncement> querySysMessageList(Integer pageSize, Integer pageNo, String fromUser,
+                                                    String starFlag, String busType, String msgCategory,
+                                                    Date beginTime, Date endTime, String noticeType) {
+        try {
+            return sysAnnouncementMapper.querySysMessageList(pageSize, pageNo, fromUser, starFlag, 
+                                                           busType, msgCategory, beginTime, endTime, noticeType);
+        } catch (Exception e) {
+            log.error("查询系统消息列表失败", e);
+            return null;
+        }
+    }
+
+    @Override
+    public void updateReaded(List<String> annoceIdList) {
+        try {
+            if (annoceIdList != null && !annoceIdList.isEmpty()) {
+                sysAnnouncementMapper.updateReaded(annoceIdList);
+            }
+        } catch (Exception e) {
+            log.error("批量更新消息已读状态失败", e);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean releaseAnnouncement(SysAnnouncement sysAnnouncement) {
+        try {
+            // 更新发布状态和发布时间
+            sysAnnouncement.setSendStatus("1");
+            sysAnnouncement.setSendTime(new Date());
+            
+            boolean result = this.updateById(sysAnnouncement);
+            
+            if (result) {
+                // 如果是指定用户，创建发送记录                if ("USER".equals(sysAnnouncement.getMsgType()) && StringUtils.hasText(sysAnnouncement.getUserIds())) {
+                    String[] userIds = sysAnnouncement.getUserIds().split(",");
+                    for (String userId : userIds) {
+                        if (StringUtils.hasText(userId)) {
+                            sysAnnouncementSendService.createAnnouncementSend(sysAnnouncement.getId(), userId.trim(), sysAnnouncement);
+                        }
+                    }
+                }
+            }
+            
+            return result;
+        } catch (Exception e) {
+            log.error("发布通告失败", e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean revokeAnnouncement(String id) {
+        try {
+            SysAnnouncement announcement = new SysAnnouncement();
+            announcement.setId(id);
+            announcement.setSendStatus("2");
+            announcement.setCancelTime(new Date());
+            return this.updateById(announcement);
+        } catch (Exception e) {
+            log.error("撤销通告失败", e);
+            return false;
+        }
+    }
+
+    @Override
+    public void addVisitsNumber(String id) {
+        try {
+            sysAnnouncementMapper.addVisitsNumber(id);
+        } catch (Exception e) {
+            log.error("增加访问次数失败", e);
+        }
+    }
+
+    @Override
+    public boolean updateTopStatus(String id, String izTop) {
+        try {
+            SysAnnouncement announcement = new SysAnnouncement();
+            announcement.setId(id);
+            announcement.setIzTop(izTop);
+            return this.updateById(announcement);
+        } catch (Exception e) {
+            log.error("更新置顶状态失败", e);
+            return false;
+        }
+    }
+}

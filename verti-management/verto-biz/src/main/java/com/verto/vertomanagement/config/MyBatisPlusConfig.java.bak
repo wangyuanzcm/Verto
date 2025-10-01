@@ -1,0 +1,74 @@
+package com.verto.vertomanagement.config;
+
+import com.baomidou.mybatisplus.annotation.DbType;
+import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
+import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
+import org.apache.ibatis.reflection.MetaObject;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+
+/**
+ * @Description: MyBatis Plus配置在 * @Author: Verto
+ * @Date: 2024-01-28
+ * @Version: V1.0
+ */
+@Configuration
+public class MyBatisPlusConfig {
+
+    /**
+     * 分页插件配置
+     */
+    @Bean
+    public MybatisPlusInterceptor mybatisPlusInterceptor() {
+        MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+        // 添加分页插件
+        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+        return interceptor;
+    }
+
+    /**
+     * 自动填充处理在     */
+    @Component
+    public static class MyMetaObjectHandler implements MetaObjectHandler {
+
+        /**
+         * 插入时自动填在         */
+        @Override
+        public void insertFill(MetaObject metaObject) {
+            // 自动填充创建时间
+            this.strictInsertFill(metaObject, "createTime", LocalDateTime.class, LocalDateTime.now());
+            // 自动填充更新时间
+            this.strictInsertFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
+            
+            // 如果有当前用户信息，可以自动填充创建人和更新在            // String currentUser = getCurrentUser();
+            // if (currentUser != null) {
+            //     this.strictInsertFill(metaObject, "createBy", String.class, currentUser);
+            //     this.strictInsertFill(metaObject, "updateBy", String.class, currentUser);
+            // }
+        }
+
+        /**
+         * 更新时自动填在         */
+        @Override
+        public void updateFill(MetaObject metaObject) {
+            // 自动填充更新时间
+            this.strictUpdateFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
+            
+            // 如果有当前用户信息，可以自动填充更新在            // String currentUser = getCurrentUser();
+            // if (currentUser != null) {
+            //     this.strictUpdateFill(metaObject, "updateBy", String.class, currentUser);
+            // }
+        }
+
+        /**
+         * 获取当前用户（示例方法，实际项目中需要从SecurityContext或其他地方获取）
+         */
+        private String getCurrentUser() {
+            // TODO: 从JWT或SecurityContext中获取当前用在            return "system";
+        }
+    }
+}

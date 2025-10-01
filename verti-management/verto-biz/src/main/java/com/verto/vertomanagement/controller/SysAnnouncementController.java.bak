@@ -1,0 +1,402 @@
+package com.verto.vertomanagement.controller;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.verto.vertomanagement.common.Result;
+import com.verto.vertomanagement.entity.SysAnnouncement;
+import com.verto.vertomanagement.entity.SysAnnouncementSend;
+import com.verto.vertomanagement.service.ISysAnnouncementSendService;
+import com.verto.vertomanagement.service.ISysAnnouncementService;
+import com.verto.vertomanagement.util.JwtUtil;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * 系统通告在前端控制在 * 
+ * @author verto
+ * @since 2024-01-01
+ */
+@Slf4j
+@RestController
+@RequestMapping("/sys/announcement")
+@Tag(name = "系统通告管理", description = "系统通告相关接口")
+public class SysAnnouncementController {
+
+    @Autowired
+    private ISysAnnouncementService sysAnnouncementService;
+
+    @Autowired
+    private ISysAnnouncementSendService sysAnnouncementSendService;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    /**
+     * 分页查询通告列表
+     */
+    @GetMapping("/list")
+    @Operation(summary = "分页查询通告列表")
+    public Result<IPage<SysAnnouncement>> queryPageList(SysAnnouncement sysAnnouncement,
+                                                        @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
+                                                        @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
+                                                        HttpServletRequest request) {
+        try {
+            Page<SysAnnouncement> page = new Page<>(pageNo, pageSize);
+            LambdaQueryWrapper<SysAnnouncement> queryWrapper = new LambdaQueryWrapper<>();
+            
+            // 构建查询条件
+            if (StringUtils.hasText(sysAnnouncement.getTitile())) {
+                queryWrapper.like(SysAnnouncement::getTitile, sysAnnouncement.getTitile());
+            }
+            if (StringUtils.hasText(sysAnnouncement.getMsgCategory())) {
+                queryWrapper.eq(SysAnnouncement::getMsgCategory, sysAnnouncement.getMsgCategory());
+            }
+            if (StringUtils.hasText(sysAnnouncement.getSendStatus())) {
+                queryWrapper.eq(SysAnnouncement::getSendStatus, sysAnnouncement.getSendStatus());
+            }
+            
+            queryWrapper.eq(SysAnnouncement::getDelFlag, "0");
+            queryWrapper.orderByDesc(SysAnnouncement::getCreateTime);
+            
+            IPage<SysAnnouncement> pageList = sysAnnouncementService.page(page, queryWrapper);
+            return Result.ok(pageList);
+        } catch (Exception e) {
+            log.error("查询通告列表失败", e);
+            return Result.error("查询失败");
+        }
+    }
+
+    /**
+     * 添加通告
+     */
+    @PostMapping("/add")
+    @Operation(summary = "添加通告")
+    public Result<SysAnnouncement> add(@RequestBody SysAnnouncement sysAnnouncement, HttpServletRequest request) {
+        try {
+            String token = request.getHeader("Authorization");
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring(7);
+                String username = jwtUtil.getUsernameFromToken(token);
+                sysAnnouncement.setCreateBy(username);
+                sysAnnouncement.setSender(username);
+            }
+            
+            sysAnnouncement.setCreateTime(new Date());
+            sysAnnouncement.setDelFlag("0");
+            sysAnnouncement.setSendStatus("0"); // 未发在            
+            boolean result = sysAnnouncementService.save(sysAnnouncement);
+            if (result) {
+                return Result.ok(sysAnnouncement, "添加成功");
+            } else {
+                return Result.error("添加失败");
+            }
+        } catch (Exception e) {
+            log.error("添加通告失败", e);
+            return Result.error("添加失败");
+        }
+    }
+
+    /**
+     * 编辑通告
+     */
+    @PutMapping("/edit")
+    @Operation(summary = "编辑通告")
+    public Result<SysAnnouncement> edit(@RequestBody SysAnnouncement sysAnnouncement, HttpServletRequest request) {
+        try {
+            String token = request.getHeader("Authorization");
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring(7);
+                String username = jwtUtil.getUsernameFromToken(token);
+                sysAnnouncement.setUpdateBy(username);
+            }
+            
+            sysAnnouncement.setUpdateTime(new Date());
+            
+            boolean result = sysAnnouncementService.updateById(sysAnnouncement);
+            if (result) {
+                return Result.ok(sysAnnouncement, "编辑成功");
+            } else {
+                return Result.error("编辑失败");
+            }
+        } catch (Exception e) {
+            log.error("编辑通告失败", e);
+            return Result.error("编辑失败");
+        }
+    }
+
+    /**
+     * 设置置顶状在     */
+    @PutMapping("/editIzTop")
+    @Operation(summary = "设置置顶状在")
+    public Result<SysAnnouncement> editIzTop(@RequestBody SysAnnouncement sysAnnouncement) {
+        try {
+            boolean result = sysAnnouncementService.updateTopStatus(sysAnnouncement.getId(), sysAnnouncement.getIzTop());
+            if (result) {
+                return Result.ok("设置成功");
+            } else {
+                return Result.error("设置失败");
+            }
+        } catch (Exception e) {
+            log.error("设置置顶状态失败", e);
+            return Result.error("设置失败");
+        }
+    }
+
+    /**
+     * 删除通告
+     */
+    @DeleteMapping("/delete")
+    @Operation(summary = "删除通告")
+    public Result<SysAnnouncement> delete(@RequestParam(name = "id", required = true) String id) {
+        try {
+            SysAnnouncement announcement = new SysAnnouncement();
+            announcement.setId(id);
+            announcement.setDelFlag("1");
+            
+            boolean result = sysAnnouncementService.updateById(announcement);
+            if (result) {
+                return Result.ok("删除成功");
+            } else {
+                return Result.error("删除失败");
+            }
+        } catch (Exception e) {
+            log.error("删除通告失败", e);
+            return Result.error("删除失败");
+        }
+    }
+
+    /**
+     * 批量删除通告
+     */
+    @DeleteMapping("/deleteBatch")
+    @Operation(summary = "批量删除通告")
+    public Result<SysAnnouncement> deleteBatch(@RequestParam(name = "ids", required = true) String ids) {
+        try {
+            String[] idArray = ids.split(",");
+            List<SysAnnouncement> announcements = new ArrayList<>();
+            
+            for (String id : idArray) {
+                SysAnnouncement announcement = new SysAnnouncement();
+                announcement.setId(id);
+                announcement.setDelFlag("1");
+                announcements.add(announcement);
+            }
+            
+            boolean result = sysAnnouncementService.updateBatchById(announcements);
+            if (result) {
+                return Result.ok("批量删除成功");
+            } else {
+                return Result.error("批量删除失败");
+            }
+        } catch (Exception e) {
+            log.error("批量删除通告失败", e);
+            return Result.error("批量删除失败");
+        }
+    }
+
+    /**
+     * 根据ID查询通告
+     */
+    @GetMapping("/queryById")
+    @Operation(summary = "根据ID查询通告")
+    public Result<SysAnnouncement> queryById(@RequestParam(name = "id", required = true) String id) {
+        try {
+            SysAnnouncement announcement = sysAnnouncementService.getById(id);
+            if (announcement != null) {
+                return Result.ok(announcement);
+            } else {
+                return Result.error("通告不存在");
+            }
+        } catch (Exception e) {
+            log.error("查询通告失败", e);
+            return Result.error("查询失败");
+        }
+    }
+
+    /**
+     * 发布通告
+     */
+    @GetMapping("/doReleaseData")
+    @Operation(summary = "发布通告")
+    public Result<SysAnnouncement> doReleaseData(@RequestParam(name = "id", required = true) String id, HttpServletRequest request) {
+        try {
+            SysAnnouncement announcement = sysAnnouncementService.getById(id);
+            if (announcement == null) {
+                return Result.error("通告不存在");;
+            }
+            
+            boolean result = sysAnnouncementService.releaseAnnouncement(announcement);
+            if (result) {
+                return Result.ok("发布成功");
+            } else {
+                return Result.error("发布失败");
+            }
+        } catch (Exception e) {
+            log.error("发布通告失败", e);
+            return Result.error("发布失败");
+        }
+    }
+
+    /**
+     * 撤销通告
+     */
+    @GetMapping("/doReovkeData")
+    @Operation(summary = "撤销通告")
+    public Result<SysAnnouncement> doRevokeData(@RequestParam(name = "id", required = true) String id, HttpServletRequest request) {
+        try {
+            boolean result = sysAnnouncementService.revokeAnnouncement(id);
+            if (result) {
+                return Result.ok("撤销成功");
+            } else {
+                return Result.error("撤销失败");
+            }
+        } catch (Exception e) {
+            log.error("撤销通告失败", e);
+            return Result.error("撤销失败");
+        }
+    }
+
+    /**
+     * 根据用户查询通告列表
+     */
+    @GetMapping("/listByUser")
+    @Operation(summary = "根据用户查询通告列表")
+    public Result<Map<String, Object>> listByUser(@RequestParam(required = false, defaultValue = "5") Integer pageSize, 
+                                                  HttpServletRequest request) {
+        try {
+            String token = request.getHeader("Authorization");
+            if (token == null || !token.startsWith("Bearer ")) {
+                return Result.error("未授在");
+            }
+            
+            token = token.substring(7);
+            String userId = jwtUtil.getUserIdFromToken(token);
+            
+            Map<String, Object> sysMsgMap = new HashMap<>(5);
+            
+            // 获取上个月的第一天（只查近两个月的通知在          
+              Date lastMonthStartDay = Date.from(LocalDateTime.now().minusMonths(2).withDayOfMonth(1)
+                    .withHour(0).withMinute(0).withSecond(0).atZone(ZoneId.systemDefault()).toInstant());
+            
+            // 查询用户未读的系统消在           
+             Page<SysAnnouncement> anntMsgList = new Page<>(0, pageSize);
+            anntMsgList = sysAnnouncementService.querySysCementPageByUserId(anntMsgList, userId, "1", null, lastMonthStartDay);
+            sysMsgMap.put("anntMsgList", anntMsgList.getRecords());
+            sysMsgMap.put("anntMsgTotal", anntMsgList.getTotal());
+            
+            // 系统消息
+            Page<SysAnnouncement> sysMsgList = new Page<>(0, pageSize);
+            sysMsgList = sysAnnouncementService.querySysCementPageByUserId(sysMsgList, userId, "2", null, lastMonthStartDay);
+            sysMsgMap.put("sysMsgList", sysMsgList.getRecords());
+            sysMsgMap.put("sysMsgTotal", sysMsgList.getTotal());
+            
+            return Result.ok(sysMsgMap);
+        } catch (Exception e) {
+            log.error("查询用户通告列表失败", e);
+            return Result.error("查询失败");
+        }
+    }
+
+    /**
+     * 获取未读消息通知数量
+     */
+    @GetMapping("/getUnreadMessageCount")
+    @Operation(summary = "获取未读消息通知数量")
+    public Result<Map<String, Integer>> getUnreadMessageCount(@RequestParam(required = false, defaultValue = "5") Integer pageSize, 
+                                                              HttpServletRequest request) {
+        try {
+            String token = request.getHeader("Authorization");
+            if (token == null || !token.startsWith("Bearer ")) {
+                return Result.error("未授在");
+            }
+            
+            token = token.substring(7);
+            String userId = jwtUtil.getUserIdFromToken(token);
+            
+            // 获取上个月的第一天（只查近两个月的通知在          
+              Date lastMonthStartDay = Date.from(LocalDateTime.now().minusMonths(2).withDayOfMonth(1)
+                    .withHour(0).withMinute(0).withSecond(0).atZone(ZoneId.systemDefault()).toInstant());
+            
+            Map<String, Integer> unreadMessageCount = new HashMap<>();
+            
+            // 系统消息数量
+            Integer systemCount = sysAnnouncementService.getUnreadMessageCountByUserId(userId, lastMonthStartDay, "1");
+            unreadMessageCount.put("systemCount", systemCount);
+            
+            // 通知公告数量
+            Integer noticeCount = sysAnnouncementService.getUnreadMessageCountByUserId(userId, lastMonthStartDay, "2");
+            unreadMessageCount.put("noticeCount", noticeCount);
+            
+            return Result.ok(unreadMessageCount);
+        } catch (Exception e) {
+            log.error("获取未读消息数量失败", e);
+            return Result.error("查询失败");
+        }
+    }
+
+    /**
+     * 增加访问次数
+     */
+    @GetMapping("/addVisitsNumber")
+    @Operation(summary = "增加访问次数")
+    public Result<String> addVisitsNumber(@RequestParam(name = "id", required = true) String id) {
+        try {
+            sysAnnouncementService.addVisitsNumber(id);
+            return Result.ok("操作成功");
+        } catch (Exception e) {
+            log.error("增加访问次数失败", e);
+            return Result.error("操作失败");
+        }
+    }
+
+    /**
+     * 获取最后通告时间
+     */
+    @GetMapping("/getLastAnnountTime")
+    @Operation(summary = "获取最后通告时间")
+    public Result<Page<SysAnnouncementSend>> getLastAnnountTime(@RequestParam(name = "userId") String userId,
+                                                               @RequestParam(name = "noticeType", required = false) String noticeType) {
+        try {
+            Page<SysAnnouncementSend> page = new Page<>(1, 1);
+            IPage<SysAnnouncementSend> result = sysAnnouncementSendService.getLastAnnountTime(page, userId, noticeType);
+            return Result.ok((Page<SysAnnouncementSend>) result);
+        } catch (Exception e) {
+            log.error("获取最后通告时间失败", e);
+            return Result.error("查询失败");
+        }
+    }
+
+    /**
+     * 清除所有未读消在     */
+    @PostMapping("/clearAllUnReadMessage")
+    @Operation(summary = "清除所有未读消息")
+    public Result<String> clearAllUnReadMessage(HttpServletRequest request) {
+        try {
+            String token = request.getHeader("Authorization");
+            if (token == null || !token.startsWith("Bearer ")) {
+                return Result.error("未授权");
+            }
+            
+            token = token.substring(7);
+            String userId = jwtUtil.getUserIdFromToken(token);
+            
+            sysAnnouncementSendService.clearAllUnReadMessage(userId);
+            return Result.ok("操作成功");
+        } catch (Exception e) {
+            log.error("清除所有未读消息失败", e);
+            return Result.error("操作失败");
+        }
+    }
+}

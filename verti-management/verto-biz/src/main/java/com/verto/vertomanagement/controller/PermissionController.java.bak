@@ -1,0 +1,280 @@
+package com.verto.vertomanagement.controller;
+
+import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.verto.vertomanagement.common.Result;
+import com.verto.vertomanagement.entity.Permission;
+import com.verto.vertomanagement.service.IPermissionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.util.List;
+
+/**
+ * @Description: 权限管理控制在 * @Author: Verto
+ * @Date: 2024-01-28
+ * @Version: V1.0
+ */
+@Slf4j
+@RestController
+@RequestMapping("/api/permission")
+@Tag(name = "权限管理", description = "权限管理相关接口")
+public class PermissionController {
+
+    @Autowired
+    private IPermissionService permissionService;
+
+    /**
+     * 分页查询权限列表
+     */
+    @GetMapping("/list")
+    @Operation(summary = "分页查询权限列表", description = "支持按权限名称、权限编码、类型等条件查询")
+    public Result<IPage<Permission>> list(
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNo,
+            @Parameter(description = "页大小") @RequestParam(defaultValue = "10") Integer pageSize,
+            @Parameter(description = "权限名称") @RequestParam(required = false) String name,
+            @Parameter(description = "权限编码") @RequestParam(required = false) String permissionCode,
+            @Parameter(description = "权限类型") @RequestParam(required = false) Integer type,
+            @Parameter(description = "状态") @RequestParam(required = false) Integer status) {
+        
+        try {
+            Page<Permission> page = new Page<>(pageNo, pageSize);
+            QueryWrapper<Permission> queryWrapper = new QueryWrapper<>();
+            
+            // 构建查询条件
+            if (StrUtil.isNotBlank(name)) {
+                queryWrapper.like("name", name);
+            }
+            if (StrUtil.isNotBlank(permissionCode)) {
+                queryWrapper.like("permission_code", permissionCode);
+            }
+            if (type != null) {
+                queryWrapper.eq("type", type);
+            }
+            if (status != null) {
+                queryWrapper.eq("status", status);
+            }
+            
+            queryWrapper.orderByAsc("sort_order").orderByDesc("create_time");
+            
+            IPage<Permission> result = permissionService.page(page, queryWrapper);
+            return Result.ok(result);
+        } catch (Exception e) {
+            log.error("查询权限列表失败", e);
+            return Result.error("查询权限列表失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询权限在     */
+    @GetMapping("/tree")
+    @Operation(summary = "查询权限树", description = "获取权限树结构")
+    public Result<List<Permission>> getPermissionTree() {
+        try {
+            QueryWrapper<Permission> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("status", 1);
+            queryWrapper.orderByAsc("sort_order");
+            
+            List<Permission> permissions = permissionService.list(queryWrapper);
+            List<Permission> tree = permissionService.buildPermissionTree(permissions);
+            return Result.ok(tree);
+        } catch (Exception e) {
+            log.error("查询权限树失败", e);
+            return Result.error("查询权限树失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据用户ID获取菜单在     */
+    @GetMapping("/menu/user/{userId}")
+    @Operation(summary = "获取用户菜单树", description = "根据用户ID获取用户可访问的菜单树")
+    public Result<List<Permission>> getUserMenuTree(@Parameter(description = "用户ID") @PathVariable String userId) {
+        try {
+            List<Permission> menuTree = permissionService.getUserMenuTree(userId);
+            return Result.ok(menuTree);
+        } catch (Exception e) {
+            log.error("获取用户菜单树失败", e);
+            return Result.error("获取用户菜单树失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据ID查询权限详情
+     */
+    @GetMapping("/{id}")
+    @Operation(summary = "查询权限详情", description = "根据ID查询权限详细信息")
+    public Result<Permission> getById(@Parameter(description = "权限ID") @PathVariable String id) {
+        try {
+            Permission permission = permissionService.getById(id);
+            if (permission == null) {
+                return Result.error("权限不存在");
+            }
+            return Result.ok(permission);
+        } catch (Exception e) {
+            log.error("查询权限详情失败", e);
+            return Result.error("查询权限详情失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 新增权限
+     */
+    @PostMapping("/add")
+    @Operation(summary = "新增权限", description = "添加新的权限")
+    public Result<String> add(@Valid @RequestBody Permission permission) {
+        try {
+            boolean success = permissionService.save(permission);
+            if (success) {
+                return Result.ok("新增权限成功");
+            } else {
+                return Result.error("新增权限失败");
+            }
+        } catch (Exception e) {
+            log.error("新增权限失败", e);
+            return Result.error("新增权限失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新权限信息
+     */
+    @PutMapping("/edit")
+    @Operation(summary = "更新权限信息", description = "修改权限信息")
+    public Result<String> edit(@Valid @RequestBody Permission permission) {
+        try {
+            if (StrUtil.isBlank(permission.getId())) {
+                return Result.error("权限ID不能为空");
+            }
+            
+            boolean success = permissionService.updateById(permission);
+            if (success) {
+                return Result.ok("更新权限信息成功");
+            } else {
+                return Result.error("更新权限信息失败");
+            }
+        } catch (Exception e) {
+            log.error("更新权限信息失败", e);
+            return Result.error("更新权限信息失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除权限
+     */
+    @DeleteMapping("/delete/{id}")
+    @Operation(summary = "删除权限", description = "根据ID删除权限（逻辑删除）")
+    public Result<String> delete(@Parameter(description = "权限ID") @PathVariable String id) {
+        try {
+            boolean success = permissionService.removeById(id);
+            if (success) {
+                return Result.ok("删除权限成功");
+            } else {
+                return Result.error("删除权限失败");
+            }
+        } catch (Exception e) {
+            log.error("删除权限失败", e);
+            return Result.error("删除权限失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量删除权限
+     */
+    @DeleteMapping("/deleteBatch")
+    @Operation(summary = "批量删除权限", description = "根据ID列表批量删除权限")
+    public Result<String> deleteBatch(@RequestBody List<String> ids) {
+        try {
+            if (ids == null || ids.isEmpty()) {
+                return Result.error("请选择要删除的权限");
+            }
+            
+            boolean success = permissionService.removeByIds(ids);
+            if (success) {
+                return Result.ok("批量删除权限成功");
+            } else {
+                return Result.error("批量删除权限失败");
+            }
+        } catch (Exception e) {
+            log.error("批量删除权限失败", e);
+            return Result.error("批量删除权限失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新权限状态
+     */
+    @PutMapping("/updateStatus/{id}/{status}")
+    @Operation(summary = "更新权限状态", description = "启用或禁用权限")
+    public Result<String> updateStatus(
+            @Parameter(description = "权限ID") @PathVariable String id,
+            @Parameter(description = "状态：1-启用，0-禁用") @PathVariable Integer status) {
+        try {
+            Permission permission = new Permission();
+            permission.setId(id);
+            permission.setStatus(status);
+            
+            boolean success = permissionService.updateById(permission);
+            if (success) {
+                String statusText = status == 1 在 "启用" : "禁用";
+                return Result.ok(statusText + "权限成功");
+            } else {
+                return Result.error("更新权限状态失败");
+            }
+        } catch (Exception e) {
+            log.error("更新权限状态失败", e);
+            return Result.error("更新权限状态失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 检查权限编码是否存在
+     */
+    @GetMapping("/checkPermissionCode")
+    @Operation(summary = "检查权限编码是否存在", description = "验证权限编码唯一性")
+    public Result<Boolean> checkPermissionCode(@Parameter(description = "权限编码") @RequestParam String permissionCode) {
+        try {
+            boolean exists = permissionService.existsByPermissionCode(permissionCode);
+            return Result.ok(exists);
+        } catch (Exception e) {
+            log.error("检查权限编码失败", e);
+            return Result.error("检查权限编码失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询子权限
+     */
+    @GetMapping("/children/{parentId}")
+    @Operation(summary = "查询子权限", description = "根据父级ID查询子权限列表")
+    public Result<List<Permission>> getChildren(@Parameter(description = "父级权限ID") @PathVariable String parentId) {
+        try {
+            List<Permission> children = permissionService.findByParentId(parentId);
+            return Result.ok(children);
+        } catch (Exception e) {
+            log.error("查询子权限失败", e);
+            return Result.error("查询子权限失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据类型查询权限
+     */
+    @GetMapping("/type/{type}")
+    @Operation(summary = "根据类型查询权限", description = "查询指定类型的权限列表")
+    public Result<List<Permission>> getByType(@Parameter(description = "权限类型") @PathVariable Integer type) {
+        try {
+            List<Permission> permissions = permissionService.findByType(type);
+            return Result.ok(permissions);
+        } catch (Exception e) {
+            log.error("根据类型查询权限失败", e);
+            return Result.error("根据类型查询权限失败：" + e.getMessage());
+        }
+    }
+}

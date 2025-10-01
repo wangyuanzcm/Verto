@@ -1,0 +1,297 @@
+package com.verto.vertomanagement.controller;
+
+import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.verto.vertomanagement.common.Result;
+import com.verto.vertomanagement.entity.Staff;
+import com.verto.vertomanagement.service.IStaffService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * @Description: 人员管理控制在 * @Author: Verto
+ * @Date: 2024-01-28
+ * @Version: V1.0
+ */
+@Slf4j
+@RestController
+@RequestMapping("/api/staff")
+@Tag(name = "人员管理", description = "人员管理相关接口")
+public class StaffController {
+
+    @Autowired
+    private IStaffService staffService;
+
+    /**
+     * 分页查询人员列表
+     */
+    @GetMapping("/list")
+    @Operation(summary = "分页查询人员列表", description = "支持按姓名、工号、部门、状态等条件查询")
+    public Result<IPage<Staff>> list(
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNo,
+            @Parameter(description = "页大小") @RequestParam(defaultValue = "10") Integer pageSize,
+            @Parameter(description = "姓名") @RequestParam(required = false) String name,
+            @Parameter(description = "工号") @RequestParam(required = false) String employeeNo,
+            @Parameter(description = "部门") @RequestParam(required = false) String department,
+            @Parameter(description = "职位") @RequestParam(required = false) String position,
+            @Parameter(description = "状态") @RequestParam(required = false) Integer status) {
+        
+        try {
+            Page<Staff> page = new Page<>(pageNo, pageSize);
+            QueryWrapper<Staff> queryWrapper = new QueryWrapper<>();
+            
+            // 构建查询条件
+            if (StrUtil.isNotBlank(name)) {
+                queryWrapper.like("name", name);
+            }
+            if (StrUtil.isNotBlank(employeeNo)) {
+                queryWrapper.like("employee_no", employeeNo);
+            }
+            if (StrUtil.isNotBlank(department)) {
+                queryWrapper.eq("department", department);
+            }
+            if (StrUtil.isNotBlank(position)) {
+                queryWrapper.eq("position", position);
+            }
+            if (status != null) {
+                queryWrapper.eq("status", status);
+            }
+            
+            queryWrapper.orderByDesc("create_time");
+            
+            IPage<Staff> result = staffService.page(page, queryWrapper);
+            return Result.ok(result);
+        } catch (Exception e) {
+            log.error("查询人员列表失败", e);
+            return Result.error("查询人员列表失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据ID查询人员详情
+     */
+    @GetMapping("/{id}")
+    @Operation(summary = "查询人员详情", description = "根据ID查询人员详细信息")
+    public Result<Staff> getById(@Parameter(description = "人员ID") @PathVariable String id) {
+        try {
+            Staff staff = staffService.getById(id);
+            if (staff == null) {
+                return Result.error("人员不存在");
+            }
+            return Result.ok(staff);
+        } catch (Exception e) {
+            log.error("查询人员详情失败", e);
+            return Result.error("查询人员详情失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 新增人员
+     */
+    @PostMapping("/add")
+    @Operation(summary = "新增人员", description = "添加新的人员信息")
+    public Result<String> add(@Valid @RequestBody Staff staff) {
+        try {
+            boolean success = staffService.save(staff);
+            if (success) {
+                return Result.ok("新增人员成功");
+            } else {
+                return Result.error("新增人员失败");
+            }
+        } catch (Exception e) {
+            log.error("新增人员失败", e);
+            return Result.error("新增人员失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新人员信息
+     */
+    @PutMapping("/edit")
+    @Operation(summary = "更新人员信息", description = "修改人员信息")
+    public Result<String> edit(@Valid @RequestBody Staff staff) {
+        try {
+            if (StrUtil.isBlank(staff.getId())) {
+                return Result.error("人员ID不能为空");
+            }
+            
+            boolean success = staffService.updateById(staff);
+            if (success) {
+                return Result.ok("更新人员信息成功");
+            } else {
+                return Result.error("更新人员信息失败");
+            }
+        } catch (Exception e) {
+            log.error("更新人员信息失败", e);
+            return Result.error("更新人员信息失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除人员
+     */
+    @DeleteMapping("/delete/{id}")
+    @Operation(summary = "删除人员", description = "根据ID删除人员（逻辑删除）")
+    public Result<String> delete(@Parameter(description = "人员ID") @PathVariable String id) {
+        try {
+            boolean success = staffService.removeById(id);
+            if (success) {
+                return Result.ok("删除人员成功");
+            } else {
+                return Result.error("删除人员失败");
+            }
+        } catch (Exception e) {
+            log.error("删除人员失败", e);
+            return Result.error("删除人员失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量删除人员
+     */
+    @DeleteMapping("/deleteBatch")
+    @Operation(summary = "批量删除人员", description = "根据ID列表批量删除人员")
+    public Result<String> deleteBatch(@RequestBody List<String> ids) {
+        try {
+            if (ids == null || ids.isEmpty()) {
+                return Result.error("请选择要删除的人员");
+            }
+            
+            boolean success = staffService.removeByIds(ids);
+            if (success) {
+                return Result.ok("批量删除人员成功");
+            } else {
+                return Result.error("批量删除人员失败");
+            }
+        } catch (Exception e) {
+            log.error("批量删除人员失败", e);
+            return Result.error("批量删除人员失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新人员状态
+     */
+    @PutMapping("/updateStatus/{id}/{status}")
+    @Operation(summary = "更新人员状态", description = "启用或禁用人员")
+    public Result<String> updateStatus(
+            @Parameter(description = "人员ID") @PathVariable String id,
+            @Parameter(description = "状态：1-在职，0-离职") @PathVariable Integer status) {
+        try {
+            Staff staff = new Staff();
+            staff.setId(id);
+            staff.setStatus(status);
+            
+            boolean success = staffService.updateById(staff);
+            if (success) {
+                String statusText = status == 1 在 "在职" : "离职";
+                return Result.ok("更新人员状态为" + statusText + "成功");
+            } else {
+                return Result.error("更新人员状态失败");
+            }
+        } catch (Exception e) {
+            log.error("更新人员状态失败", e);
+            return Result.error("更新人员状态失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 检查工号是否存在
+     */
+    @GetMapping("/checkEmployeeNo")
+    @Operation(summary = "检查工号是否存在", description = "验证工号唯一性")
+    public Result<Boolean> checkEmployeeNo(@Parameter(description = "工号") @RequestParam String employeeNo) {
+        try {
+            boolean exists = staffService.existsByEmployeeNo(employeeNo);
+            return Result.ok(exists);
+        } catch (Exception e) {
+            log.error("检查工号失败", e);
+            return Result.error("检查工号失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 检查邮箱是否存在
+     */
+    @GetMapping("/checkEmail")
+    @Operation(summary = "检查邮箱是否存在", description = "验证邮箱唯一性")
+    public Result<Boolean> checkEmail(@Parameter(description = "邮箱") @RequestParam String email) {
+        try {
+            boolean exists = staffService.existsByEmail(email);
+            return Result.ok(exists);
+        } catch (Exception e) {
+            log.error("检查邮箱失败", e);
+            return Result.error("检查邮箱失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 检查手机号是否存在
+     */
+    @GetMapping("/checkPhone")
+    @Operation(summary = "检查手机号是否存在", description = "验证手机号唯一性")
+    public Result<Boolean> checkPhone(@Parameter(description = "手机号") @RequestParam String phone) {
+        try {
+            boolean exists = staffService.existsByPhone(phone);
+            return Result.ok(exists);
+        } catch (Exception e) {
+            log.error("检查手机号失败", e);
+            return Result.error("检查手机号失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据部门查询人员
+     */
+    @GetMapping("/department/{department}")
+    @Operation(summary = "根据部门查询人员", description = "查询指定部门的所有人员")
+    public Result<List<Staff>> getByDepartment(@Parameter(description = "部门") @PathVariable String department) {
+        try {
+            List<Staff> staffList = staffService.findByDepartment(department);
+            return Result.ok(staffList);
+        } catch (Exception e) {
+            log.error("根据部门查询人员失败", e);
+            return Result.error("根据部门查询人员失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询即将入职的人员
+     */
+    @GetMapping("/upcoming")
+    @Operation(summary = "查询即将入职的人员", description = "查询未来30天内入职的人员")
+    public Result<List<Staff>> getUpcomingHires() {
+        try {
+            List<Staff> staffList = staffService.findUpcomingHires();
+            return Result.ok(staffList);
+        } catch (Exception e) {
+            log.error("查询即将入职人员失败", e);
+            return Result.error("查询即将入职人员失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 统计各部门人数
+     */
+    @GetMapping("/statistics/department")
+    @Operation(summary = "统计各部门人数", description = "获取各部门在职人员统计")
+    public Result<List<Object>> getDepartmentStatistics() {
+        try {
+            List<Object> statistics = staffService.countByDepartment();
+            return Result.ok(statistics);
+        } catch (Exception e) {
+            log.error("统计部门人数失败", e);
+            return Result.error("统计部门人数失败：" + e.getMessage());
+        }
+    }
+}

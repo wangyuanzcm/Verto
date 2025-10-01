@@ -1,0 +1,489 @@
+package com.verto.vertomanagement.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.jeecg.common.api.vo.Result;
+import com.verto.vertomanagement.common.constant.CommonConstant;
+import com.verto.vertomanagement.common.util.PasswordUtil;
+import com.verto.vertomanagement.common.util.oConvertUtils;
+import com.verto.vertomanagement.entity.User;
+import com.verto.vertomanagement.mapper.UserMapper;
+import com.verto.vertomanagement.service.ISysUserService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * @Description: 系统用户服务实现在 * @Author: Verto
+ * @Date: 2024-01-28
+ * @Version: V1.0
+ */
+@Service
+@Slf4j
+public class SysUserServiceImpl extends ServiceImpl<UserMapper, User> implements ISysUserService {
+
+    @Autowired
+    private UserMapper userMapper;
+
+    /**
+     * 查询用户数据列表
+     */
+    @Override
+    public Result<IPage<User>> queryPageList(HttpServletRequest req, QueryWrapper<User> queryWrapper, Integer pageSize, Integer pageNo) {
+        Result<IPage<User>> result = new Result<>();
+        
+        // 设置分页参数
+        Page<User> page = new Page<>(pageNo, pageSize);
+        
+        // 执行分页查询
+        IPage<User> pageList = userMapper.selectPage(page, queryWrapper);
+        
+        result.setSuccess(true);
+        result.setResult(pageList);
+        return result;
+    }
+
+    /**
+     * 重置密码
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result<User> resetPassword(String username, String oldpassword, String newpassword, String confirmpassword) {
+        if (!newpassword.equals(confirmpassword)) {
+            return Result.error("新密码与确认密码不一在");
+        }
+        
+        User user = getUserByName(username);
+        if (user == null) {
+            return Result.error("用户不存在");;
+        }
+        
+        // 验证旧密在        String oldPasswordEncrypt = PasswordUtil.encrypt(username, oldpassword, user.getPassword().substring(0, 8));
+        if (!oldPasswordEncrypt.equals(user.getPassword())) {
+            return Result.error("旧密码错在");
+        }
+        
+        // 生成新密在        String salt = oConvertUtils.randomGen(8);
+        String newPasswordEncrypt = PasswordUtil.encrypt(username, newpassword, salt);
+        
+        user.setPassword(salt + newPasswordEncrypt);
+        user.setUpdateTime(LocalDateTime.now());
+        
+        boolean result = updateById(user);
+        if (result) {
+            return Result.ok("密码重置成功");
+        } else {
+            return Result.error("密码重置失败");
+        }
+    }
+
+    /**
+     * 修改密码
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result<User> changePassword(User sysUser) {
+        String username = sysUser.getUsername();
+        String newPassword = sysUser.getPassword();
+        
+        if (oConvertUtils.isEmpty(username) || oConvertUtils.isEmpty(newPassword)) {
+            return Result.error("用户名或密码不能为空");
+        }
+        
+        User user = getUserByName(username);
+        if (user == null) {
+            return Result.error("用户不存在");;
+        }
+        
+        // 生成新密在        String salt = oConvertUtils.randomGen(8);
+        String passwordEncrypt = PasswordUtil.encrypt(username, newPassword, salt);
+        
+        user.setPassword(salt + passwordEncrypt);
+        user.setUpdateTime(LocalDateTime.now());
+        
+        boolean result = updateById(user);
+        if (result) {
+            return Result.ok("密码修改成功");
+        } else {
+            return Result.error("密码修改失败");
+        }
+    }
+
+    /**
+     * 删除用户
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deleteUser(String userId) {
+        if (oConvertUtils.isEmpty(userId)) {
+            return false;
+        }
+        
+        User user = getById(userId);
+        if (user == null) {
+            return false;
+        }
+        
+        // 逻辑删除
+        user.setDeleted(CommonConstant.DEL_FLAG_1);
+        user.setUpdateTime(LocalDateTime.now());
+        
+        return updateById(user);
+    }
+
+    /**
+     * 批量删除用户
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deleteBatchUsers(String userIds) {
+        if (oConvertUtils.isEmpty(userIds)) {
+            return false;
+        }
+        
+        String[] userIdArray = userIds.split(",");
+        List<String> userIdList = Arrays.asList(userIdArray);
+        
+        // 批量逻辑删除
+        List<User> users = listByIds(userIdList);
+        for (User user : users) {
+            user.setDeleted(CommonConstant.DEL_FLAG_1);
+            user.setUpdateTime(LocalDateTime.now());
+        }
+        
+        return updateBatchById(users);
+    }
+
+    /**
+     * 根据用户名查询用在     */
+    @Override
+    public User getUserByName(String username) {
+        if (oConvertUtils.isEmpty(username)) {
+            return null;
+        }
+        
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getUsername, username);
+        queryWrapper.eq(User::getDeleted, CommonConstant.DEL_FLAG_0);
+        
+        return getOne(queryWrapper);
+    }
+
+    /**
+     * 添加用户和用户角色关在     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void addUserWithRole(User user, String roles) {
+        // 保存用户
+        save(user);
+        
+        // TODO: 保存用户角色关系
+        // 这里需要实现用户角色关系的保存逻辑
+        log.info("添加用户角色关系: userId={}, roles={}", user.getId(), roles);
+    }
+
+    /**
+     * 修改用户和用户角色关在     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void editUserWithRole(User user, String roles) {
+        // 更新用户
+        updateById(user);
+        
+        // TODO: 更新用户角色关系
+        // 这里需要实现用户角色关系的更新逻辑
+        log.info("修改用户角色关系: userId={}, roles={}", user.getId(), roles);
+    }
+
+    /**
+     * 根据手机号获取用在     */
+    @Override
+    public User getUserByPhone(String phone) {
+        if (oConvertUtils.isEmpty(phone)) {
+            return null;
+        }
+        
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getPhone, phone);
+        queryWrapper.eq(User::getDeleted, CommonConstant.DEL_FLAG_0);
+        
+        return getOne(queryWrapper);
+    }
+
+    /**
+     * 根据邮箱获取用户
+     */
+    @Override
+    public User getUserByEmail(String email) {
+        if (oConvertUtils.isEmpty(email)) {
+            return null;
+        }
+        
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getEmail, email);
+        queryWrapper.eq(User::getDeleted, CommonConstant.DEL_FLAG_0);
+        
+        return getOne(queryWrapper);
+    }
+
+    /**
+     * 添加用户和用户部门关在     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void addUserWithDepart(User user, String selectedParts) {
+        // 保存用户
+        save(user);
+        
+        // TODO: 保存用户部门关系
+        // 这里需要实现用户部门关系的保存逻辑
+        log.info("添加用户部门关系: userId={}, departs={}", user.getId(), selectedParts);
+    }
+
+    /**
+     * 编辑用户和用户部门关在     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void editUserWithDepart(User user, String departs) {
+        // 更新用户
+        updateById(user);
+        
+        // TODO: 更新用户部门关系
+        // 这里需要实现用户部门关系的更新逻辑
+        log.info("修改用户部门关系: userId={}, departs={}", user.getId(), departs);
+    }
+
+    /**
+     * 校验用户是否有效
+     */
+    @Override
+    public Result checkUserIsEffective(User sysUser) {
+        if (sysUser == null) {
+            return Result.error("用户不存在");;
+        }
+        
+        if (sysUser.getDeleted() == CommonConstant.DEL_FLAG_1) {
+            return Result.error("用户已被删除");
+        }
+        
+        if (sysUser.getStatus() == CommonConstant.USER_FREEZE) {
+            return Result.error("用户已被冻结");
+        }
+        
+        return Result.ok("用户有效");
+    }
+
+    /**
+     * 查询被逻辑删除的用在     */
+    @Override
+    public List<User> queryLogicDeleted() {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getDeleted, CommonConstant.DEL_FLAG_1);
+        
+        return list(queryWrapper);
+    }
+
+    /**
+     * 还原被逻辑删除的用在     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean revertLogicDeleted(List<String> userIds, User updateEntity) {
+        if (userIds == null || userIds.isEmpty()) {
+            return false;
+        }
+        
+        List<User> users = listByIds(userIds);
+        for (User user : users) {
+            user.setDeleted(CommonConstant.DEL_FLAG_0);
+            user.setUpdateTime(LocalDateTime.now());
+            if (updateEntity != null) {
+                user.setUpdateBy(updateEntity.getUpdateBy());
+            }
+        }
+        
+        return updateBatchById(users);
+    }
+
+    /**
+     * 彻底删除被逻辑删除的用在     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean removeLogicDeleted(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return false;
+        }
+        
+        return removeByIds(userIds);
+    }
+
+    /**
+     * 更新手机号、邮箱空字符串为 null
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean updateNullPhoneEmail() {
+        // TODO: 实现更新空字符串为null的逻辑
+        log.info("更新手机号、邮箱空字符串为null");
+        return true;
+    }
+
+    /**
+     * 根据用户名查询用户角在     */
+    @Override
+    public List<String> getRolesByUsername(String username) {
+        // TODO: 实现根据用户名查询角色的逻辑
+        log.info("查询用户角色: username={}", username);
+        return Arrays.asList();
+    }
+
+    /**
+     * 根据用户名查询用户权在     */
+    @Override
+    public List<String> getPermissionsByUsername(String username) {
+        // TODO: 实现根据用户名查询权限的逻辑
+        log.info("查询用户权限: username={}", username);
+        return Arrays.asList();
+    }
+
+    /**
+     * 冻结用户
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result<User> frozenBatch(String userIds) {
+        if (oConvertUtils.isEmpty(userIds)) {
+            return Result.error("用户ID不能为空");
+        }
+        
+        String[] userIdArray = userIds.split(",");
+        List<String> userIdList = Arrays.asList(userIdArray);
+        
+        List<User> users = listByIds(userIdList);
+        for (User user : users) {
+            user.setStatus(CommonConstant.USER_FREEZE);
+            user.setUpdateTime(LocalDateTime.now());
+        }
+        
+        boolean result = updateBatchById(users);
+        if (result) {
+            return Result.ok("用户冻结成功");
+        } else {
+            return Result.error("用户冻结失败");
+        }
+    }
+
+    /**
+     * 解冻用户
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result<User> unFrozenBatch(String userIds) {
+        if (oConvertUtils.isEmpty(userIds)) {
+            return Result.error("用户ID不能为空");
+        }
+        
+        String[] userIdArray = userIds.split(",");
+        List<String> userIdList = Arrays.asList(userIdArray);
+        
+        List<User> users = listByIds(userIdList);
+        for (User user : users) {
+            user.setStatus(CommonConstant.USER_UNFREEZE);
+            user.setUpdateTime(LocalDateTime.now());
+        }
+        
+        boolean result = updateBatchById(users);
+        if (result) {
+            return Result.ok("用户解冻成功");
+        } else {
+            return Result.error("用户解冻失败");
+        }
+    }
+
+    /**
+     * 校验用户名是否唯一
+     */
+    @Override
+    public boolean checkUsernameUnique(String id, String username) {
+        if (oConvertUtils.isEmpty(username)) {
+            return false;
+        }
+        
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getUsername, username);
+        queryWrapper.eq(User::getDeleted, CommonConstant.DEL_FLAG_0);
+        
+        if (oConvertUtils.isNotEmpty(id)) {
+            queryWrapper.ne(User::getId, id);
+        }
+        
+        return count(queryWrapper) == 0;
+    }
+
+    /**
+     * 校验手机号是否唯一
+     */
+    @Override
+    public boolean checkPhoneUnique(String id, String phone) {
+        if (oConvertUtils.isEmpty(phone)) {
+            return true; // 手机号为空时认为唯一
+        }
+        
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getPhone, phone);
+        queryWrapper.eq(User::getDeleted, CommonConstant.DEL_FLAG_0);
+        
+        if (oConvertUtils.isNotEmpty(id)) {
+            queryWrapper.ne(User::getId, id);
+        }
+        
+        return count(queryWrapper) == 0;
+    }
+
+    /**
+     * 校验邮箱是否唯一
+     */
+    @Override
+    public boolean checkEmailUnique(String id, String email) {
+        if (oConvertUtils.isEmpty(email)) {
+            return true; // 邮箱为空时认为唯一
+        }
+        
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getEmail, email);
+        queryWrapper.eq(User::getDeleted, CommonConstant.DEL_FLAG_0);
+        
+        if (oConvertUtils.isNotEmpty(id)) {
+            queryWrapper.ne(User::getId, id);
+        }
+        
+        return count(queryWrapper) == 0;
+    }
+
+    /**
+     * 校验工号是否唯一
+     */
+    @Override
+    public boolean checkWorkNoUnique(String id, String workNo) {
+        if (oConvertUtils.isEmpty(workNo)) {
+            return true; // 工号为空时认为唯一
+        }
+        
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getWorkNo, workNo);
+        queryWrapper.eq(User::getDeleted, CommonConstant.DEL_FLAG_0);
+        
+        if (oConvertUtils.isNotEmpty(id)) {
+            queryWrapper.ne(User::getId, id);
+        }
+        
+        return count(queryWrapper) == 0;
+    }
+}

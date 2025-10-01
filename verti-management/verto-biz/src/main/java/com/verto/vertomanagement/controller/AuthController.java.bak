@@ -1,0 +1,163 @@
+package com.verto.vertomanagement.controller;
+
+import cn.hutool.core.util.IdUtil;
+import com.verto.vertomanagement.common.Result;
+import com.verto.vertomanagement.dto.LoginDto;
+import com.verto.vertomanagement.dto.RegisterDto;
+import com.verto.vertomanagement.service.IUserService;
+import com.verto.vertomanagement.util.CaptchaUtil;
+import com.verto.vertomanagement.vo.LoginVo;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * @Description: 认证控制在 * @Author: Verto
+ * @Date: 2024-01-28
+ * @Version: V1.0
+ */
+@Slf4j
+@RestController
+@RequestMapping("/auth")
+@Tag(name = "认证管理", description = "用户认证相关接口")
+public class AuthController {
+
+    @Autowired
+    private IUserService userService;
+
+    @Autowired
+    private CaptchaUtil captchaUtil;
+
+    /**
+     * 用户登录
+     * @param loginDto 登录参数
+     * @return 登录结果
+     */
+    @PostMapping("/login")
+    @Operation(summary = "用户登录", description = "用户登录接口")
+    public Result<LoginVo> login(@Validated @RequestBody LoginDto loginDto) {
+        try {
+            LoginVo loginVo = userService.login(loginDto);
+            return Result.ok(loginVo, "登录成功");
+        } catch (Exception e) {
+            log.error("用户登录失败: {}", e.getMessage());
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 用户注册
+     * @param registerDto 注册参数
+     * @return 注册结果
+     */
+    @PostMapping("/register")
+    @Operation(summary = "用户注册", description = "用户注册接口")
+    public Result<String> register(@Validated @RequestBody RegisterDto registerDto) {
+        try {
+            boolean success = userService.register(registerDto);
+            if (success) {
+                return Result.ok("注册成功");
+            } else {
+                return Result.error("注册失败");
+            }
+        } catch (Exception e) {
+            log.error("用户注册失败: {}", e.getMessage());
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取验证在     * @return 验证码图片和key
+     */
+    @GetMapping("/captcha")
+    @Operation(summary = "获取验证在", description = "获取图形验证在")
+    public Result<Map<String, String>> getCaptcha() {
+        try {
+            String key = IdUtil.simpleUUID();
+            String captchaImage = captchaUtil.generateCaptcha(key);
+            
+            Map<String, String> result = new HashMap<>();
+            result.put("key", key);
+            result.put("image", captchaImage);
+            
+            return Result.ok(result, "获取验证码成在");
+        } catch (Exception e) {
+            log.error("获取验证码失败 {}", e.getMessage());
+            return Result.error("获取验证码失败");
+        }
+    }
+
+    /**
+     * 检查用户名是否存在
+     * @param username 用户在   
+     *   * @return 检查结在   
+     *   */
+    @GetMapping("/check-username")
+    @Operation(summary = "检查用户名", description = "检查用户名是否已存在");
+    public Result<Boolean> checkUsername(@RequestParam String username) {
+        try {
+            boolean exists = userService.existsByUsername(username);
+            return Result.ok(!exists, exists ? "用户名已存在" : "用户名可在");
+        } catch (Exception e) {
+            log.error("检查用户名失败: {}", e.getMessage());
+            return Result.error("检查用户名失败");
+        }
+    }
+
+    /**
+     * 检查邮箱是否存在
+     * @param email 邮箱
+     *   * @return 检查结在   
+     *   */     
+    @GetMapping("/check-email")
+    @Operation(summary = "检查邮箱", description = "检查邮箱是否已被注册")
+    public Result<Boolean> checkEmail(@RequestParam String email) {
+        try {
+            boolean exists = userService.existsByEmail(email);
+            return Result.ok(!exists, exists ? "邮箱已被注册" : "邮箱可用");
+        } catch (Exception e) {
+            log.error("检查邮箱失败: {}", e.getMessage());
+            return Result.error("检查邮箱失败");
+        }
+    }
+
+    /**
+     * 检查手机号是否存在
+     * @param phone 手机号
+     *   * @return 检查结在   
+     *   */
+    @GetMapping("/check-phone")
+    @Operation(summary = "检查手机号", description = "检查手机号是否已被注册")
+    public Result<Boolean> checkPhone(@RequestParam String phone) {
+        try {
+            boolean exists = userService.existsByPhone(phone);
+            return Result.ok(!exists, exists ? "手机号已被注册" : "手机号可在");
+        } catch (Exception e) {
+            log.error("检查手机号失败: {}", e.getMessage());
+            return Result.error("检查手机号失败");
+        }
+    }
+
+    /**
+     * 用户登出
+     * @return 登出结果
+     */
+    @PostMapping("/logout")
+    @Operation(summary = "用户登出", description = "用户登出接口")
+    public Result<String> logout() {
+        // 这里可以实现JWT黑名单机制，将token加入黑名单
+        try {
+            userService.logout();
+            return Result.ok("登出成功");
+        } catch (Exception e) {
+            log.error("用户登出失败: {}", e.getMessage());
+            return Result.error("登出失败");
+        }
+    }
+}

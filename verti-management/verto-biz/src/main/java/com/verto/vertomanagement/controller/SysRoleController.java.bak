@@ -1,0 +1,239 @@
+package com.verto.vertomanagement.controller;
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.verto.vertomanagement.common.Result;
+import com.verto.vertomanagement.entity.Role;
+import com.verto.vertomanagement.service.ISysRoleService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.ModelAndView;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * 系统角色管理控制器
+ * 
+ * @author Verto
+ * @since 2024-01-01
+ */
+@RestController
+@RequestMapping("/sys/role")
+@Tag(name = "系统角色管理", description = "系统角色相关接口")
+@Slf4j
+public class SysRoleController {
+
+    @Autowired
+    private ISysRoleService sysRoleService;
+
+    /**
+     * 分页查询角色列表
+     *
+     * @param role 角色查询条件
+     * @param pageNo 页码
+     * @param pageSize 页面大小
+     * @param req HTTP请求对象
+     * @return 分页结果
+     */
+    @Operation(summary = "分页查询角色列表", description = "根据条件分页查询角色信息")
+    @GetMapping(value = "/list")
+    public Result<IPage<Role>> queryPageList(Role role,
+                                           @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
+                                           @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
+                                           HttpServletRequest req) {
+        try {
+            Page<Role> page = new Page<>(pageNo, pageSize);
+            IPage<Role> pageList = sysRoleService.listAllSysRole(page, role);
+            return Result.ok(pageList);
+        } catch (Exception e) {
+            log.error("查询角色列表失败", e);
+            return Result.error("查询角色列表失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 添加角色
+     *
+     * @param role 角色信息
+     * @return 操作结果
+     */
+    @Operation(summary = "添加角色", description = "新增角色信息")
+    @PostMapping(value = "/add")
+    public Result<String> add(@RequestBody Role role) {
+        try {
+            // 校验角色编码唯一性
+            if (!checkRoleCodeUnique(null, role.getRoleCode())) {
+                return Result.error("角色编码已存在");
+            }
+            
+            sysRoleService.save(role);
+            return Result.ok("添加成功");
+        } catch (Exception e) {
+            log.error("添加角色失败", e);
+            return Result.error("添加失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 编辑角色
+     *
+     * @param role 角色信息
+     * @return 操作结果
+     */
+    @Operation(summary = "编辑角色", description = "修改角色信息")
+    @PutMapping(value = "/edit")
+    public Result<String> edit(@RequestBody Role role) {
+        try {
+            // 校验角色编码唯一性
+            if (!checkRoleCodeUnique(role.getId(), role.getRoleCode())) {
+                return Result.error("角色编码已存在");
+            }
+            
+            sysRoleService.updateById(role);
+            return Result.ok("编辑成功");
+        } catch (Exception e) {
+            log.error("编辑角色失败", e);
+            return Result.error("编辑失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除角色
+     *
+     * @param id 角色ID
+     * @return 操作结果
+     */
+    @Operation(summary = "删除角色", description = "通过ID删除角色")
+    @DeleteMapping(value = "/delete")
+    public Result<String> delete(@RequestParam(name = "id") String id) {
+        try {
+            // 检查角色是否被使用
+            if (sysRoleService.isRoleInUse(id)) {
+                return Result.error("该角色正在使用中，无法删除");
+            }
+            
+            sysRoleService.removeById(id);
+            return Result.ok("删除成功");
+        } catch (Exception e) {
+            log.error("删除角色失败", e);
+            return Result.error("删除失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量删除角色
+     *
+     * @param ids 角色ID列表，逗号分隔
+     * @return 操作结果
+     */
+    @Operation(summary = "批量删除角色", description = "批量删除角色信息")
+    @DeleteMapping(value = "/deleteBatch")
+    public Result<String> deleteBatch(@RequestParam(name = "ids") String ids) {
+        try {
+            List<String> idList = Arrays.asList(ids.split(","));
+            
+            // 检查角色是否被使用
+            for (String id : idList) {
+                if (sysRoleService.isRoleInUse(id)) {
+                    return Result.error("存在正在使用的角色，无法删除");
+                }
+            }
+            
+            sysRoleService.removeByIds(idList);
+            return Result.ok("批量删除成功");
+        } catch (Exception e) {
+            log.error("批量删除角色失败", e);
+            return Result.error("批量删除失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询角色详情
+     *
+     * @param id 角色ID
+     * @return 角色详情
+     */
+    @Operation(summary = "查询角色详情", description = "通过ID查询角色详细信息")
+    @GetMapping(value = "/queryById")
+    public Result<Role> queryById(@RequestParam(name = "id") String id) {
+        try {
+            Role role = sysRoleService.getById(id);
+            if (role == null) {
+                return Result.error("角色不存在");
+            }
+            return Result.ok(role);
+        } catch (Exception e) {
+            log.error("查询角色详情失败", e);
+            return Result.error("查询角色详情失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 校验角色编码唯一性
+     *
+     * @param id 角色ID（编辑时传入，新增时为null）
+     * @param roleCode 角色编码
+     * @return 是否唯一
+     */
+    private boolean checkRoleCodeUnique(String id, String roleCode) {
+        QueryWrapper<Role> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("role_code", roleCode);
+        if (id != null) {
+            queryWrapper.ne("id", id);
+        }
+        return sysRoleService.count(queryWrapper) == 0;
+    }
+
+    /**
+     * 校验角色编码唯一性接口
+     *
+     * @param id 角色ID
+     * @param roleCode 角色编码
+     * @return 校验结果
+     */
+    @Operation(summary = "校验角色编码唯一性", description = "校验角色编码是否已存在")
+    @GetMapping(value = "/checkRoleCode")
+    public Result<Boolean> checkRoleCode(@RequestParam(name = "id", required = false) String id,
+                                       @RequestParam(name = "roleCode") String roleCode) {
+        try {
+            boolean isUnique = checkRoleCodeUnique(id, roleCode);
+            return Result.ok(isUnique);
+        } catch (Exception e) {
+            log.error("检查角色编码唯一性失败", e);
+            return Result.error("检查角色编码唯一性失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 导出Excel
+     *
+     * @param role 查询条件
+     * @param request HTTP请求
+     * @return ModelAndView
+     */
+    @Operation(summary = "导出Excel", description = "导出角色数据到Excel")
+    @GetMapping("/exportXls")
+    public ModelAndView exportXls(Role role, HttpServletRequest request) {
+        // TODO: 实现Excel导出功能
+        return new ModelAndView();
+    }
+
+    /**
+     * 导入Excel
+     *
+     * @param request HTTP请求
+     * @return 导入结果
+     */
+    @Operation(summary = "导入Excel", description = "通过Excel导入角色数据")
+    @PostMapping("/importExcel")
+    public Result<在> importExcel(HttpServletRequest request) {
+        // TODO: 实现Excel导入功能
+        return Result.ok("导入功能待实现");
+    }
+}
