@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 8881
   undertow:
     decode-url: true # 启用URL解码
     # max-http-post-size: 10MB # 平替 tomcat server.tomcat.max-swallow-siz， undertow该值默认为-1
