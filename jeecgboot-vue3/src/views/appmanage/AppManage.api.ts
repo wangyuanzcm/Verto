@@ -26,6 +26,9 @@ export enum Api {
   rerunPipeline = '/appmanage/app/pipeline/rerun',
   cancelPipeline = '/appmanage/app/pipeline/cancel',
   getPipelineLogs = '/appmanage/app/pipeline/logs',
+  
+  // 获取应用 package.json 内容
+  getPackageJson = '/appmanage/app/package-json',
 }
 
 /**
@@ -204,4 +207,12 @@ export const cancelPipeline = (appId: string, historyId: string) => {
  */
 export const getPipelineLogs = (appId: string, historyId: string) => {
   return defHttp.get({ url: Api.getPipelineLogs, params: { appId, historyId } }, { isTransformResponse: false });
+};
+
+/**
+ * 获取应用的 package.json 内容
+ * @param appId 应用ID
+ */
+export const getAppPackageJson = (appId: string) => {
+  return defHttp.get({ url: Api.getPackageJson, params: { appId } }, { isTransformResponse: false });
 };

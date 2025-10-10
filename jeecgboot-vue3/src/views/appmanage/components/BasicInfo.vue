@@ -2,7 +2,7 @@
   <div class="app-basic-info">
     <a-row :gutter="24">
       <!-- 应用基本信息 -->
-      <a-col :span="16">
+      <a-col :span="24">
         <a-card title="应用信息" :bordered="false">
           <a-descriptions :column="2" bordered>
             <a-descriptions-item label="应用名称">
@@ -33,40 +33,23 @@
             <a-descriptions-item label="版本号">
               {{ appInfo.version }}
             </a-descriptions-item>
+            <a-descriptions-item label="技术栈" :span="2">
+              <div class="tech-stack-tags">
+                <a-tag 
+                  v-for="tech in appInfo.techStack" 
+                  :key="tech.name" 
+                  class="tech-tag"
+                  color="blue"
+                >
+                  <Icon :icon="tech.icon" :size="14" style="margin-right: 4px;" />
+                  {{ tech.name }} {{ tech.version }}
+                </a-tag>
+              </div>
+            </a-descriptions-item>
             <a-descriptions-item label="应用描述" :span="2">
               {{ appInfo.description }}
             </a-descriptions-item>
           </a-descriptions>
-        </a-card>
-      </a-col>
-
-      <!-- 技术栈信息 -->
-      <a-col :span="8">
-        <a-card title="技术栈" :bordered="false" class="mb-4">
-          <div class="tech-stack">
-            <div v-for="tech in appInfo.techStack" :key="tech.name" class="tech-item">
-              <Icon :icon="tech.icon" :size="20" />
-              <span class="tech-name">{{ tech.name }}</span>
-              <a-tag size="small">{{ tech.version }}</a-tag>
-            </div>
-          </div>
-        </a-card>
-
-        <!-- 环境信息 -->
-        <a-card title="环境配置" :bordered="false">
-          <div class="env-list">
-            <div v-for="env in appInfo.environments" :key="env.name" class="env-item">
-              <div class="env-header">
-                <span class="env-name">{{ env.name }}</span>
-                <a-tag :color="env.status === 'running' ? 'green' : 'red'" size="small">
-                  {{ env.status === 'running' ? '运行中' : '已停止' }}
-                </a-tag>
-              </div>
-              <div class="env-url">
-                <a :href="env.url" target="_blank">{{ env.url }}</a>
-              </div>
-            </div>
-          </div>
         </a-card>
       </a-col>
     </a-row>
@@ -138,14 +121,156 @@
         </a-card>
       </a-col>
     </a-row>
+
+    <!-- 依赖信息 -->
+    <a-row :gutter="24" class="mt-4">
+      <a-col :span="24">
+        <a-card title="依赖信息" :bordered="false">
+          <div v-if="packageJsonLoading" class="loading-container">
+            <a-spin size="large" />
+            <div class="loading-text">正在加载依赖信息...</div>
+          </div>
+          <div v-else-if="packageJsonError" class="error-container">
+            <a-alert type="error" :message="packageJsonError" show-icon />
+          </div>
+          <div v-else-if="packageJsonData">
+            <a-tabs v-model:activeKey="dependencyTabKey" type="card">
+              <!-- 生产依赖 -->
+              <a-tab-pane key="dependencies" :tab="`生产依赖 (${getDependencyCount('dependencies')})`">
+                <div class="dependency-section">
+                  <div class="dependency-header">
+                    <span class="dependency-title">
+                      <Icon icon="ant-design:package-outlined" :size="18" />
+                      生产环境依赖包
+                    </span>
+                    <a-button type="link" @click="copyDependencies('dependencies')" size="small">
+                      <Icon icon="ant-design:copy-outlined" :size="16" />
+                      复制依赖列表
+                    </a-button>
+                  </div>
+                  <a-descriptions 
+                    :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
+                    size="small"
+                    bordered
+                    class="dependency-descriptions"
+                  >
+                    <a-descriptions-item 
+                      v-for="(version, name) in packageJsonData.dependencies" 
+                      :key="name"
+                      :label="name"
+                    >
+                      <a-tag color="blue">{{ version }}</a-tag>
+                    </a-descriptions-item>
+                  </a-descriptions>
+                </div>
+              </a-tab-pane>
+
+              <!-- 开发依赖 -->
+              <a-tab-pane key="devDependencies" :tab="`开发依赖 (${getDependencyCount('devDependencies')})`">
+                <div class="dependency-section">
+                  <div class="dependency-header">
+                    <span class="dependency-title">
+                      <Icon icon="ant-design:tool-outlined" :size="18" />
+                      开发环境依赖包
+                    </span>
+                    <a-button type="link" @click="copyDependencies('devDependencies')" size="small">
+                      <Icon icon="ant-design:copy-outlined" :size="16" />
+                      复制依赖列表
+                    </a-button>
+                  </div>
+                  <a-descriptions 
+                    :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
+                    size="small"
+                    bordered
+                    class="dependency-descriptions"
+                  >
+                    <a-descriptions-item 
+                      v-for="(version, name) in packageJsonData.devDependencies" 
+                      :key="name"
+                      :label="name"
+                    >
+                      <a-tag color="orange">{{ version }}</a-tag>
+                    </a-descriptions-item>
+                  </a-descriptions>
+                </div>
+              </a-tab-pane>
+
+              <!-- 可选依赖 -->
+              <a-tab-pane key="optionalDependencies" :tab="`可选依赖 (${getDependencyCount('optionalDependencies')})`" v-if="packageJsonData.optionalDependencies">
+                <div class="dependency-section">
+                  <div class="dependency-header">
+                    <span class="dependency-title">
+                      <Icon icon="ant-design:question-circle-outlined" :size="18" />
+                      可选依赖包
+                    </span>
+                    <a-button type="link" @click="copyDependencies('optionalDependencies')" size="small">
+                      <Icon icon="ant-design:copy-outlined" :size="16" />
+                      复制依赖列表
+                    </a-button>
+                  </div>
+                  <a-descriptions 
+                    :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
+                    size="small"
+                    bordered
+                    class="dependency-descriptions"
+                  >
+                    <a-descriptions-item 
+                      v-for="(version, name) in packageJsonData.optionalDependencies" 
+                      :key="name"
+                      :label="name"
+                    >
+                      <a-tag color="purple">{{ version }}</a-tag>
+                    </a-descriptions-item>
+                  </a-descriptions>
+                </div>
+              </a-tab-pane>
+
+              <!-- 同级依赖 -->
+              <a-tab-pane key="peerDependencies" :tab="`同级依赖 (${getDependencyCount('peerDependencies')})`" v-if="packageJsonData.peerDependencies">
+                <div class="dependency-section">
+                  <div class="dependency-header">
+                    <span class="dependency-title">
+                      <Icon icon="ant-design:share-alt-outlined" :size="18" />
+                      同级依赖包
+                    </span>
+                    <a-button type="link" @click="copyDependencies('peerDependencies')" size="small">
+                      <Icon icon="ant-design:copy-outlined" :size="16" />
+                      复制依赖列表
+                    </a-button>
+                  </div>
+                  <a-descriptions 
+                    :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
+                    size="small"
+                    bordered
+                    class="dependency-descriptions"
+                  >
+                    <a-descriptions-item 
+                      v-for="(version, name) in packageJsonData.peerDependencies" 
+                      :key="name"
+                      :label="name"
+                    >
+                      <a-tag color="green">{{ version }}</a-tag>
+                    </a-descriptions-item>
+                  </a-descriptions>
+                </div>
+              </a-tab-pane>
+            </a-tabs>
+          </div>
+          <div v-else class="no-data-container">
+            <a-empty description="未找到 package.json 文件" />
+          </div>
+        </a-card>
+      </a-col>
+    </a-row>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, h } from 'vue';
 import Icon from '/@/components/Icon';
 import { useCopyToClipboard } from '@/hooks/web/useCopyToClipboard';
 import { useMessage } from '@/hooks/web/useMessage';
+import { getAppPackageJson } from '../AppManage.api';
 
 /**
  * 应用信息接口定义
@@ -180,6 +305,18 @@ interface AppInfo {
   };
 }
 
+/**
+ * Package.json 数据接口定义
+ */
+interface PackageJsonData {
+  name?: string;
+  version?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+}
+
 const props = defineProps<{
   appId: string;
   appDetail: any;
@@ -189,6 +326,75 @@ const props = defineProps<{
 const { clipboardRef, isSuccessRef } = useCopyToClipboard();
 const { createMessage } = useMessage();
 
+// 依赖信息相关状态
+const packageJsonData = ref<PackageJsonData | null>(null);
+const packageJsonLoading = ref(false);
+const packageJsonError = ref<string | null>(null);
+const dependencyTabKey = ref('dependencies');
+
+// 表格列定义
+const dependencyColumns = [
+  {
+    title: '包名',
+    dataIndex: 'name',
+    key: 'name',
+    width: '60%',
+    ellipsis: true,
+  },
+  {
+    title: '版本',
+    dataIndex: 'version',
+    key: 'version',
+    width: '40%',
+    customRender: ({ record }) => {
+      const colorMap = {
+        dependencies: 'blue',
+        devDependencies: 'orange',
+        optionalDependencies: 'purple',
+        peerDependencies: 'green',
+      };
+      return h('a-tag', { color: colorMap[record.type] || 'default' }, record.version);
+    },
+  },
+];
+
+/**
+ * 获取依赖数量
+ * @param type 依赖类型
+ */
+function getDependencyCount(type: string): number {
+  if (!packageJsonData.value || !packageJsonData.value[type]) return 0;
+  return Object.keys(packageJsonData.value[type]).length;
+}
+
+/**
+ * 获取表格数据
+ * @param type 依赖类型
+ */
+function getDependencyTableData(type: string) {
+  if (!packageJsonData.value || !packageJsonData.value[type]) return [];
+  
+  return Object.entries(packageJsonData.value[type]).map(([name, version]) => ({
+    key: name,
+    name,
+    version,
+    type,
+  }));
+}
+
+/**
+ * 复制依赖列表
+ * @param type 依赖类型
+ */
+function copyDependencies(type: string) {
+  if (!packageJsonData.value || !packageJsonData.value[type]) return;
+  
+  const dependencies = Object.entries(packageJsonData.value[type])
+    .map(([name, version]) => `${name}@${version}`)
+    .join('\n');
+  
+  copy(dependencies);
+  }
 /**
  * 复制文本到剪贴板
  * @param text 要复制的文本
@@ -201,8 +407,6 @@ function copy(text: string) {
     createMessage.error('复制失败');
   }
 }
-
-// 默认应用信息
 const appInfo = ref<AppInfo>({
   appName: props.appDetail?.appName || 'Jeecg Boot Vue3',
   appCode: props.appDetail?.appCode || 'jeecg-vue3',
@@ -353,13 +557,58 @@ const loadAppInfo = async () => {
   console.log('Loading app info for:', props.appId);
 };
 
+/**
+ * 加载 package.json 依赖信息
+ */
+const loadPackageJsonData = async () => {
+  if (!props.appId) return;
+  
+  packageJsonLoading.value = true;
+  packageJsonError.value = null;
+  
+  try {
+    const result = await getAppPackageJson(props.appId);
+    if (result.success) {
+      packageJsonData.value = result.result;
+    } else {
+      packageJsonError.value = result.message || '获取依赖信息失败';
+    }
+  } catch (error) {
+    console.error('获取 package.json 失败:', error);
+    packageJsonError.value = '获取依赖信息失败，请稍后重试';
+  } finally {
+    packageJsonLoading.value = false;
+  }
+};
+
 onMounted(() => {
   loadAppInfo();
+  loadPackageJsonData();
 });
+
 </script>
 
 <style lang="less" scoped>
 .basic-info {
+  .tech-stack-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    
+    .tech-tag {
+      display: inline-flex;
+      align-items: center;
+      margin: 0;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      
+      .anticon {
+        margin-right: 4px;
+      }
+    }
+  }
+
   .tech-stack {
     .tech-item {
       display: flex;
@@ -417,6 +666,80 @@ onMounted(() => {
 
   .mt-4 {
     margin-top: 16px;
+  }
+}
+
+// 依赖信息样式
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  
+  .ant-spin {
+    margin-bottom: 16px;
+  }
+  
+  .loading-text {
+    color: #666;
+    font-size: 14px;
+  }
+}
+
+.error-container {
+  padding: 20px;
+}
+
+.no-data-container {
+  padding: 40px;
+  text-align: center;
+}
+
+.dependency-section {
+  .dependency-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    
+    .dependency-title {
+      display: flex;
+      align-items: center;
+      font-weight: 500;
+      font-size: 16px;
+      color: #262626;
+      
+      .anticon {
+        margin-right: 8px;
+      }
+    }
+  }
+}
+
+.dependency-descriptions {
+  :deep(.ant-descriptions-item-label) {
+    font-weight: 500;
+    color: #262626;
+    background-color: #fafafa;
+    width: 60%;
+  }
+  
+  :deep(.ant-descriptions-item-content) {
+    width: 40%;
+  }
+  
+  :deep(.ant-tag) {
+    margin: 0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    border-radius: 4px;
+  }
+  
+  :deep(.ant-descriptions-item) {
+    padding-bottom: 8px;
   }
 }
 </style>

@@ -109,6 +109,176 @@ const domainDict = [
   { value: 'oa', text: '办公自动化' },
 ];
 
+/**
+ * package.json 模拟数据
+ */
+const packageJsonData = {
+  '1': {
+    name: 'verto-platform',
+    version: '1.0.0',
+    dependencies: {
+      'vue': '^3.4.21',
+      '@vue/runtime-core': '^3.4.21',
+      'vue-router': '^4.3.0',
+      'pinia': '^2.1.7',
+      'ant-design-vue': '^4.1.2',
+      '@ant-design/icons-vue': '^7.0.1',
+      'axios': '^1.6.8',
+      'dayjs': '^1.11.10',
+      'lodash-es': '^4.17.21',
+      'vite': '^5.2.0',
+      'typescript': '^5.4.3'
+    },
+    devDependencies: {
+      '@vitejs/plugin-vue': '^5.0.4',
+      '@typescript-eslint/eslint-plugin': '^7.2.0',
+      '@typescript-eslint/parser': '^7.2.0',
+      'eslint': '^8.57.0',
+      'eslint-plugin-vue': '^9.22.0',
+      'prettier': '^3.2.5',
+      'vite-plugin-mock': '^3.0.1',
+      'vitest': '^1.4.0',
+      '@vue/test-utils': '^2.4.5'
+    },
+    peerDependencies: {
+      'vue': '^3.4.0'
+    }
+  },
+  '2': {
+    name: 'user-center',
+    version: '2.1.0',
+    dependencies: {
+      'react': '^18.2.0',
+      'react-dom': '^18.2.0',
+      'react-router-dom': '^6.10.0',
+      '@reduxjs/toolkit': '^2.2.1',
+      'react-redux': '^9.1.0',
+      'antd': '^5.15.3',
+      '@ant-design/icons': '^5.3.6',
+      'axios': '^1.6.8',
+      'moment': '^2.30.1',
+      'classnames': '^2.5.1'
+    },
+    devDependencies: {
+      '@types/react': '^18.2.66',
+      '@types/react-dom': '^18.2.22',
+      '@vitejs/plugin-react': '^4.2.1',
+      'vite': '^5.2.0',
+      'typescript': '^5.2.2',
+      'eslint': '^8.57.0',
+      '@typescript-eslint/eslint-plugin': '^7.2.0',
+      '@typescript-eslint/parser': '^7.2.0',
+      'eslint-plugin-react-hooks': '^4.6.0',
+      'eslint-plugin-react-refresh': '^0.4.6'
+    },
+    peerDependencies: {
+      'react': '^18.0.0',
+      'react-dom': '^18.0.0'
+    }
+  },
+  '3': {
+    name: 'data-analytics',
+    version: '1.5.2',
+    dependencies: {
+      'vue': '^3.4.21',
+      'vue-router': '^4.3.0',
+      'pinia': '^2.1.7',
+      'element-plus': '^2.6.1',
+      '@element-plus/icons-vue': '^2.3.1',
+      'echarts': '^5.5.0',
+      'vue-echarts': '^6.6.9',
+      'd3': '^7.9.0',
+      'axios': '^1.6.8',
+      'dayjs': '^1.11.10',
+      'xlsx': '^0.18.5'
+    },
+    devDependencies: {
+      '@vitejs/plugin-vue': '^5.0.4',
+      'vite': '^5.2.0',
+      'typescript': '^5.4.3',
+      '@types/d3': '^7.4.3',
+      'sass': '^1.72.0',
+      'unplugin-auto-import': '^0.17.5',
+      'unplugin-vue-components': '^0.26.0'
+    },
+    optionalDependencies: {
+      'canvas': '^2.11.2'
+    }
+  },
+  '4': {
+    name: 'mobile-office',
+    version: '0.8.1',
+    dependencies: {
+      'react-native': '^0.73.6',
+      'react': '^18.2.0',
+      '@react-navigation/native': '^6.1.16',
+      '@react-navigation/stack': '^6.3.28',
+      '@react-navigation/bottom-tabs': '^6.5.17',
+      'react-native-screens': '^3.29.0',
+      'react-native-safe-area-context': '^4.9.0',
+      'react-native-vector-icons': '^10.0.3',
+      'react-native-async-storage': '^1.23.1',
+      'react-native-image-picker': '^7.1.0',
+      'react-native-permissions': '^4.1.5'
+    },
+    devDependencies: {
+      '@babel/core': '^7.20.0',
+      '@babel/preset-env': '^7.20.0',
+      '@babel/runtime': '^7.20.0',
+      '@react-native/babel-preset': '^0.73.21',
+      '@react-native/eslint-config': '^0.73.2',
+      '@react-native/metro-config': '^0.73.5',
+      '@react-native/typescript-config': '^0.73.1',
+      '@types/react': '^18.2.6',
+      '@types/react-test-renderer': '^18.0.0',
+      'babel-jest': '^29.6.3',
+      'eslint': '^8.19.0',
+      'jest': '^29.6.3',
+      'metro-react-native-babel-preset': '^0.76.8',
+      'prettier': '^2.8.8',
+      'react-test-renderer': '^18.2.0',
+      'typescript': '^5.0.4'
+    }
+  },
+  '5': {
+    name: 'finance-system',
+    version: '3.2.1',
+    dependencies: {
+      'express': '^4.19.2',
+      'mongoose': '^8.2.4',
+      'jsonwebtoken': '^9.0.2',
+      'bcryptjs': '^2.4.3',
+      'cors': '^2.8.5',
+      'helmet': '^7.1.0',
+      'express-rate-limit': '^7.2.0',
+      'joi': '^17.12.2',
+      'multer': '^1.4.5-lts.1',
+      'nodemailer': '^6.9.13',
+      'winston': '^3.12.0',
+      'moment': '^2.30.1'
+    },
+    devDependencies: {
+      '@types/node': '^20.11.30',
+      '@types/express': '^4.17.21',
+      '@types/bcryptjs': '^2.4.6',
+      '@types/cors': '^2.8.17',
+      '@types/jsonwebtoken': '^9.0.6',
+      '@types/multer': '^1.4.11',
+      '@types/nodemailer': '^6.4.14',
+      'typescript': '^5.4.3',
+      'ts-node': '^10.9.2',
+      'nodemon': '^3.1.0',
+      'jest': '^29.7.0',
+      '@types/jest': '^29.5.12',
+      'supertest': '^6.3.4',
+      '@types/supertest': '^6.0.2'
+    },
+    peerDependencies: {
+      'node': '>=18.0.0'
+    }
+  }
+};
+
 export default [
   /**
    * 获取应用列表
@@ -238,6 +408,30 @@ export default [
     method: 'get',
     response: () => {
       return resultSuccess(domainDict);
+    },
+  },
+
+  /**
+   * 获取应用的 package.json 内容
+   */
+  {
+    url: '/jeecgboot/appmanage/app/package-json',
+    method: 'get',
+    response: ({ query }) => {
+      const { appId } = query;
+      const packageData = packageJsonData[appId];
+      
+      if (packageData) {
+        return resultSuccess(packageData);
+      } else {
+        return {
+          success: false,
+          message: '未找到该应用的 package.json 信息',
+          code: 404,
+          result: null,
+          timestamp: Date.now(),
+        };
+      }
     },
   },
 ] as MockMethod[];
