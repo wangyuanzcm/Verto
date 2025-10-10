@@ -7,26 +7,26 @@ const { createConfirm } = useMessage();
  * 组件管理API枚举
  */
 enum ComponentApi {
-  list = '/material/component/list',
-  save = '/material/component/add',
-  edit = '/material/component/edit',
-  deleteOne = '/material/component/delete',
-  deleteBatch = '/material/component/deleteBatch',
-  importExcel = '/material/component/importExcel',
-  exportXls = '/material/component/exportXls',
+  list = '/verto-backend/material/component/list',
+  save = '/verto-backend/material/component/add',
+  edit = '/verto-backend/material/component/edit',
+  deleteOne = '/verto-backend/material/component/delete',
+  deleteBatch = '/verto-backend/material/component/deleteBatch',
+  importExcel = '/verto-backend/material/component/importExcel',
+  exportXls = '/verto-backend/material/component/exportXls',
 }
 
 /**
  * 模板管理API枚举
  */
 enum TemplateApi {
-  list = '/material/template/list',
-  save = '/material/template/add',
-  edit = '/material/template/edit',
-  deleteOne = '/material/template/delete',
-  deleteBatch = '/material/template/deleteBatch',
-  importExcel = '/material/template/importExcel',
-  exportXls = '/material/template/exportXls',
+  list = '/verto-backend/material/template/list',
+  save = '/verto-backend/material/template/add',
+  edit = '/verto-backend/material/template/edit',
+  deleteOne = '/verto-backend/material/template/delete',
+  deleteBatch = '/verto-backend/material/template/deleteBatch',
+  importExcel = '/verto-backend/material/template/importExcel',
+  exportXls = '/verto-backend/material/template/exportXls',
 }
 
 /**

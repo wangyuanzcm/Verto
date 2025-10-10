@@ -355,216 +355,299 @@ const projectList = [
 
 // 项目统计数据
 const projectStats = {
-  totalProjects: 4,
-  activeProjects: 2,
-  completedProjects: 1,
-  pausedProjects: 0,
-  planningProjects: 1,
-  avgProgress: 45,
-  totalEstimatedHours: 7000,
-  totalActualHours: 3400,
-  onTimeRate: 75,
-  delayedRate: 25
+  total: 15,
+  active: 12,
+  inactive: 3,
+  building: 2,
+  success: 8,
+  failed: 2
 };
 
 export default [
-  // 获取项目列表
+  /**
+   * 获取相关应用列表
+   */
   {
-    url: '/jeecgboot/project/list',
-    timeout: 200,
-    method: 'get',
-    response: ({ query }) => {
-      const { pageNo = 1, pageSize = 10, projectName, projectCode, status, projectManager } = query;
-      let filteredList = [...projectList];
-      
-      // 根据需求名称过滤
-      if (projectName) {
-        filteredList = filteredList.filter(item => 
-          item.title.includes(projectName)
-        );
-      }
-      
-      // 根据需求编码过滤
-      if (projectCode) {
-        filteredList = filteredList.filter(item => 
-          (item.requirementId && item.requirementId.includes(projectCode)) ||
-          (item.bugId && item.bugId.includes(projectCode))
-        );
-      }
-      
-      // 根据需求状态过滤
-      if (status) {
-        filteredList = filteredList.filter(item => 
-          item.status === status
-        );
-      }
-      
-      // 根据项目经理过滤
-      if (projectManager) {
-        filteredList = filteredList.filter(item => 
-          item.developerName === projectManager
-        );
-      }
-      
-      const start = (pageNo - 1) * pageSize;
-      const end = start + parseInt(pageSize);
-      const records = filteredList.slice(start, end);
-      
-      return resultSuccess({
-        records,
-        total: filteredList.length,
-        size: pageSize,
-        current: pageNo,
-        pages: Math.ceil(filteredList.length / pageSize)
-      });
-    }
-  },
-
-  // 获取项目详情
-  {
-    url: '/jeecgboot/project/detail',
-    timeout: 200,
-    method: 'get',
-    response: ({ query }) => {
-      const { id } = query;
-      const project = projectList.find(item => item.id === id);
-      if (project) {
-        return resultSuccess({
-          ...project,
-          relatedApps: relatedAppsData[id] || [],
-          timeline: projectTimelineData[id] || [],
-          gitBranches: gitBranchesData[id] || []
-        });
-      }
-      return resultError('项目不存在');
-    }
-  },
-
-  // 创建项目
-  {
-    url: '/jeecgboot/project/add',
-    timeout: 200,
-    method: 'post',
-    response: ({ body }) => {
-      const newProject = {
-        id: String(Date.now()),
-        ...body,
-        createTime: new Date().toLocaleString('zh-CN'),
-        updateTime: new Date().toLocaleString('zh-CN')
-      };
-      projectList.push(newProject);
-      return resultSuccess(newProject);
-    }
-  },
-
-  // 更新项目
-  {
-    url: '/jeecgboot/project/edit',
-    timeout: 200,
-    method: 'put',
-    response: ({ body }) => {
-      const { id } = body;
-      const index = projectList.findIndex(item => item.id === id);
-      if (index !== -1) {
-        projectList[index] = {
-          ...projectList[index],
-          ...body,
-          updateTime: new Date().toLocaleString('zh-CN')
-        };
-        return resultSuccess(projectList[index]);
-      }
-      return resultError('项目不存在');
-    }
-  },
-
-  // 删除项目
-  {
-    url: '/jeecgboot/project/delete',
-    timeout: 200,
-    method: 'delete',
-    response: ({ query }) => {
-      const { ids } = query;
-      const idList = ids.split(',');
-      idList.forEach(id => {
-        const index = projectList.findIndex(item => item.id === id);
-        if (index !== -1) {
-          projectList.splice(index, 1);
-        }
-      });
-      return resultSuccess('删除成功');
-    }
-  },
-
-  // 获取项目统计
-  {
-    url: '/jeecgboot/project/stats',
-    timeout: 200,
+    url: '/jeecgboot/project/related-apps',
     method: 'get',
     response: () => {
-      return resultSuccess(projectStats);
-    }
+      return resultSuccess(relatedAppsData);
+    },
   },
 
-  // 获取关联应用列表
-  {
-    url: '/jeecgboot/project/apps',
-    timeout: 200,
-    method: 'get',
-    response: ({ query }) => {
-      const { projectId } = query;
-      const apps = relatedAppsData[projectId] || [];
-      return resultSuccess(apps);
-    }
-  },
-
-  // 获取Git分支列表
+  /**
+   * 获取Git分支列表
+   */
   {
     url: '/jeecgboot/project/git/branches',
-    timeout: 200,
     method: 'get',
     response: ({ query }) => {
       const { projectId } = query;
       const branches = gitBranchesData[projectId] || [];
       return resultSuccess(branches);
-    }
+    },
   },
 
-  // 创建Git分支
+  /**
+   * 获取应用配置
+   */
   {
-    url: '/jeecgboot/project/git/branch/create',
-    timeout: 200,
+    url: '/jeecgboot/project/app/config',
+    method: 'get',
+    response: ({ query }) => {
+      const { projectId } = query;
+      const config = appConfigData[projectId];
+      if (config) {
+        return resultSuccess(config);
+      }
+      return resultError('配置不存在');
+    },
+  },
+
+  /**
+   * 保存应用配置
+   */
+  {
+    url: '/jeecgboot/project/app/config',
     method: 'post',
     response: ({ body }) => {
-      const { projectId, branchName, fromBranch, type } = body;
-      if (!gitBranchesData[projectId]) {
-        gitBranchesData[projectId] = [];
+      const { projectId, config } = body;
+      if (projectId && config) {
+        appConfigData[projectId] = config;
+        return resultSuccess('配置保存成功');
       }
-      const newBranch = {
-        name: branchName,
-        type: type || 'feature',
-        lastCommit: new Date().toLocaleString('zh-CN'),
-        author: 'current_user'
-      };
-      gitBranchesData[projectId].push(newBranch);
-      return resultSuccess('分支创建成功');
-    }
+      return resultError('参数错误');
+    },
   },
 
-  // 删除Git分支
+  /**
+   * 获取项目时间线
+   */
   {
-    url: '/jeecgboot/project/git/branch/delete',
-    timeout: 200,
+    url: '/jeecgboot/project/timeline',
+    method: 'get',
+    response: ({ query }) => {
+      const { projectId } = query;
+      const timeline = projectTimelineData[projectId] || [];
+      return resultSuccess(timeline);
+    },
+  },
+
+  /**
+   * 获取项目列表
+   */
+  {
+    url: '/jeecgboot/project/list',
+    method: 'get',
+    response: ({ query }) => {
+      const { pageNo = 1, pageSize = 10, name, status, type } = query;
+      let filteredProjects = [...projectList];
+
+      // 根据名称过滤
+      if (name) {
+        filteredProjects = filteredProjects.filter(project => 
+          project.title.toLowerCase().includes(name.toLowerCase()) ||
+          project.description.toLowerCase().includes(name.toLowerCase())
+        );
+      }
+
+      // 根据状态过滤
+      if (status) {
+        filteredProjects = filteredProjects.filter(project => project.status === status);
+      }
+
+      // 根据类型过滤
+      if (type) {
+        filteredProjects = filteredProjects.filter(project => project.projectType === type);
+      }
+
+      // 分页处理
+      const start = (pageNo - 1) * pageSize;
+      const end = start + pageSize;
+      const records = filteredProjects.slice(start, end);
+
+      return resultSuccess({
+        records,
+        total: filteredProjects.length,
+        size: pageSize,
+        current: pageNo,
+        pages: Math.ceil(filteredProjects.length / pageSize)
+      });
+    },
+  },
+
+  /**
+   * 获取项目详情
+   */
+  {
+    url: /\/jeecgboot\/project\/queryById/,
+    method: 'get',
+    response: ({ query }) => {
+      const { id } = query;
+      const project = projectList.find(p => p.id === id);
+      if (project) {
+        return resultSuccess(project);
+      }
+      return resultError('项目不存在');
+    },
+  },
+
+  /**
+   * 新增项目
+   */
+  {
+    url: '/jeecgboot/project/add',
+    method: 'post',
+    response: ({ body }) => {
+      const newProject = {
+        id: Date.now().toString(),
+        createTime: new Date().toLocaleString(),
+        updateTime: new Date().toLocaleString(),
+        ...body
+      };
+      projectList.unshift(newProject);
+      return resultSuccess('添加成功');
+    },
+  },
+
+  /**
+   * 编辑项目
+   */
+  {
+    url: '/jeecgboot/project/edit',
+    method: 'put',
+    response: ({ body }) => {
+      const { id } = body;
+      const index = projectList.findIndex(p => p.id === id);
+      if (index !== -1) {
+        projectList[index] = {
+          ...projectList[index],
+          ...body,
+          updateTime: new Date().toLocaleString()
+        };
+        return resultSuccess('编辑成功');
+      }
+      return resultError('项目不存在');
+    },
+  },
+
+  /**
+   * 删除项目
+   */
+  {
+    url: /\/jeecgboot\/project\/delete/,
+    method: 'delete',
+    response: ({ query }) => {
+      const { id } = query;
+      const index = projectList.findIndex(p => p.id === id);
+      if (index !== -1) {
+        projectList.splice(index, 1);
+        return resultSuccess('删除成功');
+      }
+      return resultError('项目不存在');
+    },
+  },
+
+  /**
+   * 批量删除项目
+   */
+  {
+    url: '/jeecgboot/project/deleteBatch',
     method: 'delete',
     response: ({ body }) => {
-      const { projectId, branchName } = body;
-      if (gitBranchesData[projectId]) {
-        const index = gitBranchesData[projectId].findIndex(branch => branch.name === branchName);
+      const { ids } = body;
+      ids.forEach(id => {
+        const index = projectList.findIndex(p => p.id === id);
         if (index !== -1) {
-          gitBranchesData[projectId].splice(index, 1);
-          return resultSuccess('分支删除成功');
+          projectList.splice(index, 1);
         }
-      }
-      return resultError('分支不存在');
-    }
-  }
+      });
+      return resultSuccess('批量删除成功');
+    },
+  },
+
+  /**
+   * 导入项目
+   */
+  {
+    url: '/jeecgboot/project/importExcel',
+    method: 'post',
+    response: () => {
+      return resultSuccess('导入成功');
+    },
+  },
+
+  /**
+   * 导出项目
+   */
+  {
+    url: '/jeecgboot/project/exportXls',
+    method: 'get',
+    response: () => {
+      return resultSuccess('导出成功');
+    },
+  },
+
+  /**
+   * 获取项目统计
+   */
+  {
+    url: '/jeecgboot/project/statistics',
+    method: 'get',
+    response: () => {
+      return resultSuccess(projectStats);
+    },
+  },
+
+  /**
+   * 获取应用列表（用于项目关联）
+   */
+  {
+    url: '/jeecgboot/appmanage/app/list',
+    method: 'get',
+    response: ({ query }) => {
+      const { pageNo = 1, pageSize = 10 } = query;
+      const allApps = Object.values(relatedAppsData).flat();
+      const start = (pageNo - 1) * pageSize;
+      const end = start + pageSize;
+      const records = allApps.slice(start, end);
+
+      return resultSuccess({
+        records,
+        total: allApps.length,
+        size: pageSize,
+        current: pageNo,
+        pages: Math.ceil(allApps.length / pageSize)
+      });
+    },
+  },
+
+  /**
+   * 获取用户列表（用于项目成员）
+   */
+  {
+    url: '/jeecgboot/sys/user/list',
+    method: 'get',
+    response: ({ query }) => {
+      const { pageNo = 1, pageSize = 10 } = query;
+      const users = [
+        { id: '1', username: 'admin', realname: '管理员', email: 'admin@example.com' },
+        { id: '2', username: 'zhangsan', realname: '张三', email: 'zhangsan@example.com' },
+        { id: '3', username: 'lisi', realname: '李四', email: 'lisi@example.com' },
+        { id: '4', username: 'wangwu', realname: '王五', email: 'wangwu@example.com' }
+      ];
+
+      const start = (pageNo - 1) * pageSize;
+      const end = start + pageSize;
+      const records = users.slice(start, end);
+
+      return resultSuccess({
+        records,
+        total: users.length,
+        size: pageSize,
+        current: pageNo,
+        pages: Math.ceil(users.length / pageSize)
+      });
+    },
+  },
 ] as MockMethod[];

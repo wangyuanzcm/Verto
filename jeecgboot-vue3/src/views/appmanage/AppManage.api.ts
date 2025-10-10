@@ -3,32 +3,32 @@ import { Modal } from 'ant-design-vue';
 
 export enum Api {
   // 应用管理
-  list = '/appmanage/app/list',
-  save = '/appmanage/app/edit',
-  delete = '/appmanage/app/delete',
-  queryById = '/appmanage/app/queryById',
-  batchDelete = '/appmanage/app/deleteBatch',
+  list = '/verto-backend/appmanage/list',
+  save = '/verto-backend/appmanage/save',
+  delete = '/verto-backend/appmanage/delete',
+  queryById = '/verto-backend/appmanage/queryById',
+  batchDelete = '/verto-backend/appmanage/deleteBatch',
   // 获取用户列表（用于负责人选择）
-  getUserList = '/sys/user/list',
+  getUserList = '/verto-backend/sys/user/list',
   // 获取领域字典
-  getDomainDict = '/sys/dict/getDictItems/app_domain',
+  getDomainDict = '/verto-backend/sys/dict/getDictItems/app_domain',
   
   // 流水线配置相关
-  getPipelineConfig = '/appmanage/app/pipeline/config',
-  savePipelineConfig = '/appmanage/app/pipeline/config/save',
-  deletePipelineConfig = '/appmanage/app/pipeline/config/delete',
-  togglePipelineConfig = '/appmanage/app/pipeline/config/toggle',
-  copyPipelineConfig = '/appmanage/app/pipeline/config/copy',
+  getPipelineConfig = '/verto-backend/appmanage/pipeline/config',
+  savePipelineConfig = '/verto-backend/appmanage/pipeline/config/save',
+  deletePipelineConfig = '/verto-backend/appmanage/pipeline/config/delete',
+  togglePipelineConfig = '/verto-backend/appmanage/pipeline/config/toggle',
+  copyPipelineConfig = '/verto-backend/appmanage/pipeline/config/copy',
   
   // 流水线运行历史相关
-  getPipelineHistory = '/appmanage/app/pipeline/history',
-  getPipelineHistoryDetail = '/appmanage/app/pipeline/history/detail',
-  rerunPipeline = '/appmanage/app/pipeline/rerun',
-  cancelPipeline = '/appmanage/app/pipeline/cancel',
-  getPipelineLogs = '/appmanage/app/pipeline/logs',
+  getPipelineHistory = '/verto-backend/appmanage/pipeline/history',
+  getPipelineHistoryDetail = '/verto-backend/appmanage/pipeline/history/detail',
+  rerunPipeline = '/verto-backend/appmanage/pipeline/rerun',
+  cancelPipeline = '/verto-backend/appmanage/pipeline/cancel',
+  getPipelineLogs = '/verto-backend/appmanage/pipeline/logs',
   
   // 获取应用 package.json 内容
-  getPackageJson = '/appmanage/app/package-json',
+  getPackageJson = '/verto-backend/appmanage/package-json',
 }
 
 /**

@@ -776,9 +776,8 @@ const handleDelete = (card) => {
 ];
 
 export default [
-  /**
-   * 获取组件列表
-   */
+  // 组件管理接口
+  // 获取组件列表
   {
     url: '/jeecgboot/material/component/list',
     method: 'get',
@@ -809,6 +808,38 @@ export default [
       const records = filteredList.slice(start, end);
 
       return resultPageSuccess(pageNo, pageSize, filteredList);
+    },
+  },
+
+  // 导出组件数据
+  {
+    url: '/jeecgboot/material/component/exportXls',
+    method: 'get',
+    response: () => {
+      return resultSuccess('导出成功');
+    },
+  },
+
+  // 导入组件数据
+  {
+    url: '/jeecgboot/material/component/importExcel',
+    method: 'post',
+    response: () => {
+      return resultSuccess('导入成功');
+    },
+  },
+
+  // 获取组件详情
+  {
+    url: '/jeecgboot/material/component/queryById',
+    method: 'get',
+    response: ({ query }) => {
+      const { id } = query;
+      const component = componentList.find(item => item.id === id);
+      if (component) {
+        return resultSuccess(component);
+      }
+      return resultSuccess(null);
     },
   },
 
@@ -883,6 +914,38 @@ export default [
         }
       });
       return resultSuccess('批量删除成功');
+    },
+  },
+
+  // 导出模板数据
+  {
+    url: '/jeecgboot/material/template/exportXls',
+    method: 'get',
+    response: () => {
+      return resultSuccess('导出成功');
+    },
+  },
+
+  // 导入模板数据
+  {
+    url: '/jeecgboot/material/template/importExcel',
+    method: 'post',
+    response: () => {
+      return resultSuccess('导入成功');
+    },
+  },
+
+  // 获取模板详情
+  {
+    url: '/jeecgboot/material/template/queryById',
+    method: 'get',
+    response: ({ query }) => {
+      const { id } = query;
+      const template = templateList.find(item => item.id === id);
+      if (template) {
+        return resultSuccess(template);
+      }
+      return resultSuccess(null);
     },
   },
 

@@ -148,9 +148,9 @@ export const formSchema: FormSchema[] = [
     required: true,
     rules: [
       { required: true, message: '请输入工号' },
-      { pattern: /^[A-Za-z0-9]{3,20}$/, message: '工号由3-20位字母或数字组成' },
+      { pattern: /^[0-9]{8}$/, message: '工号必须为8位数字' },
     ],
-    dynamicRules: ({ model, schema }) => rules.duplicateCheckRule('sys_staff', 'employee_no', model, schema, true),
+    // dynamicRules: ({ model, schema }) => rules.duplicateCheckRule('sys_staff', 'employee_no', model, schema, true),
   },
   {
     label: '邮箱',
@@ -160,8 +160,7 @@ export const formSchema: FormSchema[] = [
     rules: [
       { required: true, message: '请输入邮箱' },
       { type: 'email', message: '请输入正确的邮箱格式' },
-    ],
-    dynamicRules: ({ model, schema }) => rules.duplicateCheckRule('sys_staff', 'email', model, schema, true),
+    ]
   },
   {
     label: '手机号',

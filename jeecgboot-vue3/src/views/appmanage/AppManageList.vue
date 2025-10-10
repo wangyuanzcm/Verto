@@ -98,7 +98,7 @@
             
             <a-tooltip title="访问Git">
               <div class="card-footer-icon" @click.prevent.stop="handleOpenGit(item.gitUrl)">
-                <Icon icon="ant-design:github-outlined" class="operation" size="18" color="#1F2329"></Icon>
+                <Icon icon="simple-icons:gitlab" class="operation" size="18" color="#1F2329"></Icon>
               </div>
             </a-tooltip>
           </div>

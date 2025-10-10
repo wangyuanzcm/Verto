@@ -3,62 +3,62 @@ import { ProjectModel, PipelineStatus, AppConfig } from './Project.data';
 
 enum Api {
   // 项目基础API
-  list = '/project/list',
-  save = '/project/save',
-  edit = '/project/edit',
-  deleteOne = '/project/delete',
-  deleteBatch = '/project/deleteBatch',
-  importExcel = '/project/importExcel',
-  exportXls = '/project/exportXls',
-  detail = '/project/detail',
+  list = '/verto-backend/project/list',
+  save = '/verto-backend/project/save',
+  edit = '/verto-backend/project/edit',
+  deleteOne = '/verto-backend/project/delete',
+  deleteBatch = '/verto-backend/project/deleteBatch',
+  importExcel = '/verto-backend/project/importExcel',
+  exportXls = '/verto-backend/project/exportXls',
+  detail = '/verto-backend/project/detail',
   
   // Git分支管理API
-  createGitBranch = '/project/git/createBranch',
-  getGitBranches = '/project/git/branches',
-  deleteGitBranch = '/project/git/deleteBranch',
+  createGitBranch = '/verto-backend/project/git/createBranch',
+  getGitBranches = '/verto-backend/project/git/branches',
+  deleteGitBranch = '/verto-backend/project/git/deleteBranch',
   
   // 应用配置API
-  getAppConfig = '/project/appConfig/get',
-  saveAppConfig = '/project/appConfig/save',
+  getAppConfig = '/verto-backend/project/appConfig/get',
+  saveAppConfig = '/verto-backend/project/appConfig/save',
   
   // 流水线配置API - 与mock保持一致
-  getPipelineConfig = '/project/pipeline/config/get',
-  savePipelineConfig = '/project/pipeline/config/save',
-  togglePipelineConfig = '/project/pipeline/config/toggle',
+  getPipelineConfig = '/verto-backend/project/pipeline/config/get',
+  savePipelineConfig = '/verto-backend/project/pipeline/config/save',
+  togglePipelineConfig = '/verto-backend/project/pipeline/config/toggle',
   
   // 流水线状态API - 与mock保持一致
-  getPipelineStatus = '/project/pipeline/status',
+  getPipelineStatus = '/verto-backend/project/pipeline/status',
   
   // 流水线历史API - 与mock保持一致
-  getPipelineHistory = '/project/pipeline/history',
-  getBuildDetail = '/project/pipeline/build',
-  deleteBuild = '/project/pipeline/build/delete',
-  batchDeleteBuilds = '/project/pipeline/build/batch-delete',
+  getPipelineHistory = '/verto-backend/project/pipeline/history',
+  getBuildDetail = '/verto-backend/project/pipeline/build',
+  deleteBuild = '/verto-backend/project/pipeline/build/delete',
+  batchDeleteBuilds = '/verto-backend/project/pipeline/build/batch-delete',
   
   // 流水线执行API - 与mock保持一致
-  triggerPipeline = '/project/pipeline/trigger',
-  cancelPipeline = '/project/pipeline/cancel',
-  retryBuild = '/project/pipeline/build/retry',
+  triggerPipeline = '/verto-backend/project/pipeline/trigger',
+  cancelPipeline = '/verto-backend/project/pipeline/cancel',
+  retryBuild = '/verto-backend/project/pipeline/build/retry',
   
   // 流水线阶段API - 与mock保持一致
-  continueStage = '/project/pipeline/stage/continue',
-  retryPipelineStage = '/project/pipeline/retry',
-  skipPipelineStage = '/project/pipeline/skip',
-  cancelStage = '/project/pipeline/stage/cancel',
-  getStageLogs = '/project/pipeline/logs',
+  continueStage = '/verto-backend/project/pipeline/stage/continue',
+  retryPipelineStage = '/verto-backend/project/pipeline/retry',
+  skipPipelineStage = '/verto-backend/project/pipeline/skip',
+  cancelStage = '/verto-backend/project/pipeline/stage/cancel',
+  getStageLogs = '/verto-backend/project/pipeline/logs',
   
   // 流水线日志API - 与mock保持一致
-  getBuildLogs = '/project/pipeline/logs',
-  downloadBuildLogs = '/project/pipeline/build/logs/download',
-  batchDownloadLogs = '/project/pipeline/build/batch-download',
+  getBuildLogs = '/verto-backend/project/pipeline/logs',
+  downloadBuildLogs = '/verto-backend/project/pipeline/build/logs/download',
+  batchDownloadLogs = '/verto-backend/project/pipeline/build/batch-download',
   
   // 流水线部署API - 与mock保持一致
-  deployPipeline = '/project/pipeline/deploy',
-  stopPipeline = '/project/pipeline/stop',
+  deployPipeline = '/verto-backend/project/pipeline/deploy',
+  stopPipeline = '/verto-backend/project/pipeline/stop',
   
   // 关联数据API
-  getAppList = '/appmanage/app/list',
-  getUserList = '/staff/list',
+  getAppList = '/verto-backend/appmanage/list',
+  getUserList = '/verto-backend/staff/list',
 }
 
 /**

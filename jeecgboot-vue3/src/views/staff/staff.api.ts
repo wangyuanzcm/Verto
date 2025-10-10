@@ -5,20 +5,20 @@ import { Modal } from 'ant-design-vue';
  * 人员管理API枚举
  */
 enum Api {
-  list = '/staff/list',
-  save = '/staff/add',
-  edit = '/staff/edit',
-  deleteStaff = '/staff/delete',
-  deleteBatch = '/staff/deleteBatch',
-  importExcel = '/staff/importExcel',
-  exportXls = '/staff/exportXls',
-  duplicateCheck = '/sys/duplicate/check',
-  getStaffById = '/staff/queryById',
-  getSkillDict = '/sys/dict/getDictItems/staff_skills',
-  skillsStats = '/staff/skillsStats',
-  departmentStats = '/staff/departmentStats',
-  checkEmployeeNo = '/staff/checkEmployeeNo',
-  checkEmail = '/staff/checkEmail',
+  list = '/verto-backend/staff/list',
+  save = '/verto-backend/staff/add',
+  edit = '/verto-backend/staff/edit',
+  deleteStaff = '/verto-backend/staff/delete',
+  deleteBatch = '/verto-backend/staff/deleteBatch',
+  importExcel = '/verto-backend/staff/importExcel',
+  exportXls = '/verto-backend/staff/exportXls',
+  duplicateCheck = '/verto-backend/sys/duplicate/check',
+  getStaffById = '/verto-backend/staff/queryById',
+  getSkillDict = '/verto-backend/sys/dict/getDictItems/staff_skills',
+  skillsStats = '/verto-backend/staff/skillsStats',
+  departmentStats = '/verto-backend/staff/departmentStats',
+  checkEmployeeNo = '/verto-backend/staff/checkEmployeeNo',
+  checkEmail = '/verto-backend/staff/checkEmail',
 }
 
 /**
