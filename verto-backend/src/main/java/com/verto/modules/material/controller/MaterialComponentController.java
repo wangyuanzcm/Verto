@@ -48,13 +48,13 @@ public class MaterialComponentController {
         QueryWrapper<MaterialComponent> queryWrapper = new QueryWrapper<>();
         
         // 根据组件名称模糊查询
-        if (StringUtils.hasText(materialComponent.getName())) {
-            queryWrapper.like("name", materialComponent.getName());
+        if (StringUtils.hasText(materialComponent.getComponentName())) {
+            queryWrapper.like("component_name", materialComponent.getComponentName());
         }
         
         // 根据组件类型查询
-        if (StringUtils.hasText(materialComponent.getType())) {
-            queryWrapper.eq("type", materialComponent.getType());
+        if (StringUtils.hasText(materialComponent.getComponentType())) {
+            queryWrapper.eq("component_type", materialComponent.getComponentType());
         }
         
         // 根据状态查询

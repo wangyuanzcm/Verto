@@ -1,0 +1,66 @@
+#!/bin/sh
+# Git post-commit hook for post-commit processing
+# 在提交完成后进行后续处理
+
+# 获取项目根目录
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+METADATA_DIR="$PROJECT_ROOT/dist"
+POST_COMMIT_INFO_FILE="$METADATA_DIR/post-commit-info.json"
+
+# 确保目录存在
+mkdir -p "$METADATA_DIR"
+
+echo "正在处理提交后信息..."
+
+# 获取最新提交信息（提交后的完整信息）
+COMMIT_HASH=$(git rev-parse HEAD)
+COMMIT_SHORT_HASH=$(git rev-parse --short HEAD)
+COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s")
+COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+COMMIT_EMAIL=$(git log -1 --pretty=format:"%ae")
+COMMIT_DATE=$(git log -1 --pretty=format:"%ci")
+
+# 获取提交统计信息
+COMMIT_STATS=$(git show --stat --format="" HEAD)
+TOTAL_COMMITS=$(git rev-list --count HEAD)
+
+# 获取分支信息
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+UPSTREAM_BRANCH=$(git rev-parse --abbrev-ref @{upstream} 2>/dev/null || echo "无上游分支")
+
+# 生成提交后信息
+cat > "$POST_COMMIT_INFO_FILE" << EOF
+{
+  "postCommitInfo": {
+    "commit": {
+      "hash": "$COMMIT_HASH",
+      "shortHash": "$COMMIT_SHORT_HASH",
+      "message": "$COMMIT_MESSAGE",
+      "author": "$COMMIT_AUTHOR",
+      "email": "$COMMIT_EMAIL",
+      "date": "$COMMIT_DATE"
+    },
+    "repository": {
+      "branch": "$BRANCH",
+      "upstreamBranch": "$UPSTREAM_BRANCH",
+      "totalCommits": $TOTAL_COMMITS
+    },
+    "stats": "$COMMIT_STATS",
+    "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
+  }
+}
+EOF
+
+echo "提交后信息已保存到: $POST_COMMIT_INFO_FILE"
+
+# 如果配置了上报API，则发送数据
+if [ -n "$POST_COMMIT_REPORT_API" ]; then
+  echo "正在上报提交后信息到: $POST_COMMIT_REPORT_API"
+  curl -X POST "$POST_COMMIT_REPORT_API" \
+    -H "Content-Type: application/json" \
+    -d @"$POST_COMMIT_INFO_FILE" \
+    --silent --show-error || echo "提交后信息上报失败"
+fi
+
+echo "提交处理完成"
+exit 0

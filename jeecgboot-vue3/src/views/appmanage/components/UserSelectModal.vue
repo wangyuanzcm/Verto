@@ -34,6 +34,12 @@
             <!-- update-begin-author:taoyan date:2022-5-25 for: VUEN-1112一对多 用户选择 未显示选择条数，及清空 -->
             <template #tableTitle></template>
             <!-- update-end-author:taoyan date:2022-5-25 for: VUEN-1112一对多 用户选择 未显示选择条数，及清空 -->
+            <!-- 在职/离职状态显示 -->
+            <template #status="{ text }">
+              <a-tag :color="text === 1 ? 'green' : 'red'">
+                {{ text === 1 ? '在职' : '离职' }}
+              </a-tag>
+            </template>
           </BasicTable>
         </a-col>
         <a-col :span="showSelected ? 6 : 0">
@@ -123,10 +129,19 @@
         bordered: true,
         size: 'small',
       };
-      const getBindValue = Object.assign({}, unref(props), unref(attrs), config);
+      // 统一绑定的配置，若使用自定义API（在职人员），覆盖rowKey/labelKey以匹配Staff返回字段
+      const getBindValue = computed(() => {
+        const merged: any = Object.assign({}, unref(props), unref(attrs), config);
+        if (hasCustomApi.value) {
+          // 使用自定义在职人员接口时，强制使用 Staff 返回的唯一键和值字段，避免父组件传入的 rowKey/labelKey 不匹配导致选择异常
+          merged.rowKey = 'id';
+          merged.labelKey = 'name';
+        }
+        return merged;
+      });
       const [{ rowSelection, visibleChange, selectValues, indexColumnProps, getSelectResult, handleDeleteSelected, selectRows }] = useSelectBiz(
-        getUserList,
-        getBindValue,
+        hasCustomApi.value ? props.customListApi : getUserList,
+        unref(getBindValue),
         emit
       );
       const searchInfo = ref(props.params);
@@ -140,7 +155,7 @@
       });
       // update-end--author:liaozhiyang---date:20230811---for：【issues/657】右侧选中列表删除无效
       //查询form
-      const formConfig = {
+      const formConfig = computed(() => ({
         baseColProps: {
           xs: 24,
           sm: 8,
@@ -159,55 +174,37 @@
           xxl: 8,
         },
         //update-end-author:taoyan date:2022-5-24 for: VUEN-1086 【移动端】用户选择 查询按钮 效果不好 列表展示没有滚动条---查询表单按钮的栅格布局和表单的保持一致
-        schemas: [
-          {
-            label: '账号',
-            field: 'username',
-            component: (hasCustomApi.value && !props.customApiJInput) ? 'Input' : 'JInput',
-          },
-          {
-            label: '姓名',
-            field: 'realname',
-            component: (hasCustomApi.value && !props.customApiJInput) ? 'Input' : 'JInput',
-          },
-        ],
-      };
+        schemas: hasCustomApi.value
+          ? [
+              { label: '工号', field: 'employeeNo', component: (!props.customApiJInput) ? 'Input' : 'JInput' },
+              { label: '姓名', field: 'name', component: (!props.customApiJInput) ? 'Input' : 'JInput' },
+            ]
+          : [
+              { label: '账号', field: 'username', component: (hasCustomApi.value && !props.customApiJInput) ? 'Input' : 'JInput' },
+              { label: '姓名', field: 'realname', component: (hasCustomApi.value && !props.customApiJInput) ? 'Input' : 'JInput' },
+            ],
+      }));
       //定义表格列
-      const columns = [
-        {
-          title: '用户账号',
-          dataIndex: 'username',
-          width: 120,
-          align: 'left',
-        },
-        {
-          title: '用户姓名',
-          dataIndex: 'realname',
-          width: 120,
-        },
-        {
-          title: '性别',
-          dataIndex: 'sex_dictText',
-          width: 50,
-        },
-        {
-          title: '手机号码',
-          dataIndex: 'phone',
-          width: 120,
-        },
-        {
-          title: '邮箱',
-          dataIndex: 'email',
-          // width: 40,
-        },
-        {
-          title: '状态',
-          dataIndex: 'status_dictText',
-          width: 80,
-        },
-      ];
+      const columns = computed(() =>
+        hasCustomApi.value
+          ? [
+              { title: '姓名', dataIndex: 'name', width: 120, align: 'left' },
+              { title: '工号', dataIndex: 'employeeNo', width: 120 },
+              { title: '手机号码', dataIndex: 'phone', width: 120 },
+              { title: '邮箱', dataIndex: 'email' },
+              { title: '状态', dataIndex: 'status', width: 80, slots: { customRender: 'status' } },
+            ]
+          : [
+              { title: '用户账号', dataIndex: 'username', width: 120, align: 'left' },
+              { title: '用户姓名', dataIndex: 'realname', width: 120 },
+              { title: '性别', dataIndex: 'sex_dictText', width: 50 },
+              { title: '手机号码', dataIndex: 'phone', width: 120 },
+              { title: '邮箱', dataIndex: 'email' },
+              { title: '状态', dataIndex: 'status_dictText', width: 80 },
+            ]
+      );
       //已选择的table信息
-      const selectedTable = {
+      const selectedTable = computed(() => ({
         pagination: false,
         showIndexColumn: false,
         scroll: { y: 390 },
@@ -218,7 +215,7 @@
         columns: [
           {
             title: '用户姓名',
-            dataIndex: 'realname',
+            dataIndex: hasCustomApi.value ? 'name' : 'realname',
             width: 40,
           },
           {
@@ -229,7 +226,7 @@
             slots: { customRender: 'action' },
           },
         ],
-      };
+      }));
       /**
        * 确定选择
        */

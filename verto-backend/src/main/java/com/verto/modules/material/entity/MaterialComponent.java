@@ -39,13 +39,31 @@ public class MaterialComponent implements Serializable {
      * 组件名称
      */
     @Schema(description = "组件名称")
-    private String name;
+    private String componentName;
+
+    /**
+     * 组件代码
+     */
+    @Schema(description = "组件代码")
+    private String componentCode;
 
     /**
      * 组件类型
      */
     @Schema(description = "组件类型")
-    private String type;
+    private String componentType;
+
+    /**
+     * 分类
+     */
+    @Schema(description = "分类")
+    private String category;
+
+    /**
+     * 组件描述
+     */
+    @Schema(description = "组件描述")
+    private String description;
 
     /**
      * 组件版本
@@ -54,16 +72,52 @@ public class MaterialComponent implements Serializable {
     private String version;
 
     /**
-     * 组件代码
+     * 作者
      */
-    @Schema(description = "组件代码")
-    private String code;
+    @Schema(description = "作者")
+    private String author;
 
     /**
-     * 组件描述
+     * 标签
      */
-    @Schema(description = "组件描述")
-    private String description;
+    @Schema(description = "标签")
+    private String tags;
+
+    /**
+     * 依赖
+     */
+    @Schema(description = "依赖")
+    private String dependencies;
+
+    /**
+     * 属性配置
+     */
+    @Schema(description = "属性配置")
+    private String props;
+
+    /**
+     * 演示代码
+     */
+    @Schema(description = "演示代码")
+    private String demoCode;
+
+    /**
+     * 文档说明
+     */
+    @Schema(description = "文档说明")
+    private String documentation;
+
+    /**
+     * 下载次数
+     */
+    @Schema(description = "下载次数")
+    private Integer downloadCount;
+
+    /**
+     * 收藏次数
+     */
+    @Schema(description = "收藏次数")
+    private Integer starCount;
 
     /**
      * 状态(0-禁用,1-启用)
@@ -121,12 +175,12 @@ public class MaterialComponent implements Serializable {
     }
 
     // 手动添加的 getter 方法，确保编译通过
-    public String getName() {
-        return name;
+    public String getComponentName() {
+        return componentName;
     }
 
-    public String getType() {
-        return type;
+    public String getComponentType() {
+        return componentType;
     }
 
     public String getStatus() {

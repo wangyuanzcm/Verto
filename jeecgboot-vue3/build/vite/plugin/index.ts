@@ -18,6 +18,8 @@ import { configSvgIconsPlugin } from './svgSprite';
 import { configQiankunMicroPlugin } from './qiankunMicro';
 // // electron plugin
 import { configElectronPlugin } from "./electron";
+// 元数据上报插件
+import { createMetadataReporter } from './metadata-reporter';
 // //预编译加载插件(不支持vite3作废)
 // import OptimizationPersist from 'vite-plugin-optimize-persist';
 // import PkgConfig from 'vite-plugin-package-config';
@@ -82,6 +84,12 @@ export function createVitePlugins(viteEnv: ViteEnv, isBuild: boolean, isQiankunM
     // rollup-plugin-gzip
     vitePlugins.push(configCompressPlugin(VITE_BUILD_COMPRESS, VITE_BUILD_COMPRESS_DELETE_ORIGIN_FILE));
 
+    // 元数据上报插件 - 仅在构建时启用
+    vitePlugins.push(createMetadataReporter({
+      appId: 'jeecgboot-vue3',
+      enabled: true,
+      reportInDev: false,
+    }));
   }
 
   // //vite-plugin-theme【预编译加载插件，解决vite首次打开界面加载慢问题】

@@ -9,7 +9,7 @@
   import { BasicModal, useModalInner } from '/@/components/Modal';
   import { BasicForm, useForm } from '/@/components/Form/index';
   import { componentFormSchema } from '../material.data';
-  import { saveOrUpdateComponent } from '../material.api';
+  import { addComponent, updateComponent } from '../material.api';
 
   /**
    * 组件管理弹窗
@@ -57,9 +57,11 @@
       
       if (unref(isUpdate)) {
         values.id = rowId.value;
+        await updateComponent(values);
+      } else {
+        await addComponent(values);
       }
       
-      await saveOrUpdateComponent(values);
       closeModal();
       emit('success', { isUpdate: unref(isUpdate), values: { ...values, id: rowId.value } });
     } finally {

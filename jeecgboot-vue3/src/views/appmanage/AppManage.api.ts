@@ -3,15 +3,25 @@ import { Modal } from 'ant-design-vue';
 
 export enum Api {
   // 应用管理
-  list = '/verto-backend/appmanage/list',
-  save = '/verto-backend/appmanage/save',
-  delete = '/verto-backend/appmanage/delete',
-  queryById = '/verto-backend/appmanage/queryById',
-  batchDelete = '/verto-backend/appmanage/deleteBatch',
+  list = '/verto-backend/appmanage/app/list',
+  save = '/verto-backend/appmanage/app/add',
+  edit = '/verto-backend/appmanage/app/edit',
+  delete = '/verto-backend/appmanage/app/delete',
+  queryById = '/verto-backend/appmanage/app/queryById',
+  batchDelete = '/verto-backend/appmanage/app/deleteBatch',
   // 获取用户列表（用于负责人选择）
   getUserList = '/verto-backend/sys/user/list',
   // 获取领域字典
   getDomainDict = '/verto-backend/sys/dict/getDictItems/app_domain',
+  
+  // Staff模块接口
+  staffList = '/verto-backend/staff/list',
+  staffActive = '/verto-backend/staff/active',
+  staffQueryById = '/verto-backend/staff/queryById',
+  staffAdd = '/verto-backend/staff/add',
+  staffEdit = '/verto-backend/staff/edit',
+  staffDelete = '/verto-backend/staff/delete',
+  staffDeleteBatch = '/verto-backend/staff/deleteBatch',
   
   // 流水线配置相关
   getPipelineConfig = '/verto-backend/appmanage/pipeline/config',
@@ -28,7 +38,10 @@ export enum Api {
   getPipelineLogs = '/verto-backend/appmanage/pipeline/logs',
   
   // 获取应用 package.json 内容
-  getPackageJson = '/verto-backend/appmanage/package-json',
+  getPackageJson = '/verto-backend/appmanage/app/package-json',
+  
+  // 获取应用统计数据
+  getStatistics = '/verto-backend/appmanage/app/statistics',
 }
 
 /**
@@ -48,11 +61,19 @@ export const getAppById = (params) => {
 };
 
 /**
- * 新增或编辑应用
- * @param params 应用数据
+ * 保存应用
+ * @param params
  */
 export const saveApp = (params) => {
-  return defHttp.put({ url: Api.save, params });
+  return defHttp.post({ url: Api.save, params }, { isTransformResponse: false });
+};
+
+/**
+ * 编辑应用
+ * @param params
+ */
+export const editApp = (params) => {
+  return defHttp.put({ url: Api.edit, params }, { isTransformResponse: false });
 };
 
 /**
@@ -214,5 +235,71 @@ export const getPipelineLogs = (appId: string, historyId: string) => {
  * @param appId 应用ID
  */
 export const getAppPackageJson = (appId: string) => {
-  return defHttp.get({ url: Api.getPackageJson, params: { appId } }, { isTransformResponse: false });
+  return defHttp.get({ url: Api.getPackageJson, params: { id: appId } }, { isTransformResponse: false });
+};
+
+/**
+ * 获取应用统计数据
+ * @param appId 应用ID
+ */
+export const getAppStatistics = (appId: string) => {
+  return defHttp.get({ url: Api.getStatistics, params: { id: appId } }, { isTransformResponse: false });
+};
+
+// ==================== Staff模块相关API ====================
+
+/**
+ * 分页查询人员列表
+ * @param params 查询参数
+ */
+export const getStaffList = (params) => {
+  return defHttp.get({ url: Api.staffList, params });
+};
+
+/**
+ * 获取所有在职人员列表（用于下拉选择）
+ * @param params 查询参数
+ */
+export const getActiveStaffList = (params) => {
+  return defHttp.get({ url: Api.staffActive, params });
+};
+
+/**
+ * 根据ID查询人员详情
+ * @param params 查询参数
+ */
+export const getStaffById = (params) => {
+  return defHttp.get({ url: Api.staffQueryById, params });
+};
+
+/**
+ * 新增人员
+ * @param params 人员信息
+ */
+export const addStaff = (params) => {
+  return defHttp.post({ url: Api.staffAdd, params });
+};
+
+/**
+ * 编辑人员
+ * @param params 人员信息
+ */
+export const editStaff = (params) => {
+  return defHttp.put({ url: Api.staffEdit, params });
+};
+
+/**
+ * 删除人员
+ * @param params 删除参数
+ */
+export const deleteStaff = (params) => {
+  return defHttp.delete({ url: Api.staffDelete, params });
+};
+
+/**
+ * 批量删除人员
+ * @param params 删除参数
+ */
+export const deleteBatchStaff = (params) => {
+  return defHttp.delete({ url: Api.staffDeleteBatch, params });
 };

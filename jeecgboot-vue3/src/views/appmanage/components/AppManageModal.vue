@@ -27,7 +27,16 @@
     />
     
     <!-- 应用信息表单 -->
-    <BasicForm v-show="isUpdate || currentStep === 1" @register="registerForm" />
+    <BasicForm v-show="isUpdate || currentStep === 1" @register="registerForm">
+      <template #managers="{ model, field }">
+        <StaffSelectUser 
+          v-model:value="model[field]" 
+          placeholder="请选择应用负责人"
+          :mode="'multiple'"
+          :labelInValue="true"
+        />
+      </template>
+    </BasicForm>
   </BasicModal>
 </template>
 
@@ -36,14 +45,15 @@
   import { BasicModal, useModalInner } from '/@/components/Modal';
   import { BasicForm, useForm } from '/@/components/Form/index';
   import { useMessage } from '/@/hooks/web/useMessage';
-  import { saveApp } from '../AppManage.api';
+  import { saveApp, editApp } from '../AppManage.api';
   import { formSchema } from '../AppManage.data';
   import type { AppManageModel } from '../AppManage.data';
   import AppTemplateSelect from './AppTemplateSelect.vue';
+  import StaffSelectUser from './StaffSelectUser.vue';
 
   export default {
     name: 'AppManageModal',
-    components: { BasicModal, BasicForm, AppTemplateSelect },
+    components: { BasicModal, BasicForm, AppTemplateSelect ,StaffSelectUser},
     emits: ['success', 'register'],
     setup(_, { emit }) {
       const { createMessage } = useMessage();
@@ -181,11 +191,15 @@
             }
           }
 
-          // 调用API
-          const result = await saveApp(submitData);
-
+          // 调用API（更新使用 edit，新增使用 save）
+          const result = unref(isUpdate)
+            ? await editApp(submitData)
+            : await saveApp(submitData);
+          console.log(result,'result')
           if (result?.success) {
             handleSuccess(result.result);
+          } else {
+            createMessage.error(result?.message || '提交失败');
           }
         } catch (error) {
           console.error('提交失败:', error);

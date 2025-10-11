@@ -1,0 +1,77 @@
+#!/bin/sh
+# Git pre-commit hook for collecting git information
+# 在代码提交时收集git相关信息
+
+# 获取项目根目录
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+METADATA_DIR="$PROJECT_ROOT/dist"
+GIT_INFO_FILE="$METADATA_DIR/git-info.json"
+
+# 确保目录存在
+mkdir -p "$METADATA_DIR"
+
+# 收集git信息
+echo "正在收集Git信息..."
+
+# 获取当前分支
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# 获取最新提交信息
+COMMIT_HASH=$(git rev-parse HEAD)
+COMMIT_SHORT_HASH=$(git rev-parse --short HEAD)
+COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s")
+COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+COMMIT_EMAIL=$(git log -1 --pretty=format:"%ae")
+COMMIT_DATE=$(git log -1 --pretty=format:"%ci")
+
+# 获取远程仓库信息
+REMOTE_URL=$(git config --get remote.origin.url)
+
+# 获取标签信息
+LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "无标签")
+
+# 获取文件变更统计
+CHANGED_FILES=$(git diff --cached --name-only | wc -l)
+ADDED_LINES=$(git diff --cached --numstat | awk '{added += $1} END {print added+0}')
+DELETED_LINES=$(git diff --cached --numstat | awk '{deleted += $2} END {print deleted+0}')
+
+# 生成JSON格式的git信息
+cat > "$GIT_INFO_FILE" << EOF
+{
+  "gitInfo": {
+    "branch": "$BRANCH",
+    "commit": {
+      "hash": "$COMMIT_HASH",
+      "shortHash": "$COMMIT_SHORT_HASH",
+      "message": "$COMMIT_MESSAGE",
+      "author": "$COMMIT_AUTHOR",
+      "email": "$COMMIT_EMAIL",
+      "date": "$COMMIT_DATE"
+    },
+    "remote": {
+      "url": "$REMOTE_URL"
+    },
+    "tag": "$LATEST_TAG",
+    "changes": {
+      "files": $CHANGED_FILES,
+      "addedLines": $ADDED_LINES,
+      "deletedLines": $DELETED_LINES
+    },
+    "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
+  }
+}
+EOF
+
+echo "Git信息已保存到: $GIT_INFO_FILE"
+
+# 如果配置了上报API，则发送数据
+if [ -n "$GIT_REPORT_API" ]; then
+  echo "正在上报Git信息到: $GIT_REPORT_API"
+  curl -X POST "$GIT_REPORT_API" \
+    -H "Content-Type: application/json" \
+    -d @"$GIT_INFO_FILE" \
+    --silent --show-error || echo "Git信息上报失败"
+fi
+
+# 继续正常的提交流程
+exit 0

@@ -76,26 +76,6 @@
           </a-tab-pane>
         </a-tabs>
       </a-card>
-
-      <!-- Git仓库信息 -->
-      <!-- <a-card class="git-info-card" v-if="appDetail.gitUrl">
-        <div class="git-info">
-          <div class="git-actions">
-            <a-button type="primary" @click="openGitRepo">
-              <Icon icon="ant-design:github-outlined" size="16" />
-              访问仓库
-            </a-button>
-            <a-button @click="copyGitUrl">
-              <Icon icon="ant-design:copy-outlined" size="16" />
-              复制地址
-            </a-button>
-          </div>
-          <div class="git-url">
-            <Icon icon="ant-design:link-outlined" size="16" />
-            <span>{{ appDetail.gitUrl }}</span>
-          </div>
-        </div>
-      </a-card> -->
     </div>
 
     <!-- 数据不存在 -->
@@ -116,7 +96,7 @@
   import { useModal } from '/@/components/Modal';
   import { useClipboard } from '@vueuse/core';
   import { formatToDateTime } from '/@/utils/dateUtil';
-  import { getAppById, deleteApp } from './AppManage.api';
+  import { getAppById, deleteApp, getAppStatistics } from './AppManage.api';
   import AppManageModal from './components/AppManageModal.vue';
   import BasicInfo from './components/BasicInfo.vue';
   // import ProjectList from './components/ProjectList.vue';
@@ -146,7 +126,6 @@
     setup() {
       const route = useRoute();
       const router = useRouter();
-      const { createMessage } = message;
 
       // 模态框
       const [registerModal, { openModal }] = useModal();
@@ -171,7 +150,7 @@
       const loadAppDetail = async () => {
         const appId = route.params.id as string;
         if (!appId) {
-          createMessage.error('应用ID不能为空');
+          message.error('应用ID不能为空');
           return;
         }
 
@@ -181,13 +160,38 @@
           if (result.success) {
             appDetail.value = result.result;
           } else {
-            createMessage.error(result.message || '加载应用详情失败');
+            message.error(result.message || '加载应用详情失败');
           }
         } catch (error) {
           console.error('加载应用详情失败:', error);
-          createMessage.error('加载应用详情失败');
+          message.error('加载应用详情失败');
         } finally {
           loading.value = false;
+        }
+      };
+
+      /**
+       * 加载应用统计数据
+       */
+      const loadAppStatistics = async () => {
+        const appId = route.params.id as string;
+        if (!appId) {
+          return;
+        }
+
+        try {
+          const result = await getAppStatistics(appId);
+          if (result.success && result.result) {
+            projectCount.value = result.result.projectCount || 0;
+            commitCount.value = result.result.commitCount || 0;
+            deployCount.value = result.result.deployCount || 0;
+          } else {
+            console.warn('获取统计数据失败:', result.message);
+            // 保持默认值，不显示错误信息
+          }
+        } catch (error) {
+          console.error('加载应用统计数据失败:', error);
+          // 保持默认值，不显示错误信息
         }
       };
 
@@ -216,7 +220,7 @@
       const handleDelete = () => {
         if (!appDetail.value) return;
         deleteApp({ id: appDetail.value.id }, () => {
-          createMessage.success('删除成功');
+          message.success('删除成功');
           goBack();
         });
       };
@@ -280,6 +284,7 @@
       // 组件挂载时加载数据
       onMounted(() => {
         loadAppDetail();
+        loadAppStatistics();
       });
 
       return {

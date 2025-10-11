@@ -95,6 +95,77 @@ pnpm build
 *   [vxetable文档](https://vxetable.cn)
 
 
+## 待办事项 (TODO)
+
+### 自动依赖信息上报功能
+
+#### 功能描述
+在项目构建（如 Vite / Webpack）时，自动读取 package.json 并上报应用依赖信息。这是应用获取依赖信息的主要途径，在应用提交代码到git的时候可以获取到应用的git信息。
+
+#### 技术方案
+
+##### 1. 构建时依赖信息收集
+- **实现方式**: 通过 Vite 插件机制，在构建过程中自动收集依赖信息
+- **插件位置**: `build/vite/plugin/metadata-reporter.ts`
+- **收集内容**:
+  - package.json 基本信息（名称、版本、描述等）
+  - 生产依赖和开发依赖详细信息
+  - Node.js 和 npm 版本信息
+  - 构建时间和环境信息
+
+##### 2. Git 信息收集
+- **实现方式**: 通过 Git Hooks 机制，在代码提交时自动收集git信息
+- **Hook 脚本位置**: `build/git-hooks/`
+- **收集内容**:
+  - 提交哈希、分支、作者信息
+  - 提交消息和时间
+  - 远程仓库地址
+  - 文件变更统计
+
+#### 使用方法
+
+##### 安装 Git Hooks
+```bash
+# 安装git hooks
+pnpm run hooks:install
+
+# 卸载git hooks（如需要）
+pnpm run hooks:uninstall
+```
+
+##### 配置上报API（可选）
+1. 复制配置文件: `cp .env.git-hooks.example .env.git-hooks`
+2. 修改配置文件中的API地址:
+   ```bash
+   # Git信息上报API
+   GIT_REPORT_API=http://localhost:8080/api/git/report
+   
+   # 提交后信息上报API
+   POST_COMMIT_REPORT_API=http://localhost:8080/api/git/post-commit
+   ```
+
+##### 构建时自动上报
+```bash
+# 生产构建时会自动收集并上报依赖信息
+pnpm run build
+```
+
+#### 输出文件
+- `dist/metadata.json` - 完整的应用元数据（依赖、构建、Git信息）
+- `dist/git-info.json` - Git提交信息
+- `dist/post-commit-info.json` - 提交后处理信息
+
+#### 实现状态
+- [x] 设计技术方案
+- [x] 实现 Vite 插件进行依赖信息收集
+- [x] 创建 Git Hooks 进行git信息收集
+- [x] 集成到构建流程
+- [x] 添加配置和使用文档
+- [ ] 后端API接口开发（根据需要）
+- [ ] 测试和优化
+
+---
+
 ##   浏览器支持
 
 **本地开发**推荐使用`Chrome 最新版`浏览器，**不支持**`Chrome 90`以下版本。

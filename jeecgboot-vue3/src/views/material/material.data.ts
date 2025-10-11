@@ -2,6 +2,7 @@ import { BasicColumn } from '/@/components/Table';
 import { FormSchema } from '/@/components/Table';
 import { rules } from '/@/utils/helper/validator';
 import { render } from '/@/utils/common/renderUtils';
+import { unref } from 'vue';
 
 /**
  * 组件管理列配置
@@ -10,12 +11,12 @@ export const componentColumns: BasicColumn[] = [
   {
     title: '组件名称',
     align: 'center',
-    dataIndex: 'name',
+    dataIndex: 'componentName',
   },
   {
     title: '组件类型',
     align: 'center',
-    dataIndex: 'type',
+    dataIndex: 'componentType',
     customRender: ({ text }) => {
       const typeMap = {
         'form': '表单组件',
@@ -59,12 +60,12 @@ export const templateColumns: BasicColumn[] = [
   {
     title: '模板名称',
     align: 'center',
-    dataIndex: 'name',
+    dataIndex: 'templateName',
   },
   {
     title: '模板类型',
     align: 'center',
-    dataIndex: 'type',
+    dataIndex: 'templateType',
     customRender: ({ text }) => {
       const typeMap = {
         'page': '页面模板',
@@ -108,13 +109,13 @@ export const templateColumns: BasicColumn[] = [
 export const componentSearchFormSchema: FormSchema[] = [
   {
     label: '组件名称',
-    field: 'name',
+    field: 'componentName',
     component: 'Input',
     colProps: { span: 6 },
   },
   {
     label: '组件类型',
-    field: 'type',
+    field: 'componentType',
     component: 'Select',
     componentProps: {
       options: [
@@ -138,18 +139,18 @@ export const componentSearchFormSchema: FormSchema[] = [
 ];
 
 /**
- * 模板管理搜索表单配置
+ * 模板搜索表单配置
  */
 export const templateSearchFormSchema: FormSchema[] = [
   {
     label: '模板名称',
-    field: 'name',
+    field: 'templateName',
     component: 'Input',
     colProps: { span: 6 },
   },
   {
     label: '模板类型',
-    field: 'type',
+    field: 'templateType',
     component: 'Select',
     componentProps: {
       options: [
@@ -185,7 +186,7 @@ export const componentFormSchema: FormSchema[] = [
   },
   {
     label: '组件名称',
-    field: 'name',
+    field: 'componentName',
     component: 'Input',
     required: true,
     dynamicRules: ({ model, schema }) => {
@@ -194,7 +195,7 @@ export const componentFormSchema: FormSchema[] = [
   },
   {
     label: '组件类型',
-    field: 'type',
+    field: 'componentType',
     component: 'Select',
     required: true,
     componentProps: {
@@ -220,7 +221,7 @@ export const componentFormSchema: FormSchema[] = [
   },
   {
     label: '组件代码',
-    field: 'code',
+    field: 'componentCode',
     component: 'JCodeEditor',
     componentProps: {
       language: 'javascript',
@@ -253,6 +254,9 @@ export const componentFormSchema: FormSchema[] = [
 /**
  * 模板管理表单配置
  */
+/**
+ * 模板表单配置
+ */
 export const templateFormSchema: FormSchema[] = [
   {
     label: '',
@@ -262,7 +266,7 @@ export const templateFormSchema: FormSchema[] = [
   },
   {
     label: '模板名称',
-    field: 'name',
+    field: 'templateName',
     component: 'Input',
     required: true,
     dynamicRules: ({ model, schema }) => {
@@ -270,8 +274,25 @@ export const templateFormSchema: FormSchema[] = [
     },
   },
   {
+    label: '模板代码',
+    field: 'templateCode',
+    component: 'Input',
+    required: true,
+    componentProps: {
+      placeholder: '请输入唯一的模板代码',
+    },
+    dynamicRules: ({ model, schema }) => {
+      return [
+        { required: true, message: '请输入模板代码!' },
+        { pattern: /^[a-zA-Z0-9_-]+$/, message: '模板代码只能包含字母、数字、下划线和横线!' },
+      ];
+    },
+    // 编辑模式下不可修改编码
+    dynamicDisabled: (params) => !!params.values.id,
+  },
+  {
     label: '模板类型',
-    field: 'type',
+    field: 'templateType',
     component: 'Select',
     required: true,
     componentProps: {
@@ -298,7 +319,7 @@ export const templateFormSchema: FormSchema[] = [
   },
   {
     label: '模板内容',
-    field: 'content',
+    field: 'sourceCode',
     component: 'JCodeEditor',
     componentProps: {
       language: 'html',

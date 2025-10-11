@@ -162,7 +162,7 @@ public class StaffController {
      * @return 操作结果
      */
     @Operation(summary = "批量删除人员")
-    @PostMapping(value = "/deleteBatch")
+    @DeleteMapping(value = "/deleteBatch")
     public Result<String> deleteBatch(@Parameter(description = "人员ID列表") @RequestParam(name = "ids", required = true) String ids) {
         List<String> idList = Arrays.asList(ids.split(","));
         staffService.removeByIds(idList);

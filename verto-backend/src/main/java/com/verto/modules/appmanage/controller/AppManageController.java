@@ -5,7 +5,11 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.verto.common.api.Result;
 import com.verto.modules.appmanage.entity.AppManage;
+import com.verto.modules.appmanage.entity.AppStatistics;
+import com.verto.modules.appmanage.entity.PackageJsonInfo;
 import com.verto.modules.appmanage.service.IAppManageService;
+import com.verto.modules.appmanage.service.IAppStatisticsService;
+import com.verto.modules.appmanage.service.IPackageJsonService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +35,12 @@ public class AppManageController {
 
     @Autowired
     private IAppManageService appManageService;
+
+    @Autowired
+    private IPackageJsonService packageJsonService;
+
+    @Autowired
+    private IAppStatisticsService appStatisticsService;
 
     /**
      * 分页查询应用列表
@@ -91,15 +101,15 @@ public class AppManageController {
      * 新增应用
      * 
      * @param appManage 应用信息
-     * @return 操作结果
+     * @return 操作结果，包含创建的应用信息
      */
     @Operation(summary = "新增应用")
     @PostMapping(value = "/add")
-    public Result<String> add(@RequestBody AppManage appManage) {
+    public Result<AppManage> add(@RequestBody AppManage appManage) {
         appManage.setCreateTime(new Date());
         appManage.setCreateBy("admin"); // 实际项目中应从当前登录用户获取
         appManageService.save(appManage);
-        return Result.ok("添加成功！");
+        return Result.ok(appManage);
     }
 
     /**
@@ -152,9 +162,39 @@ public class AppManageController {
      */
     @Operation(summary = "获取应用的package.json信息")
     @GetMapping(value = "/package-json")
-    public Result<Object> getPackageJson(@Parameter(description = "应用ID") @RequestParam(name = "id", required = true) String id) {
-        // 这里应该根据实际的Git仓库获取package.json信息
-        // 为了演示，返回模拟数据
-        return Result.ok("获取package.json信息成功");
+    public Result<PackageJsonInfo> getPackageJson(@Parameter(description = "应用ID") @RequestParam(name = "id", required = true) String id) {
+        try {
+            PackageJsonInfo packageJsonInfo = packageJsonService.getPackageJsonByAppId(id);
+            if (packageJsonInfo != null) {
+                return Result.ok(packageJsonInfo);
+            } else {
+                return Result.error("未找到该应用的 package.json 信息");
+            }
+        } catch (Exception e) {
+            log.error("获取应用package.json信息失败", e);
+            return Result.error("获取package.json信息失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取应用统计数据
+     * 
+     * @param id 应用ID
+     * @return 应用统计数据
+     */
+    @Operation(summary = "获取应用统计数据")
+    @GetMapping(value = "/statistics")
+    public Result<AppStatistics> getStatistics(@Parameter(description = "应用ID") @RequestParam(name = "id", required = true) String id) {
+        try {
+            AppStatistics statistics = appStatisticsService.getStatisticsByAppId(id);
+            if (statistics != null) {
+                return Result.ok(statistics);
+            } else {
+                return Result.error("未找到该应用的统计数据");
+            }
+        } catch (Exception e) {
+            log.error("获取应用统计数据失败", e);
+            return Result.error("获取统计数据失败: " + e.getMessage());
+        }
     }
 }

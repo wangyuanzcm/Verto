@@ -25,7 +25,9 @@
     "gen:icon": "esno ./build/generate/icon/index.ts",
     "batch:prettier": "prettier --write  \"src/**/*.{js,json,tsx,css,less,scss,vue,html,md}\"",
     "upgrade:log": "conventional-changelog -p angular -i CHANGELOG.md -s",
-    "husky:install": "husky install"
+    "husky:install": "husky install",
+    "hooks:install": "node build/git-hooks/install-hooks.js install",
+    "hooks:uninstall": "node build/git-hooks/install-hooks.js uninstall"
   },
   "dependencies": {
     "@ant-design/colors": "^7.2.0",

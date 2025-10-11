@@ -4,50 +4,68 @@
       <!-- 应用基本信息 -->
       <a-col :span="24">
         <a-card title="应用信息" :bordered="false">
+          <template #extra>
+            <a-button type="primary" size="small" @click="openEdit">编辑</a-button>
+          </template>
           <a-descriptions :column="2" bordered>
             <a-descriptions-item label="应用名称">
-              {{ appInfo.appName }}
+              {{ appInfo.appName || '暂无数据' }}
             </a-descriptions-item>
             <a-descriptions-item label="应用编码">
-              {{ appInfo.appCode }}
+              {{ appInfo.appCode || '暂无数据' }}
             </a-descriptions-item>
             <a-descriptions-item label="应用类型">
-              <a-tag :color="getAppTypeColor(appInfo.appType)">
-                {{ getAppTypeText(appInfo.appType) }}
-              </a-tag>
+              <template v-if="appInfo.appType">
+                <a-tag :color="getAppTypeColor(appInfo.appType)">
+                  {{ getAppTypeText(appInfo.appType) }}
+                </a-tag>
+              </template>
+              <template v-else>
+                暂无数据
+              </template>
             </a-descriptions-item>
             <a-descriptions-item label="应用状态">
-              <a-tag :color="getStatusColor(appInfo.status)">
-                {{ getStatusText(appInfo.status) }}
-              </a-tag>
+              <template v-if="appInfo.status">
+                <a-tag :color="getStatusColor(appInfo.status)">
+                  {{ getStatusText(appInfo.status) }}
+                </a-tag>
+              </template>
+              <template v-else>
+                暂无数据
+              </template>
             </a-descriptions-item>
             <a-descriptions-item label="负责人">
-              {{ appInfo.owner }}
+              {{ appInfo.owner || '暂无数据' }}
             </a-descriptions-item>
             <a-descriptions-item label="创建时间">
-              {{ appInfo.createTime }}
+              {{ appInfo.createTime || '暂无数据' }}
             </a-descriptions-item>
             <a-descriptions-item label="最后更新">
-              {{ appInfo.updateTime }}
+              {{ appInfo.updateTime || '暂无数据' }}
             </a-descriptions-item>
             <a-descriptions-item label="版本号">
-              {{ appInfo.version }}
+              {{ appInfo.version || '暂无数据' }}
             </a-descriptions-item>
             <a-descriptions-item label="技术栈" :span="2">
-              <div class="tech-stack-tags">
-                <a-tag 
-                  v-for="tech in appInfo.techStack" 
-                  :key="tech.name" 
-                  class="tech-tag"
-                  color="blue"
-                >
-                  <Icon :icon="tech.icon" :size="14" style="margin-right: 4px;" />
-                  {{ tech.name }} {{ tech.version }}
-                </a-tag>
-              </div>
+              <template v-if="appInfo.techStack && appInfo.techStack.length">
+                <div class="tech-stack-tags">
+                  <a-tag 
+                    v-for="tech in appInfo.techStack" 
+                    :key="tech.name" 
+                    class="tech-tag"
+                    color="blue"
+                  >
+                    <Icon :icon="tech.icon" :size="14" style="margin-right: 4px;" />
+                    {{ tech.name }} {{ tech.version }}
+                  </a-tag>
+                </div>
+              </template>
+              <template v-else>
+                暂无数据
+              </template>
             </a-descriptions-item>
             <a-descriptions-item label="应用描述" :span="2">
-              {{ appInfo.description }}
+              {{ appInfo.description || '暂无数据' }}
             </a-descriptions-item>
           </a-descriptions>
         </a-card>
@@ -92,28 +110,33 @@
             <a-col :span="12">
               <a-descriptions :column="1" bordered>
                 <a-descriptions-item label="仓库地址">
-                  <a :href="appInfo.gitInfo.repoUrl" target="_blank">
-                    {{ appInfo.gitInfo.repoUrl }}
-                  </a>
+                  <template v-if="appInfo.gitInfo && appInfo.gitInfo.repoUrl">
+                    <a :href="appInfo.gitInfo.repoUrl" target="_blank">
+                      {{ appInfo.gitInfo.repoUrl }}
+                    </a>
+                  </template>
+                  <template v-else>
+                    暂无数据
+                  </template>
                 </a-descriptions-item>
                 <a-descriptions-item label="默认分支">
-                  {{ appInfo.gitInfo.defaultBranch }}
+                  {{ (appInfo.gitInfo && appInfo.gitInfo.defaultBranch) || '暂无数据' }}
                 </a-descriptions-item>
                 <a-descriptions-item label="最后提交">
-                  {{ appInfo.gitInfo.lastCommit }}
+                  {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommit) || '暂无数据' }}
                 </a-descriptions-item>
               </a-descriptions>
             </a-col>
             <a-col :span="12">
               <a-descriptions :column="1" bordered>
                 <a-descriptions-item label="提交者">
-                  {{ appInfo.gitInfo.lastCommitter }}
+                  {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommitter) || '暂无数据' }}
                 </a-descriptions-item>
                 <a-descriptions-item label="提交时间">
-                  {{ appInfo.gitInfo.lastCommitTime }}
+                  {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommitTime) || '暂无数据' }}
                 </a-descriptions-item>
                 <a-descriptions-item label="分支数量">
-                  {{ appInfo.gitInfo.branchCount }}
+                  {{ (appInfo.gitInfo && appInfo.gitInfo.branchCount) || '暂无数据' }}
                 </a-descriptions-item>
               </a-descriptions>
             </a-col>
@@ -262,6 +285,74 @@
         </a-card>
       </a-col>
     </a-row>
+    
+    <!-- 编辑弹窗 -->
+    <a-modal
+      v-model:open="editVisible"
+      title="编辑应用基本信息"
+      :maskClosable="false"
+      :destroyOnClose="true"
+      @ok="handleEditOk"
+      @cancel="handleEditCancel"
+      :width="720"
+    >
+      <a-form :model="editModel" layout="vertical" class="edit-form" style="width: 80%; max-width: none;margin:0 auto;">
+        <a-row :gutter="[16, 8]">
+          <a-col :span="12">
+            <a-form-item label="应用名称" name="appName">
+              <a-input v-model:value="editModel.appName" placeholder="请输入应用名称" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="应用编码" name="appCode">
+              <a-input v-model:value="editModel.appCode" placeholder="请输入应用编码" />
+            </a-form-item>
+          </a-col>
+
+          <a-col :span="12">
+            <a-form-item label="应用类型" name="appType">
+              <a-select v-model:value="editModel.appType" placeholder="请选择应用类型">
+                <a-select-option value="web">Web应用</a-select-option>
+                <a-select-option value="mobile">移动应用</a-select-option>
+                <a-select-option value="desktop">桌面应用</a-select-option>
+                <a-select-option value="api">API服务</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="应用状态" name="status">
+              <a-select v-model:value="editModel.status" placeholder="请选择状态">
+                <a-select-option value="running">运行中</a-select-option>
+                <a-select-option value="stopped">已停止</a-select-option>
+                <a-select-option value="pending">待部署</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+
+          <a-col :span="12">
+            <a-form-item label="负责人" name="owner">
+              <a-input v-model:value="editModel.owner" placeholder="请输入负责人" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="版本号" name="version">
+              <a-input v-model:value="editModel.version" placeholder="请输入版本号" />
+            </a-form-item>
+          </a-col>
+
+          <a-col :span="24">
+            <a-form-item label="应用描述" name="description">
+              <a-textarea v-model:value="editModel.description" placeholder="请输入描述" rows="3" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="24">
+            <a-form-item label="Git 仓库地址" name="gitUrl">
+              <a-input v-model:value="editModel.gitUrl" placeholder="请输入仓库地址" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -270,7 +361,7 @@ import { ref, onMounted, h } from 'vue';
 import Icon from '/@/components/Icon';
 import { useCopyToClipboard } from '@/hooks/web/useCopyToClipboard';
 import { useMessage } from '@/hooks/web/useMessage';
-import { getAppPackageJson } from '../AppManage.api';
+import { getAppPackageJson, editApp } from '../AppManage.api';
 
 /**
  * 应用信息接口定义
@@ -408,35 +499,101 @@ function copy(text: string) {
   }
 }
 const appInfo = ref<AppInfo>({
-  appName: props.appDetail?.appName || 'Jeecg Boot Vue3',
-  appCode: props.appDetail?.appCode || 'jeecg-vue3',
-  appType: props.appDetail?.appType || 'web',
-  status: props.appDetail?.status || 'running',
-  owner: props.appDetail?.owner || '张三',
-  createTime: props.appDetail?.createTime || '2023-01-15 10:30:00',
-  updateTime: props.appDetail?.updateTime || '2024-01-15 14:20:00',
-  version: props.appDetail?.version || 'v3.5.3',
-  description: props.appDetail?.description || '基于Vue3 + TypeScript + Ant Design Vue的企业级后台管理系统',
-  techStack: [
-    { name: 'Vue3', version: '3.3.4', icon: 'logos:vue' },
-    { name: 'TypeScript', version: '5.0.2', icon: 'logos:typescript-icon' },
-    { name: 'Vite', version: '4.4.5', icon: 'logos:vitejs' },
-    { name: 'Ant Design Vue', version: '4.0.0', icon: 'logos:ant-design' },
-  ],
-  environments: [
-    { name: '开发环境', url: 'http://dev.jeecg.com', status: 'running' },
-    { name: '测试环境', url: 'http://test.jeecg.com', status: 'running' },
-    { name: '生产环境', url: 'http://prod.jeecg.com', status: 'running' },
-  ],
+  appName: props.appDetail?.appName || '',
+  appCode: props.appDetail?.appCode || '',
+  appType: props.appDetail?.appType || '',
+  status: props.appDetail?.status || '',
+  owner: props.appDetail?.owner || '',
+  createTime: props.appDetail?.createTime || '',
+  updateTime: props.appDetail?.updateTime || '',
+  version: props.appDetail?.version || '',
+  description: props.appDetail?.description || '',
+  techStack: props.appDetail?.techStack || [],
+  environments: props.appDetail?.environments || [],
   gitInfo: {
-    repoUrl: props.appDetail?.gitUrl || 'https://github.com/jeecgboot/jeecg-boot',
-    defaultBranch: 'master',
-    lastCommit: 'feat: 新增应用管理功能',
-    lastCommitter: '张三',
-    lastCommitTime: '2024-01-15 14:20:00',
-    branchCount: 15,
+    repoUrl: props.appDetail?.gitUrl || '',
+    defaultBranch: props.appDetail?.defaultBranch || '',
+    lastCommit: props.appDetail?.lastCommit || '',
+    lastCommitter: props.appDetail?.lastCommitter || '',
+    lastCommitTime: props.appDetail?.lastCommitTime || '',
+    branchCount: props.appDetail?.branchCount || 0,
   },
 });
+
+// 编辑相关
+const editVisible = ref(false);
+const editModel = ref<any>({});
+const emit = defineEmits(['save']);
+
+function openEdit() {
+  // 初始化编辑模型
+  editModel.value = {
+    appName: appInfo.value.appName,
+    appCode: appInfo.value.appCode,
+    appType: appInfo.value.appType,
+    status: appInfo.value.status,
+    owner: appInfo.value.owner,
+    version: appInfo.value.version,
+    description: appInfo.value.description,
+    gitUrl: appInfo.value.gitInfo?.repoUrl || '',
+  };
+  editVisible.value = true;
+}
+
+async function handleEditOk() {
+  // 构建提交数据（与后端实体字段保持一致），统一使用编辑接口
+  const submitData = {
+    // 使用 props.appId 作为主键ID，兜底使用 props.appDetail.id
+    id: props.appId || props.appDetail?.id,
+    // 保留原有字段，避免后端更新为 null
+    ...(props.appDetail || {}),
+    // 覆盖需要更新的基础信息字段
+    appName: editModel.value.appName || '',
+    appCode: editModel.value.appCode || '',
+    appType: editModel.value.appType || '',
+    status: editModel.value.status || '',
+    owner: editModel.value.owner || '',
+    version: editModel.value.version || '',
+    // 后端实体使用 appDescription 字段
+    appDescription: editModel.value.description || '',
+    // Git 仓库地址字段为 gitUrl
+    gitUrl: editModel.value.gitUrl || '',
+  };
+
+  try {
+    const result = await editApp(submitData);
+    if (result?.success) {
+      const newDetail = result?.result || submitData;
+      // 同步本地展示数据（映射到 BasicInfo 的 appInfo 结构）
+      appInfo.value.appName = newDetail.appName || '';
+      appInfo.value.appCode = newDetail.appCode || '';
+      appInfo.value.appType = newDetail.appType || '';
+      appInfo.value.status = newDetail.status || '';
+      appInfo.value.owner = newDetail.owner || '';
+      appInfo.value.version = newDetail.version || '';
+      // 兼容后端返回 appDescription 字段
+      appInfo.value.description = newDetail.appDescription || newDetail.description || '';
+      appInfo.value.gitInfo = {
+        ...(appInfo.value.gitInfo || {}),
+        repoUrl: newDetail.gitUrl || editModel.value.gitUrl || '',
+      };
+
+      // 通知父组件保存成功（方便刷新详情）
+      emit('save', newDetail);
+      createMessage.success('编辑成功');
+      editVisible.value = false;
+    } else {
+      createMessage.error(result?.message || '编辑失败');
+    }
+  } catch (error) {
+    console.error('编辑应用失败:', error);
+    createMessage.error('编辑失败');
+  }
+}
+
+function handleEditCancel() {
+  editVisible.value = false;
+}
 
 /**
  * 获取初始化命令标题

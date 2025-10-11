@@ -9,7 +9,7 @@
   import { BasicModal, useModalInner } from '/@/components/Modal';
   import { BasicForm, useForm } from '/@/components/Form/index';
   import { templateFormSchema } from '../material.data';
-  import { saveOrUpdateTemplate } from '../material.api';
+  import { addTemplate, updateTemplate } from '../material.api';
 
   /**
    * 模板管理弹窗
@@ -56,10 +56,14 @@
       setModalProps({ confirmLoading: true });
       
       if (unref(isUpdate)) {
+        // 编辑模板，需要传递id
         values.id = rowId.value;
+        await updateTemplate(values);
+      } else {
+        // 新增模板，不需要id
+        await addTemplate(values);
       }
       
-      await saveOrUpdateTemplate(values);
       closeModal();
       emit('success', { isUpdate: unref(isUpdate), values: { ...values, id: rowId.value } });
     } finally {

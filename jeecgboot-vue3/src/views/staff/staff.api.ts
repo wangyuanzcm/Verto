@@ -63,7 +63,7 @@ export const createStaff = (params) => defHttp.post({ url: Api.save, params });
  * 更新人员信息
  * @param params 人员信息参数
  */
-export const updateStaff = (params) => defHttp.post({ url: Api.edit, params });
+export const updateStaff = (params) => defHttp.put({ url: Api.edit, params });
 
 /**
  * 删除人员

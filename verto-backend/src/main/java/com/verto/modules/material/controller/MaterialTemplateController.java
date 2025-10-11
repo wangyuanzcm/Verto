@@ -48,13 +48,13 @@ public class MaterialTemplateController {
         QueryWrapper<MaterialTemplate> queryWrapper = new QueryWrapper<>();
         
         // 根据模板名称模糊查询
-        if (StringUtils.hasText(materialTemplate.getName())) {
-            queryWrapper.like("name", materialTemplate.getName());
+        if (StringUtils.hasText(materialTemplate.getTemplateName())) {
+            queryWrapper.like("template_name", materialTemplate.getTemplateName());
         }
         
         // 根据模板类型查询
-        if (StringUtils.hasText(materialTemplate.getType())) {
-            queryWrapper.eq("type", materialTemplate.getType());
+        if (StringUtils.hasText(materialTemplate.getTemplateType())) {
+            queryWrapper.eq("template_type", materialTemplate.getTemplateType());
         }
         
         // 根据状态查询
@@ -95,9 +95,35 @@ public class MaterialTemplateController {
     @Operation(summary = "新增模板")
     @PostMapping(value = "/add")
     public Result<String> add(@RequestBody MaterialTemplate materialTemplate) {
+        log.info("接收到的模板数据: {}", materialTemplate);
+        
+        // 校验必填字段
+        if (materialTemplate.getTemplateName() == null || materialTemplate.getTemplateName().trim().isEmpty()) {
+            return Result.error("模板名称不能为空");
+        }
+        if (materialTemplate.getTemplateCode() == null || materialTemplate.getTemplateCode().trim().isEmpty()) {
+            return Result.error("模板代码不能为空");
+        }
+        if (materialTemplate.getTemplateType() == null || materialTemplate.getTemplateType().trim().isEmpty()) {
+            return Result.error("模板类型不能为空");
+        }
+        
+        // 校验模板代码唯一性
+        MaterialTemplate existTemplate = materialTemplateService.getOne(
+            new QueryWrapper<MaterialTemplate>().eq("template_code", materialTemplate.getTemplateCode())
+        );
+        if (existTemplate != null) {
+            return Result.error("模板代码已存在，请使用其他代码");
+        }
+        
+        // 设置默认值
         materialTemplate.setCreateTime(new Date());
         materialTemplate.setCreateBy("admin"); // 实际项目中应该从当前登录用户获取
-        materialTemplate.setStatus("1"); // 默认启用状态
+        if (materialTemplate.getStatus() == null) {
+            materialTemplate.setStatus("1"); // 默认启用状态
+        }
+        
+        log.info("保存前的模板数据: {}", materialTemplate);
         materialTemplateService.save(materialTemplate);
         return Result.ok("添加成功！");
     }

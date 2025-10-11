@@ -80,6 +80,20 @@ export const saveOrUpdateComponent = (params, isUpdate) => {
 };
 
 /**
+ * 新增组件
+ */
+export const addComponent = (params) => {
+  return defHttp.post({ url: ComponentApi.save, params }, { isTransformResponse: false });
+};
+
+/**
+ * 更新组件
+ */
+export const updateComponent = (params) => {
+  return defHttp.post({ url: ComponentApi.edit, params }, { isTransformResponse: false });
+};
+
+/**
  * 获取模板列表
  */
 export const getTemplateList = (params) => defHttp.get({ url: TemplateApi.list, params });
@@ -117,4 +131,18 @@ export const batchDeleteTemplate = (params, handleSuccess) => {
 export const saveOrUpdateTemplate = (params, isUpdate) => {
   const url = isUpdate ? TemplateApi.edit : TemplateApi.save;
   return defHttp.post({ url: url, params }, { isTransformResponse: false });
+};
+
+/**
+ * 新增模板
+ */
+export const addTemplate = (params) => {
+  return defHttp.post({ url: TemplateApi.save, params }, { isTransformResponse: false });
+};
+
+/**
+ * 更新模板
+ */
+export const updateTemplate = (params) => {
+  return defHttp.post({ url: TemplateApi.edit, params }, { isTransformResponse: false });
 };

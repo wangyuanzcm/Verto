@@ -64,11 +64,10 @@ export const formSchema: FormSchema[] = [
     label: '应用负责人',
     field: 'managers',
     required: true,
-    component: 'JSelectUser',
+    component: 'Input', // 使用slot方式，这里改为Input占位
+    slot: 'managers', // 指定使用slot
     componentProps: {
       placeholder: '请选择应用负责人',
-      mode: 'multiple', // 多选
-      labelInValue: true,
     },
   },
 ];

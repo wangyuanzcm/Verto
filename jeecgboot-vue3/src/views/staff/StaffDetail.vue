@@ -12,13 +12,10 @@
         <a-card title="基本信息" :loading="loading">
           <a-descriptions :column="2" bordered>
             <a-descriptions-item label="姓名">
-              {{ staffInfo.realname }}
+              {{ staffInfo.name }}
             </a-descriptions-item>
             <a-descriptions-item label="工号">
-              {{ staffInfo.workNo }}
-            </a-descriptions-item>
-            <a-descriptions-item label="性别">
-              {{ staffInfo.sex === 1 ? '男' : staffInfo.sex === 2 ? '女' : '未知' }}
+              {{ staffInfo.employeeNo }}
             </a-descriptions-item>
             <a-descriptions-item label="手机号">
               {{ staffInfo.phone }}
@@ -26,11 +23,11 @@
             <a-descriptions-item label="邮箱">
               {{ staffInfo.email }}
             </a-descriptions-item>
-            <a-descriptions-item label="部门">
-              {{ staffInfo.orgCodeTxt }}
+            <a-descriptions-item label="工作地点">
+              {{ staffInfo.workLocation }}
             </a-descriptions-item>
-            <a-descriptions-item label="职位">
-              {{ staffInfo.post }}
+            <a-descriptions-item label="技能">
+              {{ staffInfo.skills }}
             </a-descriptions-item>
             <a-descriptions-item label="状态">
               <a-tag :color="staffInfo.status === 1 ? 'green' : 'red'">
@@ -38,10 +35,19 @@
               </a-tag>
             </a-descriptions-item>
             <a-descriptions-item label="入职时间">
-              {{ staffInfo.entryDate }}
+              {{ staffInfo.hireDate }}
+            </a-descriptions-item>
+            <a-descriptions-item label="创建人">
+              {{ staffInfo.createBy }}
             </a-descriptions-item>
             <a-descriptions-item label="创建时间">
               {{ staffInfo.createTime }}
+            </a-descriptions-item>
+            <a-descriptions-item label="更新人" v-if="staffInfo.updateBy">
+              {{ staffInfo.updateBy }}
+            </a-descriptions-item>
+            <a-descriptions-item label="更新时间" v-if="staffInfo.updateTime">
+              {{ staffInfo.updateTime }}
             </a-descriptions-item>
           </a-descriptions>
         </a-card>
