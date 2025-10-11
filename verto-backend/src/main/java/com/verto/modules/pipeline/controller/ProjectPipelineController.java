@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.verto.common.api.Result;
 import com.verto.modules.pipeline.entity.ProjectPipeline;
 import com.verto.modules.pipeline.service.IProjectPipelineService;
+import com.verto.modules.pipeline.dto.PipelineCreateRequest;
+import com.verto.modules.pipeline.service.IJenkinsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,6 +31,9 @@ public class ProjectPipelineController {
 
     @Autowired
     private IProjectPipelineService projectPipelineService;
+
+    @Autowired
+    private IJenkinsService jenkinsService;
 
     /**
      * 获取流水线配置
@@ -298,5 +303,21 @@ public class ProjectPipelineController {
     public Result<String> deleteBuild(@PathVariable String projectId, @PathVariable String buildId) {
         projectPipelineService.removeById(buildId);
         return Result.ok("构建记录已删除");
+    }
+
+    /**
+     * 创建 Jenkins 流水线（Job）
+     *
+     * @param request 创建参数
+     * @return 操作结果
+     */
+    @Operation(summary = "创建 Jenkins 流水线")
+    @PostMapping(value = "/jenkins/create")
+    public Result<Map<String, Object>> createJenkinsPipeline(@RequestBody PipelineCreateRequest request) {
+        Map<String, Object> resp = jenkinsService.createOrUpdatePipelineJob(request);
+        if (resp.containsKey("error")) {
+            return Result.error("创建/更新 Jenkins Job 失败: " + resp.get("error"));
+        }
+        return Result.ok(resp);
     }
 }

@@ -23,6 +23,28 @@
       </a-row>
     </div>
 
+    <!-- 创建 Jenkins 流水线 Modal（使用 BasicModal 对齐新增配置弹框样式） -->
+    <BasicModal
+      @register="registerCreateJenkins"
+      :title="'创建 Jenkins 流水线'"
+      :width="720"
+      @ok="submitCreateJenkins"
+    >
+      <!-- 与配置管理保持一致，使用 BasicForm 构建表单 -->
+      <BasicForm @register="registerCreateForm" />
+
+      <!-- 快速填充：从现有流水线配置一键生成 Jenkinsfile 并填入表单 -->
+      <div class="quick-fill-section">
+        <a-divider>快速填充</a-divider>
+        <a-space>
+          <a-select v-model:value="selectedConfigId" style="min-width: 280px" placeholder="选择现有流水线配置">
+            <a-select-option v-for="cfg in pipelineConfigs" :key="cfg.id" :value="cfg.id">{{ cfg.name }}</a-select-option>
+          </a-select>
+          <a-button type="default" @click="handlePrefillFromSelected">一键填充</a-button>
+        </a-space>
+      </div>
+    </BasicModal>
+
     <a-divider />
 
     <!-- 主要内容区域 -->
@@ -138,6 +160,7 @@
                   <template #actions>
                     <a @click="handleEditConfig(item)">编辑</a>
                     <a @click="handleCopyConfig(item)">复制</a>
+                    <a @click="handleUseConfigForJenkins(item)" style="color: #722ed1;">应用到新建流水线</a>
                     <a @click="handleDeleteConfig(item)" style="color: #ff4d4f;">删除</a>
                   </template>
 
@@ -253,6 +276,8 @@
   } from '@ant-design/icons-vue';
   import { BasicDrawer } from '/@/components/Drawer';
   import { BasicForm, FormSchema } from '/@/components/Form';
+  import { useForm } from '/@/components/Form/index';
+  import { BasicModal, useModal } from '/@/components/Modal';
   import PipelineConfigEditor from '../config/components/PipelineConfigEditor.vue';
   import type { PipelineConfig } from '../../config/data/Config.data';
   
@@ -266,6 +291,7 @@
     rerunPipeline,
     cancelPipeline,
     getPipelineLogs,
+    createJenkinsPipeline,
   } from '../AppManage.api';
 
   // 定义Props
@@ -281,6 +307,89 @@
   // 响应式数据
   const loading = ref(false);
   const activeTab = ref('history');
+
+  // 创建 Jenkins 流水线 Modal（BasicModal + BasicForm）
+  const [registerCreateJenkins, { openModal: openCreateJenkinsModal, closeModal: closeCreateJenkinsModal, setModalProps: setCreateJenkinsModalProps }] = useModal();
+
+  const jenkinsFormSchemas: FormSchema[] = [
+    {
+      field: 'jobName',
+      label: '作业名称',
+      component: 'Input',
+      required: true,
+      componentProps: {
+        placeholder: '例如：my-app-pipeline',
+      },
+    },
+    {
+      field: 'useScm',
+      label: '使用SCM（Git）拉取 Jenkinsfile',
+      component: 'Switch',
+      defaultValue: true,
+    },
+    {
+      field: 'repoUrl',
+      label: '仓库地址',
+      component: 'Input',
+      required: true,
+      ifShow: ({ model }) => !!model.useScm,
+      componentProps: {
+        placeholder: 'https://github.com/xxx/xxx.git',
+      },
+    },
+    {
+      field: 'branch',
+      label: '分支',
+      component: 'Input',
+      required: true,
+      defaultValue: 'main',
+      ifShow: ({ model }) => !!model.useScm,
+      componentProps: {
+        placeholder: 'main',
+      },
+    },
+    {
+      field: 'credentialsId',
+      label: '凭据ID（可选）',
+      component: 'Input',
+      ifShow: ({ model }) => !!model.useScm,
+      componentProps: {
+        placeholder: 'Jenkins 凭据ID',
+      },
+    },
+    {
+      field: 'jenkinsfilePath',
+      label: 'Jenkinsfile 路径',
+      component: 'Input',
+      required: true,
+      defaultValue: 'Jenkinsfile',
+      ifShow: ({ model }) => !!model.useScm,
+      componentProps: {
+        placeholder: '例如：Jenkinsfile',
+      },
+    },
+    {
+      field: 'pipelineScript',
+      label: '内联流水线脚本',
+      component: 'InputTextArea',
+      required: true,
+      ifShow: ({ model }) => !model.useScm,
+      componentProps: {
+        rows: 10,
+        placeholder: '输入 Jenkins Pipeline 脚本，例如：pipeline { agent any ... }',
+      },
+    },
+  ];
+
+  const [registerCreateForm, { validate: validateJenkinsForm, setFieldsValue: setCreateFormFields, resetFields: resetCreateForm, getFieldsValue: getCreateFormValues }] = useForm({
+    labelWidth: 100,
+    baseColProps: { span: 24 },
+    schemas: jenkinsFormSchemas,
+    showActionButtonGroup: false,
+    autoSubmitOnEnter: true,
+  });
+
+  const selectedConfigId = ref<string>();
 
   // 运行历史相关
   const historyLoading = ref(false);
@@ -560,22 +669,143 @@
    * 创建新流水线
    */
   function handleCreatePipeline() {
-    isEditMode.value = false;
-    // 重置表单数据
-    Object.assign(currentConfig, {
-      id: '',
-      name: '',
-      environment: 'dev',
-      description: '',
-      status: 'enabled',
-      content: {
-        stages: [],
-        triggers: [],
-        variables: [],
-        notifications: [],
-      },
-    });
-    configDrawerVisible.value = true;
+    // 打开创建 Jenkins 流水线的弹窗（与新增配置弹框风格一致）
+    resetCreateForm();
+    setCreateFormFields({ useScm: true, branch: 'main', jenkinsfilePath: 'Jenkinsfile' });
+    openCreateJenkinsModal(true);
+  }
+
+  /**
+   * 将内部流水线配置转换为 Jenkins Declarative Pipeline 脚本
+   */
+  function generateJenkinsfileFromConfig(cfg: PipelineConfig): string {
+    const vars = (cfg?.variables || [])
+      .map((v) => `    ${v.key} = '${String(v.value ?? '')}'`)
+      .join('\n');
+
+    const envBlock = vars ? `  environment {\n${vars}\n  }\n` : '';
+
+    const stages = (cfg?.stages || [])
+      .map((s: any) => {
+        const script = String(s.script || '').trim();
+        const multiline = script.includes('\n');
+        const step = multiline
+          ? `sh '''\n${script}\n            '''`
+          : `sh '${script.replace(/'/g, "'\\''")}'`;
+        return [
+          `    stage('${s.name || 'Stage'}') {`,
+          `      steps {`,
+          `        ${step}`,
+          `      }`,
+          `    }`,
+        ].join('\n');
+      })
+      .join('\n');
+
+    const stagesBlock = stages ? `  stages {\n${stages}\n  }\n` : '';
+
+    const header = `pipeline {\n  agent any\n`;
+    const footer = `  // 提示：触发器(triggers)与通知(notifications)未自动映射，请在 Jenkins 中手动完善\n}`;
+
+    return [header, envBlock, stagesBlock, footer].join('');
+  }
+
+  /**
+   * 从现有配置一键填充到新建 Jenkins 流水线表单
+   */
+  function handleUseConfigForJenkins(item: any) {
+    try {
+      const cfg = (item && item.config) as PipelineConfig;
+      if (!cfg) {
+        message.warning('该配置不包含流水线内容');
+        return;
+      }
+
+      const script = generateJenkinsfileFromConfig(cfg);
+      // 打开弹窗并预填表单
+      openCreateJenkinsModal(true);
+      setCreateFormFields({
+        jobName: item.name || 'new-pipeline-job',
+        useScm: false,
+        pipelineScript: script,
+        repoUrl: '',
+        branch: 'main',
+        credentialsId: '',
+        jenkinsfilePath: 'Jenkinsfile',
+      });
+      message.success('已根据配置生成 Jenkinsfile 并填充到表单，可继续编辑后提交');
+    } catch (e) {
+      console.error(e);
+      message.error('填充失败，请稍后重试');
+    }
+  }
+
+  /**
+   * 在弹框内一键从选择的配置填充
+   */
+  function handlePrefillFromSelected() {
+    try {
+      const id = selectedConfigId.value;
+      if (!id) {
+        message.warning('请先选择一个现有流水线配置');
+        return;
+      }
+      const item = pipelineConfigs.value.find((c) => c.id === id);
+      if (!item || !item.config) {
+        message.warning('未找到有效的流水线配置');
+        return;
+      }
+      const script = generateJenkinsfileFromConfig(item.config as PipelineConfig);
+      setCreateFormFields({
+        jobName: item.name || 'new-pipeline-job',
+        useScm: false,
+        pipelineScript: script,
+        repoUrl: '',
+        branch: 'main',
+        credentialsId: '',
+        jenkinsfilePath: 'Jenkinsfile',
+      });
+      message.success('已根据选择的配置生成 Jenkinsfile 并填充到表单');
+    } catch (e) {
+      console.error(e);
+      message.error('填充失败，请稍后重试');
+    }
+  }
+
+  /**
+   * 提交创建 Jenkins 流水线
+   */
+  async function submitCreateJenkins() {
+    try {
+      const values = await validateJenkinsForm();
+      setCreateJenkinsModalProps({ confirmLoading: true });
+      const payload = {
+        jobName: values.jobName,
+        useScm: !!values.useScm,
+        repoUrl: values.repoUrl || '',
+        branch: values.branch || 'main',
+        credentialsId: values.credentialsId || '',
+        jenkinsfilePath: values.jenkinsfilePath || 'Jenkinsfile',
+        useInlineScript: !values.useScm,
+        pipelineScript: values.pipelineScript || '',
+      };
+
+      const resp = await createJenkinsPipeline(payload);
+      if (resp?.success) {
+        message.success('Jenkins 流水线创建成功');
+        closeCreateJenkinsModal();
+        // 刷新配置/历史
+        handleRefresh();
+      } else {
+        const msg = resp?.message || resp?.error || '创建失败';
+        message.error(`创建失败：${msg}`);
+      }
+    } catch (e) {
+      const err = (e as any);
+      message.error(`创建失败：${err?.message || err}`);
+    } finally {
+      setCreateJenkinsModalProps({ confirmLoading: false });
+    }
   }
 
   /**

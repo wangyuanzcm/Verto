@@ -6,6 +6,25 @@
         <a-button type="primary" @click="handleAdd" preIcon="ant-design:plus-outlined">
           新增配置
         </a-button>
+        <!-- 新增流水线模板（预置） -->
+        <a-dropdown>
+          <a-button type="primary" preIcon="ant-design:plus-outlined">
+            新增流水线模板
+          </a-button>
+          <template #overlay>
+            <a-menu>
+              <a-menu-item key="tpl-standard" @click="handleAddTemplate('standard')">
+                标准构建流水线
+              </a-menu-item>
+              <a-menu-item key="tpl-test" @click="handleAddTemplate('test')">
+                测试流水线
+              </a-menu-item>
+              <a-menu-item key="tpl-deploy" @click="handleAddTemplate('deploy')">
+                部署流水线
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
         <a-button
           type="primary"
           @click="handleBatchDelete"
@@ -184,6 +203,106 @@
   function handleAdd() {
     openModal(true, {
       isUpdate: false,
+    });
+  }
+
+  /**
+   * 生成预置的流水线配置模板
+   */
+  function createPipelineTemplate(type: 'standard' | 'test' | 'deploy') {
+    const base = {
+      type: ConfigType.PIPELINE,
+      status: ConfigStatus.ENABLED,
+      environment: EnvironmentType.DEV,
+      description: '',
+      content: {
+        stages: [],
+        triggers: [],
+        variables: [],
+        notifications: [],
+      },
+    } as Recordable;
+
+    switch (type) {
+      case 'standard':
+        return {
+          ...base,
+          name: '标准构建流水线',
+          description: 'Node 项目标准构建示例',
+          content: {
+            stages: [
+              { id: '1', name: '代码检出', type: 'checkout', environment: 'dev', timeout: 5, retryCount: 0, script: 'git checkout $BRANCH' },
+              { id: '2', name: '依赖安装', type: 'install', environment: 'dev', timeout: 10, retryCount: 0, script: 'pnpm install' },
+              { id: '3', name: '构建', type: 'build', environment: 'dev', timeout: 20, retryCount: 0, script: 'pnpm run build' },
+            ],
+            triggers: [
+              { id: 't1', type: 'push', branches: ['main', 'develop'] },
+            ],
+            variables: [
+              { id: 'v1', key: 'BRANCH', value: 'main', description: '构建分支' },
+              { id: 'v2', key: 'NODE_ENV', value: 'production', description: '环境变量' },
+            ],
+            notifications: [],
+          },
+        };
+      case 'test':
+        return {
+          ...base,
+          name: '测试流水线',
+          environment: EnvironmentType.TEST,
+          description: '包含单元测试与代码检查的示例',
+          content: {
+            stages: [
+              { id: '1', name: '代码检出', type: 'checkout', environment: 'test', timeout: 5, retryCount: 0, script: 'git checkout $BRANCH' },
+              { id: '2', name: '依赖安装', type: 'install', environment: 'test', timeout: 10, retryCount: 0, script: 'pnpm install' },
+              { id: '3', name: '单元测试', type: 'test', environment: 'test', timeout: 15, retryCount: 0, script: 'pnpm test' },
+              { id: '4', name: '代码检查', type: 'lint', environment: 'test', timeout: 10, retryCount: 0, script: 'pnpm run lint' },
+            ],
+            triggers: [
+              { id: 't1', type: 'push', branches: ['develop'] },
+            ],
+            variables: [
+              { id: 'v1', key: 'BRANCH', value: 'develop', description: '构建分支' },
+              { id: 'v2', key: 'CI', value: 'true', description: '持续集成模式' },
+            ],
+            notifications: [],
+          },
+        };
+      case 'deploy':
+        return {
+          ...base,
+          name: '部署流水线',
+          environment: EnvironmentType.STAGING,
+          description: '构建并部署到预发环境的示例',
+          content: {
+            stages: [
+              { id: '1', name: '代码检出', type: 'checkout', environment: 'staging', timeout: 5, retryCount: 0, script: 'git checkout $BRANCH' },
+              { id: '2', name: '构建', type: 'build', environment: 'staging', timeout: 20, retryCount: 0, script: 'pnpm run build' },
+              { id: '3', name: '部署', type: 'deploy', environment: 'staging', timeout: 15, retryCount: 0, script: 'bash deploy.sh' },
+            ],
+            triggers: [
+              { id: 't1', type: 'manual' },
+            ],
+            variables: [
+              { id: 'v1', key: 'BRANCH', value: 'main', description: '部署分支' },
+              { id: 'v2', key: 'DEPLOY_ENV', value: 'staging', description: '部署环境' },
+            ],
+            notifications: [],
+          },
+        };
+      default:
+        return base;
+    }
+  }
+
+  /**
+   * 基于模板快速新增流水线配置
+   */
+  function handleAddTemplate(type: 'standard' | 'test' | 'deploy') {
+    const template = createPipelineTemplate(type);
+    openModal(true, {
+      isUpdate: false,
+      record: template,
     });
   }
 

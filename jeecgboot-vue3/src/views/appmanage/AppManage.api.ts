@@ -36,6 +36,9 @@ export enum Api {
   rerunPipeline = '/verto-backend/appmanage/pipeline/rerun',
   cancelPipeline = '/verto-backend/appmanage/pipeline/cancel',
   getPipelineLogs = '/verto-backend/appmanage/pipeline/logs',
+
+  // Jenkins 创建流水线 Job（走 project 模块的后端）
+  createJenkinsPipeline = '/verto-backend/project/pipeline/jenkins/create',
   
   // 获取应用 package.json 内容
   getPackageJson = '/verto-backend/appmanage/app/package-json',
@@ -236,6 +239,14 @@ export const getPipelineLogs = (appId: string, historyId: string) => {
  */
 export const getAppPackageJson = (appId: string) => {
   return defHttp.get({ url: Api.getPackageJson, params: { id: appId } }, { isTransformResponse: false });
+};
+
+/**
+ * 创建 Jenkins 流水线（Job）
+ * @param payload 包含 jobName、useScm、repoUrl、branch、credentialsId、jenkinsfilePath、useInlineScript、pipelineScript
+ */
+export const createJenkinsPipeline = (payload: any) => {
+  return defHttp.post({ url: Api.createJenkinsPipeline, data: payload }, { isTransformResponse: false });
 };
 
 /**
