@@ -1,692 +1,362 @@
 <template>
   <div class="pipeline-manager">
+    <a-card :bordered="false" class="pm-card">
+      <div class="pm-actions">
+        <a-button type="primary" @click="openReleaseDrawer">
+          新建发布
+        </a-button>
+        <a-button class="ml8" @click="loadHistory" :loading="historyLoading">
+          刷新历史
+        </a-button>
+      </div>
 
+      <a-table
+        class="pm-table"
+        :data-source="pipelineHistory"
+        :columns="historyColumns"
+        :loading="historyLoading"
+        row-key="buildId"
+        :pagination="{ pageSize: 10 }"
+      />
+    </a-card>
 
-    <!-- 流水线流程图 -->
-    <PipelineFlowChart
-      :pipeline-config="pipelineConfig"
-      :current-build="currentBuild"
-      :current-pipeline="currentPipeline"
-      :triggering="triggering"
-      :config-loading="configLoading"
-      @environment-change="handleEnvironmentChange"
-      @trigger-pipeline="handleTriggerPipeline"
-      @refresh="handleRefresh"
-      @toggle-pipeline="handleTogglePipeline"
-      @continue-stage="handleContinueStage"
-      @view-stage-logs="handleViewStageLogs"
-      @retry-stage="handleRetryStage"
-      @skip-stage="handleSkipStage"
-      @cancel-stage="handleCancelStage"
-      @cancel-build="handleCancelBuild"
-      @edit-config="handleEditConfig"
-    />
-
-    <!-- 流水线历史 -->
-    <PipelineHistory
-      :pipeline-history="pipelineHistory.list"
-      :loading="historyLoading"
-      @refresh="handleRefreshHistory"
-      @view-details="handleViewDetails"
-      @retry-build="handleRetryBuild"
-      @cancel-build="handleCancelBuild"
-      @delete-build="handleDeleteBuild"
-      @batch-delete="handleBatchDeleteBuilds"
-      @download-logs="handleDownloadLogs"
-      @batch-download="handleBatchDownloadLogs"
-      @compare-build="handleCompareBuilds"
-    />
-
-    <!-- 构建详情弹窗 -->
-    <BuildDetailModal
-      v-model:visible="detailModalVisible"
-      :build-detail="selectedBuildDetail"
-      :loading="detailLoading"
-      @view-stage-logs="handleViewStageLogs"
-      @retry-stage="handleRetryStage"
-      @continue-stage="handleContinueStage"
-    />
+    <a-drawer
+      :visible="releaseVisible"
+      :width="520"
+      title="新建发布"
+      @close="closeReleaseDrawer"
+      destroyOnClose
+    >
+      <a-form layout="vertical">
+        <a-form-item label="流水线配置">
+          <a-select
+            v-model:value="releaseForm.pipelineConfigId"
+            :options="pipelineConfigOptions"
+            placeholder="请选择流水线配置"
+          />
+        </a-form-item>
+        <a-form-item label="环境">
+          <a-select v-model:value="releaseForm.environment" :options="environmentOptions" />
+        </a-form-item>
+        <a-form-item label="版本">
+          <a-input v-model:value="releaseForm.version" :readonly="true" />
+        </a-form-item>
+        <a-form-item label="分支">
+          <a-select
+            v-model:value="releaseForm.branch"
+            :options="branchOptions"
+            :loading="branchesLoading"
+            placeholder="请选择分支"
+            @change="onBranchChange"
+          />
+        </a-form-item>
+        <a-form-item label="提交ID">
+          <a-select
+            v-model:value="releaseForm.commitId"
+            :options="commitOptions"
+            :loading="commitsLoading"
+            placeholder="请选择提交ID（随分支变化）"
+            :disabled="!releaseForm.branch"
+            show-search
+            :filter-option="true"
+          />
+        </a-form-item>
+        <a-form-item label="备注">
+          <a-textarea v-model:value="releaseForm.remark" :rows="3" placeholder="本次发布说明" />
+        </a-form-item>
+        <div class="pm-drawer-actions">
+          <a-button @click="closeReleaseDrawer">取消</a-button>
+          <a-button type="primary" class="ml8" :loading="releaseSubmitting" @click="submitRelease">
+            提交发布
+          </a-button>
+        </div>
+      </a-form>
+    </a-drawer>
+    <a-modal :visible="logsVisible" title="构建日志" @cancel="() => (logsVisible = false)" :footer="null" width="800px">
+      <a-spin :spinning="logsLoading">
+        <pre class="pm-logs">{{ logsText }}</pre>
+      </a-spin>
+    </a-modal>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
-import { message, Modal } from 'ant-design-vue';
-import {
-  BuildOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  CalendarOutlined
-} from '@ant-design/icons-vue';
+<script lang="ts" setup>
+import { ref, reactive, onMounted, computed, h } from 'vue';
+import { useMessage } from '/@/hooks/web/useMessage';
+import { formatToDateTime } from '/@/utils/dateUtil';
+import { getPipelineHistory, triggerPipeline, retryBuild, getBuildLogs, getGitBranches, getProjectDetail } from '../Project.api';
+import { getPipelineConfig as getAppPipelineConfig } from '/@/views/appmanage/AppManage.api';
 
-// 导入拆分的组件
-import PipelineFlowChart from './PipelineFlowChart.vue';
-import PipelineHistory from './PipelineHistory.vue';
-import BuildDetailModal from './BuildDetailModal.vue';
+const props = defineProps<{ projectId: string | number; appId?: string | number }>();
 
-// 导入API服务
-import {
-  getPipelineConfig,
-  updatePipelineConfig,
-  savePipelineConfig,
-  togglePipelineConfig,
-  getPipelineStatus,
-  getPipelineHistory,
-  getBuildDetail,
-  deleteBuild,
-  batchDeleteBuilds,
-  triggerPipeline,
-  cancelPipeline,
-  retryBuild,
-  continueStage,
-  retryPipelineStage,
-  skipPipelineStage,
-  cancelStage,
-  getStageLogs,
-  getBuildLogs,
-  downloadBuildLogs,
-  batchDownloadLogs
-} from '../Project.api';
+const { createMessage } = useMessage();
 
-// 导入类型定义
-import type {
-  PipelineConfig,
-  PipelineBuild,
-  PipelineStage,
-  PipelineEnvironment
-} from '../types/pipeline';
-
-/**
- * 组件属性定义
- */
-interface Props {
-  projectId?: string;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  projectId: ''
-});
-
-/**
- * 组件事件定义
- */
-const emit = defineEmits<{
-  configUpdated: [config: PipelineConfig];
-  buildTriggered: [buildId: string];
-  buildCompleted: [build: PipelineBuild];
-}>();
-
-// 路由信息
-const route = useRoute();
-
-// 响应式数据
-const triggering = ref(false);
-const configLoading = ref(false);
+// 历史列表
 const historyLoading = ref(false);
-const detailLoading = ref(false);
-const detailModalVisible = ref(false);
+const pipelineHistory = ref<any[]>([]);
+const historyColumns = [
+  { title: '构建ID', dataIndex: 'buildId', key: 'buildId' },
+  { title: '环境', dataIndex: 'environment', key: 'environment' },
+  { title: '状态', dataIndex: 'status', key: 'status' },
+  { title: '分支', dataIndex: 'branch', key: 'branch' },
+  { title: '提交ID', dataIndex: 'commitId', key: 'commitId' },
+  { title: '时间', dataIndex: 'createTime', key: 'createTime',
+    customRender: ({ text }: any) => (text ? formatToDateTime(text) : '-') },
+  { title: '操作', key: 'action',
+    customRender: ({ record }: any) => {
+      return h('div', { class: 'pm-actions-cell' }, [
+        h(
+          'a-button',
+          { size: 'small', onClick: () => handleRetryBuild(record) },
+          { default: () => '重新构建' }
+        ),
+        h(
+          'a-button',
+          { size: 'small', class: 'ml8', onClick: () => handleViewLogs(record) },
+          { default: () => '查看日志' }
+        ),
+      ]);
+    }
+  },
+];
 
-// 流水线配置
-const pipelineConfig = reactive<PipelineConfig>({
-  id: '',
-  name: '',
-  enabled: true,
-  environments: [],
-  stages: []
-});
-
-// 当前构建信息
-const currentBuild = ref<PipelineBuild | null>(null);
-
-// 当前流水线状态
-const currentPipeline = reactive({
-  status: 'idle',
-  progress: 0,
-  logs: [] as string[]
-});
-
-// 流水线历史
-const pipelineHistory = reactive({
-  list: [] as PipelineBuild[],
-  total: 0,
-  page: 1,
-  pageSize: 10,
-  filters: {
-    status: '',
-    branch: '',
-    startDate: '',
-    endDate: ''
-  }
-});
-
-// 选中的构建详情
-const selectedBuildDetail = ref<PipelineBuild | null>(null);
-
-// 轮询控制
-let statusPolling: (() => void) | null = null;
-
-/**
- * 计算属性
- */
-const projectId = computed(() => {
-  return props.projectId || (route.params.id as string) || 'default-project-id';
-});
-
-/**
- * 加载流水线配置
- */
-const loadPipelineConfig = async () => {
-  try {
-    configLoading.value = true;
-    const config = await getPipelineConfig({ projectId: projectId.value });
-    Object.assign(pipelineConfig, config);
-  } catch (error) {
-    console.error('加载流水线配置失败:', error);
-    message.error('加载流水线配置失败');
-  } finally {
-    configLoading.value = false;
-  }
-};
-
-/**
- * 加载流水线状态
- */
-const loadPipelineStatus = async () => {
-  try {
-    const status = await getPipelineStatus({ projectId: projectId.value });
-    currentBuild.value = status.currentBuild;
-    Object.assign(currentPipeline, status.currentPipeline);
-  } catch (error) {
-    console.error('加载流水线状态失败:', error);
-  }
-};
-
-/**
- * 加载流水线历史
- */
-const loadPipelineHistory = async (params?: any) => {
+async function loadHistory() {
+  if (!props.projectId) return;
   try {
     historyLoading.value = true;
-    const result = await getPipelineHistory({
-      projectId: projectId.value,
-      page: pipelineHistory.page,
-      pageSize: pipelineHistory.pageSize,
-      ...pipelineHistory.filters,
-      ...params
-    });
-    
-    console.log(result,'result---')
-    pipelineHistory.list = result.records || [];
-    pipelineHistory.total = result.total || 0;
-    pipelineHistory.page = result.pages || 1;
-    pipelineHistory.pageSize = result.size || 10;
-  } catch (error) {
-    console.error('加载流水线历史失败:', error);
-    message.error('加载流水线历史失败');
+    const res: any = await getPipelineHistory({ projectId: String(props.projectId), page: 1, pageSize: 10 });
+    const list = Array.isArray(res?.records) ? res.records : (Array.isArray(res) ? res : []);
+    pipelineHistory.value = list || [];
+  } catch (e) {
+    console.warn('加载流水线历史失败:', e);
   } finally {
     historyLoading.value = false;
   }
-};
+}
 
-/**
- * 开始状态轮询
- */
-const startStatusPolling = async () => {
-  if (statusPolling) {
-    statusPolling();
-  }
-  
-  // 简化轮询逻辑，直接使用定时器
-  const poll = async () => {
-    try {
-      const status = await getPipelineStatus({ projectId: projectId.value });
-      currentBuild.value = status.currentBuild;
-      Object.assign(currentPipeline, status.currentPipeline);
-      
-      // 如果构建完成，刷新历史记录
-      if (status.currentBuild?.status && ['success', 'failed', 'cancelled'].includes(status.currentBuild.status)) {
-        loadPipelineHistory();
-        emit('buildCompleted', status.currentBuild);
-      } else if (status.currentBuild?.status === 'running') {
-        // 如果还在运行，继续轮询
-        setTimeout(poll, 5000);
-      }
-    } catch (error) {
-      console.error('轮询状态失败:', error);
-      // 出错时也继续轮询，但间隔时间加长
-      setTimeout(poll, 10000);
-    }
-  };
-  
-  // 开始轮询
-  poll();
-  
-  // 返回停止轮询的函数
-  statusPolling = () => {
-    // 这里可以添加停止轮询的逻辑
-  };
-};
+// 新建发布
+const releaseVisible = ref(false);
+const releaseSubmitting = ref(false);
+const environmentOptions = [
+  { label: '开发环境', value: 'dev' },
+  { label: '测试环境', value: 'test' },
+  { label: '生产环境', value: 'prod' },
+];
 
-/**
- * 停止状态轮询
- */
-const stopStatusPolling = () => {
-  if (statusPolling) {
-    statusPolling();
-    statusPolling = null;
-  }
-};
-
-/**
- * 事件处理函数
- */
-
-/**
- * 处理环境变更
- */
-const handleEnvironmentChange = (environment: string) => {
-  console.log('环境变更:', environment);
-};
-
-/**
- * 处理触发流水线
- */
-const handleTriggerPipeline = async (params: { environment: string; branch?: string }) => {
-  try {
-    triggering.value = true;
-    const result = await triggerPipeline({
-      projectId: projectId.value,
-      environment: params.environment,
-      branch: params.branch
-    });
-    
-    message.success(`流水线已触发，构建编号: ${result.buildNumber}`);
-    emit('buildTriggered', result.buildId);
-    
-    // 开始轮询状态
-    startStatusPolling();
-    
-    // 刷新历史记录
-    loadPipelineHistory();
-  } catch (error) {
-    console.error('触发流水线失败:', error);
-    message.error('触发流水线失败');
-  } finally {
-    triggering.value = false;
-  }
-};
-
-/**
- * 处理刷新
- */
-const handleRefresh = () => {
-  loadPipelineStatus();
-  loadPipelineHistory();
-};
-
-/**
- * 处理启用/禁用流水线
- */
-const handleTogglePipeline = async (enabled: boolean) => {
-  try {
-    await togglePipelineConfig({ projectId: projectId.value, enabled });
-    pipelineConfig.enabled = enabled;
-    message.success(enabled ? '流水线已启用' : '流水线已禁用');
-  } catch (error) {
-    console.error('切换流水线状态失败:', error);
-    message.error('切换流水线状态失败');
-  }
-};
-
-/**
- * 处理继续阶段
- */
-const handleContinueStage = async (stageName: string) => {
-  if (!currentBuild.value) return;
-  
-  try {
-    await continueStage({
-      projectId: projectId.value,
-      buildId: currentBuild.value.id,
-      stageName
-    });
-    message.success('阶段已继续');
-  } catch (error) {
-    console.error('继续阶段失败:', error);
-    message.error('继续阶段失败');
-  }
-};
-
-/**
- * 处理查看阶段日志
- */
-const handleViewStageLogs = (stageName: string) => {
-  // 这里可以打开日志查看器或跳转到日志页面
-  console.log('查看阶段日志:', stageName);
-  message.info(`查看 ${stageName} 阶段日志`);
-};
-
-/**
- * 处理重试阶段
- */
-const handleRetryStage = async (stageName: string) => {
-  if (!currentBuild.value) return;
-  
-  try {
-    await retryPipelineStage({
-      projectId: projectId.value,
-      buildId: currentBuild.value.id,
-      stageName
-    });
-    message.success('阶段已重试');
-  } catch (error) {
-    console.error('重试阶段失败:', error);
-    message.error('重试阶段失败');
-  }
-};
-
-/**
- * 处理跳过阶段
- */
-const handleSkipStage = async (stageName: string) => {
-  if (!currentBuild.value) return;
-  
-  Modal.confirm({
-    title: '确认跳过阶段',
-    content: `确定要跳过 ${stageName} 阶段吗？`,
-    onOk: async () => {
-      try {
-        await skipPipelineStage({
-          projectId: projectId.value,
-          buildId: currentBuild.value!.id,
-          stageName
-        });
-        message.success('阶段已跳过');
-      } catch (error) {
-        console.error('跳过阶段失败:', error);
-        message.error('跳过阶段失败');
-      }
-    }
-  });
-};
-
-/**
- * 处理取消阶段
- */
-const handleCancelStage = async (stageName: string) => {
-  if (!currentBuild.value) return;
-  
-  Modal.confirm({
-    title: '确认取消阶段',
-    content: `确定要取消 ${stageName} 阶段吗？`,
-    onOk: async () => {
-      try {
-        await cancelStage({
-          projectId: projectId.value,
-          buildId: currentBuild.value!.id,
-          stageName
-        });
-        message.success('阶段已取消');
-      } catch (error) {
-        console.error('取消阶段失败:', error);
-        message.error('取消阶段失败');
-      }
-    }
-  });
-};
-
-/**
- * 处理取消构建
- */
-const handleCancelBuild = async (buildId?: string) => {
-  const targetBuildId = buildId || currentBuild.value?.id;
-  if (!targetBuildId) return;
-  
-  Modal.confirm({
-    title: '确认取消构建',
-    content: '确定要取消当前构建吗？',
-    onOk: async () => {
-      try {
-        await cancelPipeline({ projectId: projectId.value, buildId: targetBuildId });
-        message.success('构建已取消');
-        loadPipelineStatus();
-        loadPipelineHistory();
-      } catch (error) {
-        console.error('取消构建失败:', error);
-        message.error('取消构建失败');
-      }
-    }
-  });
-};
-
-/**
- * 处理编辑配置
- */
-const handleEditConfig = () => {
-  // 这里可以打开配置编辑器或跳转到配置页面
-  console.log('编辑流水线配置');
-  message.info('编辑流水线配置');
-};
-
-/**
- * 处理查看构建详情
- */
-const handleViewDetails = async (build: PipelineBuild) => {
-  try {
-    detailLoading.value = true;
-    detailModalVisible.value = true;
-    
-    const detail = await getBuildDetail({ projectId: projectId.value, buildId: build.id });
-    selectedBuildDetail.value = detail;
-  } catch (error) {
-    console.error('加载构建详情失败:', error);
-  } finally {
-    detailLoading.value = false;
-  }
-};
-
-/**
- * 处理重新构建
- */
-const handleRetryBuild = async (build: PipelineBuild) => {
-  try {
-    const result = await retryBuild({ projectId: projectId.value, buildId: build.id });
-    message.success(`重新构建已触发，构建编号: ${result.buildNumber}`);
-    
-    // 开始轮询状态
-    startStatusPolling();
-    
-    // 刷新历史记录
-    loadPipelineHistory();
-  } catch (error) {
-    console.error('重新构建失败:', error);
-    message.error('重新构建失败');
-  }
-};
-
-/**
- * 处理删除构建
- */
-const handleDeleteBuild = async (build: PipelineBuild) => {
-  Modal.confirm({
-    title: '确认删除构建',
-    content: `确定要删除构建 #${build.buildNumber} 吗？`,
-    onOk: async () => {
-      try {
-        await deleteBuild({ projectId: projectId.value, buildId: build.id });
-        message.success('构建已删除');
-        loadPipelineHistory();
-      } catch (error) {
-        console.error('删除构建失败:', error);
-        message.error('删除构建失败');
-      }
-    }
-  });
-};
-
-/**
- * 处理批量删除构建
- */
-const handleBatchDeleteBuilds = async (buildIds: string[]) => {
-  Modal.confirm({
-    title: '确认批量删除',
-    content: `确定要删除选中的 ${buildIds.length} 个构建吗？`,
-    onOk: async () => {
-      try {
-        await batchDeleteBuilds({ projectId: projectId.value, buildIds });
-        message.success('构建已批量删除');
-        loadPipelineHistory();
-      } catch (error) {
-        console.error('批量删除构建失败:', error);
-        message.error('批量删除构建失败');
-      }
-    }
-  });
-};
-
-/**
- * 处理下载日志
- */
-const handleDownloadLogs = async (build: PipelineBuild) => {
-  try {
-    const blob = await downloadBuildLogs({ projectId: projectId.value, buildId: build.id });
-    
-    // 创建下载链接
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `build-${build.buildNumber}-logs.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-    
-    message.success('日志下载已开始');
-  } catch (error) {
-    console.error('下载日志失败:', error);
-    message.error('下载日志失败');
-  }
-};
-
-/**
- * 处理批量下载日志
- */
-const handleBatchDownloadLogs = async (buildIds: string[]) => {
-  try {
-    const blob = await batchDownloadLogs({ projectId: projectId.value, buildIds });
-    
-    // 创建下载链接
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `batch-build-logs.zip`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-    
-    message.success('批量日志下载已开始');
-  } catch (error) {
-    console.error('批量下载日志失败:', error);
-    message.error('批量下载日志失败');
-  }
-};
-
-/**
- * 处理构建对比
- */
-const handleCompareBuilds = (builds: PipelineBuild[]) => {
-  // 这里可以打开构建对比页面
-  console.log('对比构建:', builds);
-  message.info(`对比 ${builds.length} 个构建`);
-};
-
-/**
- * 处理历史表格变更
- */
-const handleHistoryTableChange = (pagination: any, filters: any, sorter: any) => {
-  pipelineHistory.page = pagination.current;
-  pipelineHistory.pageSize = pagination.pageSize;
-  
-  // 应用过滤器
-  Object.assign(pipelineHistory.filters, filters);
-  
-  // 重新加载数据
-  loadPipelineHistory();
-};
-
-/**
- * 生命周期钩子
- */
-onMounted(() => {
-  // 初始化加载数据
-  loadPipelineConfig();
-  loadPipelineStatus();
-  loadPipelineHistory();
-  
-  // 开始状态轮询
-  startStatusPolling();
+const releaseForm = reactive({
+  environment: 'dev',
+  version: '',
+  branch: '',
+  commitId: '',
+  remark: '',
+  pipelineConfigId: '',
 });
 
-/**
- * 监听项目ID变化
- */
-watch(
-  () => projectId.value,
-  (newProjectId) => {
-    if (newProjectId) {
-      // 停止之前的轮询
-      stopStatusPolling();
-      
-      // 重新加载数据
-      loadPipelineConfig();
-      loadPipelineStatus();
-      loadPipelineHistory();
-      
-      // 开始新的轮询
-      startStatusPolling();
-    }
-  }
-);
+function pad(n: number) { return String(n).padStart(2, '0'); }
+function generateReleaseVersion() {
+  const d = new Date();
+  return `v${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
 
-/**
- * 组件卸载时清理
- */
-onUnmounted(() => {
-  stopStatusPolling();
+function openReleaseDrawer() {
+  releaseForm.environment = 'dev';
+  releaseForm.version = generateReleaseVersion();
+  // 设定默认分支为项目基础信息中的分支
+  if (projectInfo.value?.gitBranch) {
+    releaseForm.branch = projectInfo.value.gitBranch;
+    // 加载该分支的提交列表
+    onBranchChange(projectInfo.value.gitBranch);
+  }
+  // 加载必要选择项
+  loadBranches();
+  // 根据项目关联的应用，加载流水线配置
+  loadPipelineConfigsByProject();
+  releaseVisible.value = true;
+}
+
+function closeReleaseDrawer() {
+  releaseVisible.value = false;
+}
+
+async function submitRelease() {
+  if (!props.projectId) return;
+  try {
+    releaseSubmitting.value = true;
+    const payload: any = {
+      projectId: String(props.projectId),
+      environment: releaseForm.environment,
+      branch: releaseForm.branch || undefined,
+      commitId: releaseForm.commitId || undefined,
+      parameters: {
+        version: releaseForm.version,
+        remark: releaseForm.remark,
+        pipelineConfigId: releaseForm.pipelineConfigId || undefined,
+      },
+    };
+    await triggerPipeline(payload);
+    createMessage.success('已触发发布流程');
+    releaseVisible.value = false;
+    await loadHistory();
+  } catch (e: any) {
+    console.error('触发发布失败:', e);
+    createMessage.error(e?.message || '触发发布失败');
+  } finally {
+    releaseSubmitting.value = false;
+  }
+}
+
+// 项目基础信息（关联应用、默认分支）
+const projectInfo = ref<any>(null);
+
+async function loadProjectInfo() {
+  if (!props.projectId) return;
+  try {
+    // 修正参数名：后端要求传入 id，而非 projectId
+    const info: any = await getProjectDetail({ id: String(props.projectId) });
+    projectInfo.value = info?.result || info || null;
+  } catch (e) {
+    console.warn('获取项目基础信息失败:', e);
+  }
+}
+
+onMounted(async () => {
+  await loadProjectInfo();
+  await loadHistory();
 });
+
+const pipelineConfigOptions = ref<{ label: string; value: string }[]>([]);
+
+async function loadPipelineConfigsByProject() {
+  releaseForm.pipelineConfigId = '';
+  pipelineConfigOptions.value = [];
+  // 优先使用父组件传入的 appId，其次再从项目详情中推断
+  const appId = (props.appId ?? getAppIdFromProject(projectInfo.value)) as string | number | undefined;
+  if (!appId) {
+    console.warn('项目未找到关联的应用ID，无法加载流水线配置');
+    return;
+  }
+  try {
+    const resp: any = await getAppPipelineConfig(String(appId));
+    // 兼容多种响应结构
+    const list = resp?.result || resp?.data || resp?.records || resp?.list || resp;
+    const pipelines: any[] = Array.isArray(list) ? list : (Array.isArray(list?.pipelines) ? list.pipelines : []);
+    pipelineConfigOptions.value = (pipelines || []).map((p: any) => ({ label: p?.pipelineName || p?.name || p?.id, value: String(p?.id || p?.pipelineId || p?.name) }));
+  } catch (e) {
+    console.warn('获取应用流水线配置失败:', e);
+  }
+}
+
+function getAppIdFromProject(project: any): string | undefined {
+  if (!project) return undefined;
+  return (
+    project.appId || project.app_id || project.appCode || project.app?.id || project.app?.appId || project.appIdRef || project.applicationId || undefined
+  );
+}
+
+// 分支 & 提交ID
+const branchesLoading = ref(false);
+const commitList = ref<any[]>([]);
+const commitsLoading = ref(false);
+const branchOptions = ref<{ label: string; value: string }[]>([]);
+const commitOptions = computed(() => (commitList.value || []).map((c: any) => ({ label: `${c?.shortId || c?.id || c} ${c?.message ? '- ' + c.message : ''}`, value: String(c?.id || c) })));
+
+async function loadBranches() {
+  if (!props.projectId) return;
+  try {
+    branchesLoading.value = true;
+    const res: any = await getGitBranches({ projectId: String(props.projectId) });
+    const arr = Array.isArray(res) ? res : (Array.isArray(res?.records) ? res.records : []);
+    branchOptions.value = (arr || []).map((b: any) => ({ label: b?.name || b, value: String(b?.name || b) }));
+  } catch (e) {
+    console.warn('获取分支失败:', e);
+    // 同步给用户提示，便于排查
+    try { createMessage?.error('获取分支失败，请检查后端接口 /project/git/branches 和项目ID'); } catch {}
+  } finally {
+    branchesLoading.value = false;
+  }
+}
+
+async function onBranchChange(branch: string) {
+  releaseForm.commitId = '';
+  await loadCommits(branch);
+}
+
+async function loadCommits(branch?: string) {
+  // 由于当前未提供项目级提交列表API，这里尝试从历史列表中提取该分支的提交作为备选
+  try {
+    commitsLoading.value = true;
+    const res: any = await getPipelineHistory({ projectId: String(props.projectId), page: 1, pageSize: 50, branch });
+    const list = Array.isArray(res?.records) ? res.records : (Array.isArray(res) ? res : []);
+    const commits = (list || [])
+      .filter((i: any) => (!branch || i?.branch === branch) && !!i?.commitId)
+      .map((i: any) => ({ id: i.commitId, shortId: String(i.commitId).slice(0, 8), message: i.commitMessage || '' }));
+    // 去重
+    const uniq: Record<string, any> = {};
+    commits.forEach((c) => { if (!uniq[c.id]) uniq[c.id] = c; });
+    commitList.value = Object.values(uniq);
+  } catch (e) {
+    console.warn('获取提交列表失败:', e);
+  } finally {
+    commitsLoading.value = false;
+  }
+}
+
+// 历史操作：重试与日志
+const logsVisible = ref(false);
+const logsLoading = ref(false);
+const logsText = ref('');
+
+async function handleRetryBuild(record: any) {
+  try {
+    if (!record?.buildId) return;
+    await retryBuild({ projectId: String(props.projectId), buildId: String(record.buildId) });
+    createMessage.success('已重新触发构建');
+    await loadHistory();
+  } catch (e: any) {
+    createMessage.error(e?.message || '重新构建失败');
+  }
+}
+
+async function handleViewLogs(record: any) {
+  logsVisible.value = true;
+  logsText.value = '';
+  try {
+    logsLoading.value = true;
+    if (!record?.buildId) return;
+    const res: any = await getBuildLogs({ projectId: String(props.projectId), buildId: String(record.buildId) });
+    logsText.value = typeof res === 'string' ? res : JSON.stringify(res, null, 2);
+  } catch (e) {
+    logsText.value = '获取日志失败';
+  } finally {
+    logsLoading.value = false;
+  }
+}
 </script>
 
-<style lang="less" scoped>
-.pipeline-manager {
-  padding: 16px;
-  background: #f5f5f5;
-  min-height: 100vh;
-
-  .pipeline-overview {
-    margin-bottom: 16px;
-
-    .ant-card {
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      
-      :deep(.ant-statistic-title) {
-        font-size: 14px;
-        color: #666;
-        margin-bottom: 4px;
-      }
-      
-      :deep(.ant-statistic-content) {
-        font-size: 20px;
-        font-weight: 600;
-      }
-      
-      :deep(.ant-statistic-content-prefix) {
-        margin-right: 8px;
-        font-size: 18px;
-      }
-    }
-  }
+<style scoped>
+.pm-card {
+  margin-top: 8px;
+}
+.pm-actions {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.ml8 { margin-left: 8px; }
+.pm-table :deep(.ant-table) {
+  font-size: 13px;
+}
+.pm-drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.pm-logs {
+  background: #0b1022;
+  color: #d2d6ef;
+  padding: 12px;
+  border-radius: 6px;
+  min-height: 300px;
+  white-space: pre-wrap;
 }
 </style>

@@ -4,13 +4,15 @@ import { ProjectModel, PipelineStatus, AppConfig } from './Project.data';
 enum Api {
   // 项目基础API
   list = '/verto-backend/project/list',
-  save = '/verto-backend/project/save',
+  // 后端控制器为 @RequestMapping("/project")，新增接口为 @PostMapping("/add")
+  save = '/verto-backend/project/add',
   edit = '/verto-backend/project/edit',
   deleteOne = '/verto-backend/project/delete',
   deleteBatch = '/verto-backend/project/deleteBatch',
   importExcel = '/verto-backend/project/importExcel',
   exportXls = '/verto-backend/project/exportXls',
-  detail = '/verto-backend/project/detail',
+  // 详情接口修正：后端提供的是 queryById
+  detail = '/verto-backend/project/queryById',
   
   // Git分支管理API
   createGitBranch = '/verto-backend/project/git/createBranch',
@@ -57,7 +59,8 @@ enum Api {
   stopPipeline = '/verto-backend/project/pipeline/stop',
   
   // 关联数据API
-  getAppList = '/verto-backend/appmanage/list',
+  // 修正路径：后端控制器为 @RequestMapping("/appmanage/app")，列表接口为 "/list"
+  getAppList = '/verto-backend/appmanage/app/list',
   getUserList = '/verto-backend/staff/list',
 }
 
@@ -74,10 +77,19 @@ export const getProjectList = (params?: any) =>
  * @param isUpdate 是否为更新操作
  */
 export const saveProject = (params: ProjectModel, isUpdate?: boolean) => {
+  // 后端实体 Project.designLinks 是 String（存储 JSON 数组字符串），需要在提交前序列化
+  const normalized: any = { ...params };
+  if (Array.isArray(normalized.designLinks)) {
+    normalized.designLinks = JSON.stringify(normalized.designLinks);
+  }
+  // appConfig 如为对象也需序列化为字符串
+  if (normalized.appConfig && typeof normalized.appConfig === 'object') {
+    normalized.appConfig = JSON.stringify(normalized.appConfig);
+  }
   if (isUpdate) {
-    return defHttp.put<any>({ url: Api.edit, params });
+    return defHttp.put<any>({ url: Api.edit, params: normalized });
   } else {
-    return defHttp.post<any>({ url: Api.save, params });
+    return defHttp.post<any>({ url: Api.save, params: normalized });
   }
 };
 
@@ -86,7 +98,14 @@ export const saveProject = (params: ProjectModel, isUpdate?: boolean) => {
  * @param params 项目数据
  */
 export const updateProject = (params: ProjectModel) => {
-  return defHttp.put<any>({ url: Api.edit, params });
+  const normalized: any = { ...params };
+  if (Array.isArray(normalized.designLinks)) {
+    normalized.designLinks = JSON.stringify(normalized.designLinks);
+  }
+  if (normalized.appConfig && typeof normalized.appConfig === 'object') {
+    normalized.appConfig = JSON.stringify(normalized.appConfig);
+  }
+  return defHttp.put<any>({ url: Api.edit, params: normalized });
 };
 
 /**
@@ -94,14 +113,14 @@ export const updateProject = (params: ProjectModel) => {
  * @param params 删除参数
  */
 export const deleteProject = (params: { id: string }) =>
-  defHttp.delete<any>({ url: Api.deleteOne, params });
+  defHttp.delete<any>({ url: Api.deleteOne, params }, { joinParamsToUrl: true });
 
 /**
  * 批量删除项目
  * @param params 批量删除参数
  */
 export const batchDeleteProject = (params: { ids: string[] }) =>
-  defHttp.delete<any>({ url: Api.deleteBatch, params });
+  defHttp.delete<any>({ url: Api.deleteBatch, params }, { joinParamsToUrl: true });
 
 /**
  * 获取项目详情

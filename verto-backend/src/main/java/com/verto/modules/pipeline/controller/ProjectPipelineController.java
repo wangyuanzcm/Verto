@@ -7,6 +7,7 @@ import com.verto.common.api.Result;
 import com.verto.modules.pipeline.entity.ProjectPipeline;
 import com.verto.modules.pipeline.service.IProjectPipelineService;
 import com.verto.modules.pipeline.dto.PipelineCreateRequest;
+import com.verto.modules.pipeline.dto.PipelineDefinitionRequest;
 import com.verto.modules.pipeline.service.IJenkinsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -317,6 +318,19 @@ public class ProjectPipelineController {
         Map<String, Object> resp = jenkinsService.createOrUpdatePipelineJob(request);
         if (resp.containsKey("error")) {
             return Result.error("创建/更新 Jenkins Job 失败: " + resp.get("error"));
+        }
+        return Result.ok(resp);
+    }
+
+    /**
+     * 基于完整配置创建 Jenkins 流水线（由后端统一生成 Jenkinsfile）
+     */
+    @Operation(summary = "基于完整配置创建 Jenkins 流水线")
+    @PostMapping(value = "/jenkins/createByConfig")
+    public Result<Map<String, Object>> createJenkinsPipelineByConfig(@RequestBody PipelineDefinitionRequest request) {
+        Map<String, Object> resp = jenkinsService.createPipelineJobFromDefinition(request);
+        if (resp.containsKey("error")) {
+            return Result.error("基于配置创建/更新 Jenkins Job 失败: " + resp.get("error"));
         }
         return Result.ok(resp);
     }

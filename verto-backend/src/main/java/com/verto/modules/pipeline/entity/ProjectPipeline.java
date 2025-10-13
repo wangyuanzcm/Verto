@@ -2,6 +2,7 @@ package com.verto.modules.pipeline.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -39,12 +40,14 @@ public class ProjectPipeline implements Serializable {
      * 项目ID
      */
     @Schema(description = "项目ID")
+    @TableField("project_id")
     private String projectId;
 
     /**
      * 构建编号
      */
     @Schema(description = "构建编号")
+    @TableField("build_number")
     private Integer buildNumber;
 
     /**
@@ -57,24 +60,28 @@ public class ProjectPipeline implements Serializable {
      * 分支名称
      */
     @Schema(description = "分支名称")
+    @TableField("git_branch")
     private String branch;
 
     /**
      * 提交ID
      */
     @Schema(description = "提交ID")
+    @TableField("git_commit")
     private String commitId;
 
     /**
      * 提交信息
      */
     @Schema(description = "提交信息")
+    @TableField(exist = false)
     private String commitMessage;
 
     /**
      * 提交作者
      */
     @Schema(description = "提交作者")
+    @TableField(exist = false)
     private String author;
 
     /**
@@ -83,6 +90,7 @@ public class ProjectPipeline implements Serializable {
     @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Schema(description = "开始时间")
+    @TableField("start_time")
     private Date startTime;
 
     /**
@@ -91,6 +99,7 @@ public class ProjectPipeline implements Serializable {
     @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Schema(description = "结束时间")
+    @TableField("end_time")
     private Date endTime;
 
     /**
@@ -103,36 +112,42 @@ public class ProjectPipeline implements Serializable {
      * 当前阶段
      */
     @Schema(description = "当前阶段")
+    @TableField(exist = false)
     private String currentStage;
 
     /**
      * 进度百分比
      */
     @Schema(description = "进度百分比")
+    @TableField(exist = false)
     private Integer progress;
 
     /**
      * 构建日志
      */
     @Schema(description = "构建日志")
+    @TableField(exist = false)
     private String buildLogs;
 
     /**
      * 测试日志
      */
     @Schema(description = "测试日志")
+    @TableField(exist = false)
     private String testLogs;
 
     /**
      * 部署日志
      */
     @Schema(description = "部署日志")
+    @TableField(exist = false)
     private String deployLogs;
 
     /**
      * 创建人
      */
     @Schema(description = "创建人")
+    @TableField("create_by")
     private String createBy;
 
     /**
@@ -141,12 +156,14 @@ public class ProjectPipeline implements Serializable {
     @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Schema(description = "创建时间")
+    @TableField("create_time")
     private Date createTime;
 
     /**
      * 更新人
      */
     @Schema(description = "更新人")
+    @TableField("update_by")
     private String updateBy;
 
     /**
@@ -155,6 +172,7 @@ public class ProjectPipeline implements Serializable {
     @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Schema(description = "更新时间")
+    @TableField("update_time")
     private Date updateTime;
 
     // 手动添加必要的 setter 方法，确保编译通过

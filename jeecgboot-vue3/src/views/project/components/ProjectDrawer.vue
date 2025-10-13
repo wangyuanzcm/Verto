@@ -1,11 +1,12 @@
 <template>
-  <BasicModal
+  <BasicDrawer
     v-bind="$attrs"
-    @register="registerModal"
+    @register="registerDrawer"
     :title="getTitle"
-    @ok="handleSubmit"
-    @cancel="handleCancel"
     width="900px"
+    showFooter
+    :footerStyle="{ textAlign: 'right' }"
+    @ok="handleSubmit"
   >
     <BasicForm @register="registerForm">
       <template #designLinks="{ model, field }">
@@ -24,44 +25,51 @@
         </div>
       </template>
     </BasicForm>
-  </BasicModal>
+  </BasicDrawer>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, unref } from 'vue';
-import { BasicModal, useModalInner } from '/@/components/Modal';
+import { ref, computed } from 'vue';
+import { BasicDrawer, useDrawerInner } from '/@/components/Drawer';
 import { BasicForm, useForm } from '/@/components/Form';
 import { message } from 'ant-design-vue';
 import { PlusOutlined } from '@ant-design/icons-vue';
-import { 
+import {
   step1Schemas,
   step2Schemas,
   step3Schemas,
   ProjectType,
+  ProjectStatus,
   ProjectModel,
 } from '../Project.data';
 import { saveProject, updateProject } from '../Project.api';
 
-const emit = defineEmits(['success', 'register']);
+interface Emits {
+  (e: 'register', ...args: any[]): void;
+  (e: 'success'): void;
+}
+
+const emit = defineEmits<Emits>();
 
 const isUpdate = ref(false);
 const recordRef = ref<any>({});
 
-const getTitle = computed(() => (!unref(isUpdate) ? '新增项目' : '编辑项目'));
+const getTitle = computed(() => (!isUpdate.value ? '新增项目' : '编辑项目'));
 
-const [registerForm, { setFieldsValue, validate, resetFields }] = useForm({
+const [registerForm, { setFieldsValue, getFieldsValue, validate, resetFields }] = useForm({
   labelWidth: 120,
   showActionButtonGroup: false,
   baseColProps: { span: 24 },
+  // 将分步表单合并为单页表单
   schemas: [...step1Schemas, ...step2Schemas, ...step3Schemas],
 });
 
-const [registerModal, { setModalProps, closeModal }] = useModalInner(async (data) => {
-  setModalProps({ confirmLoading: false });
-  
+const [registerDrawer, { setDrawerProps }] = useDrawerInner(async (data) => {
+  // 初始化抽屉数据
   isUpdate.value = !!data?.isUpdate;
   recordRef.value = data?.record || {};
 
+  // 编辑时回填，新增时重置为空表单
   if (isUpdate.value) {
     // 设计链接可能为字符串，需解析为数组
     let designLinks = recordRef.value.designLinks;
@@ -83,6 +91,7 @@ const [registerModal, { setModalProps, closeModal }] = useModalInner(async (data
       bugId: recordRef.value.bugId,
       title: recordRef.value.title,
       description: recordRef.value.description,
+      // ApiSelect 已开启 labelInValue，需要传入 { value, label }
       appId: {
         value: recordRef.value.relatedAppId,
         label: recordRef.value.relatedAppName || '',
@@ -103,7 +112,9 @@ const [registerModal, { setModalProps, closeModal }] = useModalInner(async (data
     };
     setFieldsValue(initial);
   } else {
+    // 清空所有字段，确保抽屉为“空表单”
     resetFields();
+    // 确保设计链接数组初始化为空以便插槽正常工作
     setFieldsValue({ designLinks: [] });
   }
 });
@@ -154,6 +165,7 @@ async function handleSubmit() {
       return;
     }
 
+    // 生成分支名（只读显示）
     const gitBranch = computeBranch(values);
 
     // 确保编辑请求携带正确的主键ID（有些情况下 id 不在表单 schema 中，validate 返回的 values 可能缺少 id）
@@ -164,6 +176,7 @@ async function handleSubmit() {
       bugId: values.bugId,
       title: values.title,
       description: values.description,
+      // ApiSelect 使用 labelInValue，保存名称与ID
       relatedAppId: values.appId?.value ?? values.appId,
       relatedAppName: values.appId?.label,
       developerId: values.developerId?.value ?? values.developerId,
@@ -174,11 +187,12 @@ async function handleSubmit() {
       onlineTime: values.onlineTime,
       releaseTime: values.releaseTime,
       status: values.status,
+      // 保存优先级以便后端持久化与前端回填
       priority: values.priority,
       gitBranch,
     } as ProjectModel;
 
-    setModalProps({ confirmLoading: true });
+    setDrawerProps({ loading: true });
     if (isUpdate.value) {
       await updateProject(payload);
       message.success('项目更新成功！');
@@ -186,27 +200,17 @@ async function handleSubmit() {
       await saveProject(payload);
       message.success('项目创建成功！');
     }
-    setModalProps({ confirmLoading: false });
-    handleSuccess();
+    setDrawerProps({ loading: false });
+    emit('success');
   } catch (e) {
     console.error(e);
-    setModalProps({ confirmLoading: false });
+    setDrawerProps({ loading: false });
     message.error('提交失败，请检查表单信息');
   }
-}
-
-function handleSuccess() {
-  closeModal();
-  emit('success');
-}
-
-function handleCancel() {
-  closeModal();
 }
 </script>
 
 <style lang="less" scoped>
-// 样式可以根据需要调整
 .design-links {
   .design-link-item {
     margin-bottom: 8px;

@@ -15,6 +15,7 @@
 
   const isUpdate = ref(true);
   const stageData = ref<any>({});
+  const stageIndex = ref<number | undefined>(undefined);
 
   // 表单配置
   const formSchema: FormSchema[] = [
@@ -202,6 +203,7 @@
     setModalProps({ confirmLoading: false });
     isUpdate.value = !!data?.isUpdate;
     stageData.value = data?.record || {};
+    stageIndex.value = data?.index;
 
     if (unref(isUpdate)) {
       setFieldsValue({
@@ -237,7 +239,8 @@
       // 这里可以调用API保存数据
       // await saveStage(values);
 
-      emit('success', values);
+      // 向上抛出统一的结构，包含编辑时的索引
+      emit('success', { stage: values, index: isUpdate.value ? stageIndex.value : undefined });
       createMessage.success('阶段配置保存成功');
       closeModal();
     } catch (error) {

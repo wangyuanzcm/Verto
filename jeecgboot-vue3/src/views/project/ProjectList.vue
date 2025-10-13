@@ -38,8 +38,8 @@
         <a-button v-else :ghost="true" type="primary" preIcon="ant-design:download-outlined" size="small" @click="downloadFile(text)">下载</a-button>
       </template>
     </BasicTable>
-    <!-- 表单区域 -->
-    <ProjectModal @register="registerModal" @success="handleSuccess" />
+    <!-- 抽屉表单区域 -->
+    <ProjectDrawer @register="registerDrawer" @success="handleSuccess" />
   </div>
 </template>
 
@@ -47,9 +47,9 @@
   import { ref, computed, unref } from 'vue';
   import { useRouter } from 'vue-router';
   import { BasicTable, useTable, TableAction } from '/@/components/Table';
-  import { useModal } from '/@/components/Modal';
+  import { useDrawer } from '/@/components/Drawer';
   import { useListPage } from '/@/hooks/system/useListPage';
-  import ProjectModal from './components/ProjectModal.vue';
+  import ProjectDrawer from './components/ProjectDrawer.vue';
   import { columns, searchFormSchema } from './Project.data';
   import { 
     getProjectList, 
@@ -66,8 +66,8 @@
   const { createMessage } = useMessage();
   const router = useRouter();
   
-  //注册model
-  const [registerModal, { openModal }] = useModal();
+  // 注册抽屉
+  const [registerDrawer, { openDrawer }] = useDrawer();
   
   //注册table数据
   const { prefixCls, tableContext, onExportXls, onImportXls } = useListPage({
@@ -82,7 +82,7 @@
         autoSubmitOnEnter: true,
       },
       actionColumn: {
-        width: 120,
+        width: 180,
         fixed: 'right',
       },
     },
@@ -96,18 +96,16 @@
    * 新增事件
    */
   function handleAdd() {
-    console.log('点击新增按钮，准备跳转到新增页面');
-    // 跳转到独立的新增页面
-    router.push('/project/add');
+    console.log('点击新增按钮，打开抽屉表单');
+    openDrawer(true, { isUpdate: false });
   }
 
   /**
    * 编辑事件
    */
   function handleEdit(record: Recordable) {
-    console.log('点击编辑按钮，准备跳转到编辑页面，记录ID:', record.id);
-    // 跳转到独立的编辑页面
-    router.push(`/project/edit/${record.id}`);
+    console.log('点击编辑按钮，打开抽屉表单，记录ID:', record.id);
+    openDrawer(true, { isUpdate: true, record });
   }
 
   /**
@@ -156,6 +154,15 @@
       {
         label: '详情',
         onClick: handleDetail.bind(null, record),
+      },
+      {
+        label: '删除',
+        color: 'error',
+        popConfirm: {
+          title: '是否确认删除该项目？',
+          confirm: handleDelete.bind(null, record),
+          placement: 'topLeft',
+        },
       },
     ];
   }

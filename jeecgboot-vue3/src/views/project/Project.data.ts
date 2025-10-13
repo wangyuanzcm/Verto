@@ -38,6 +38,7 @@ export interface ProjectModel {
   relatedAppName?: string; // 关联应用名称
   developerId: string; // 开发人员ID
   developerName?: string; // 开发人员姓名
+  priority?: 'low' | 'medium' | 'high'; // 优先级
   designLinks: DesignLink[]; // 原型/设计稿链接
   startTime?: string; // 开始时间
   testTime?: string; // 提测时间
@@ -218,11 +219,34 @@ export const columns: BasicColumn[] = [
     title: '关联应用',
     dataIndex: 'relatedAppName',
     width: 150,
+    customRender: ({ record }) => {
+      // 优先显示名称；若后端未返回名称，则回退显示ID或"-"
+      return record.relatedAppName || record.relatedAppId || '-';
+    },
   },
   {
     title: '开发人员',
     dataIndex: 'developerName',
     width: 120,
+    customRender: ({ record }) => {
+      // 优先显示姓名；若后端未返回姓名，则回退显示ID或"-"
+      return record.developerName || record.developerId || '-';
+    },
+  },
+  {
+    title: '优先级',
+    dataIndex: 'priority',
+    width: 100,
+    customRender: ({ record }) => {
+      const map: Record<string, { color: string; text: string }> = {
+        low: { color: 'default', text: '低' },
+        medium: { color: 'warning', text: '中' },
+        high: { color: 'error', text: '高' },
+      };
+      const p = record.priority;
+      const conf = map[p] || { color: 'default', text: p || '-' };
+      return h(Tag, { color: conf.color }, () => conf.text);
+    },
   },
   {
     title: '项目状态',
@@ -556,6 +580,8 @@ export const step2Schemas: FormSchema[] = [
       api: getAppList, // 调用应用列表API
       labelField: 'appName',
       valueField: 'id',
+      // 返回 { label, value } 以便保存名称用于列表展示
+      labelInValue: true,
       placeholder: '请选择关联的应用',
       resultField: 'records', // 从分页数据中提取 records 字段
     },
@@ -567,9 +593,11 @@ export const step2Schemas: FormSchema[] = [
     component: 'ApiSelect',
     required: true,
     componentProps: {
-      api: getUserList, // 调用用户列表API
-      labelField: 'realname',
+      api: getUserList, // 调用人员管理列表接口：/verto-backend/staff/list
+      labelField: 'name',
       valueField: 'id',
+      // 返回 { label, value } 以便保存姓名用于列表展示
+      labelInValue: true,
       placeholder: '请选择开发人员',
       resultField: 'records', // 从分页数据中提取 records 字段
     },

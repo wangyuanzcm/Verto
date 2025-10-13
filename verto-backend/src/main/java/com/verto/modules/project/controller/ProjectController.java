@@ -47,38 +47,33 @@ public class ProjectController {
                                                 @Parameter(description = "每页大小") @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize) {
         QueryWrapper<Project> queryWrapper = new QueryWrapper<>();
         
-        // 项目ID精确查询
-        if (project.getProjectId() != null && !project.getProjectId().trim().isEmpty()) {
-            queryWrapper.eq("project_id", project.getProjectId());
+        // 主键ID精确查询
+        if (project.getId() != null && !project.getId().trim().isEmpty()) {
+            queryWrapper.eq("id", project.getId());
+        }
+
+        // 关联应用名称模糊查询
+        if (project.getRelatedAppName() != null && !project.getRelatedAppName().trim().isEmpty()) {
+            queryWrapper.like("related_app_name", project.getRelatedAppName());
+        }
+
+        // 关联应用ID精确查询
+        if (project.getRelatedAppId() != null && !project.getRelatedAppId().trim().isEmpty()) {
+            queryWrapper.eq("related_app_id", project.getRelatedAppId());
+        }
+
+        // 开发者姓名查询
+        if (project.getDeveloperName() != null && !project.getDeveloperName().trim().isEmpty()) {
+            queryWrapper.like("developer_name", project.getDeveloperName());
         }
         
-        // 应用名称模糊查询
-        if (project.getAppName() != null && !project.getAppName().trim().isEmpty()) {
-            queryWrapper.like("app_name", project.getAppName());
-        }
-        
-        // 应用代码精确查询
-        if (project.getAppCode() != null && !project.getAppCode().trim().isEmpty()) {
-            queryWrapper.eq("app_code", project.getAppCode());
-        }
-        
-        // 应用类型查询
-        if (project.getAppType() != null && !project.getAppType().trim().isEmpty()) {
-            queryWrapper.eq("app_type", project.getAppType());
-        }
-        
-        // 开发人员查询
-        if (project.getDeveloper() != null && !project.getDeveloper().trim().isEmpty()) {
-            queryWrapper.like("developer", project.getDeveloper());
-        }
-        
-        // 测试人员查询
-        if (project.getTester() != null && !project.getTester().trim().isEmpty()) {
-            queryWrapper.like("tester", project.getTester());
+        // 优先级查询
+        if (project.getPriority() != null && !project.getPriority().trim().isEmpty()) {
+            queryWrapper.eq("priority", project.getPriority());
         }
         
         // 状态查询
-        if (project.getStatus() != null) {
+        if (project.getStatus() != null && !project.getStatus().trim().isEmpty()) {
             queryWrapper.eq("status", project.getStatus());
         }
         
@@ -174,7 +169,7 @@ public class ProjectController {
     @GetMapping(value = "/related-apps")
     public Result<List<Project>> getRelatedApps(@Parameter(description = "项目ID") @RequestParam(name = "projectId", required = true) String projectId) {
         QueryWrapper<Project> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("project_id", projectId);
+        queryWrapper.eq("id", projectId);
         queryWrapper.orderByDesc("create_time");
         List<Project> projectList = projectService.list(queryWrapper);
         return Result.ok(projectList);

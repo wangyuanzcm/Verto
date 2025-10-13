@@ -15,14 +15,10 @@
           <Icon icon="ant-design:branch-outlined" size="16" />
           创建Git分支
         </a-button>
-        <a-button @click="handleTriggerPipeline" :loading="pipelineLoading">
-          <Icon icon="ant-design:play-circle-outlined" size="16" />
-          触发流水线
-        </a-button>
       </div>
     </div>
 
-    <PageWrapper dense contentFullHeight fixedHeight contentClass="flex">
+    <PageWrapper dense contentFullHeight fixedHeight  contentClass="flex content-white">
       <template #headerContent>
         <div class="project-header">
           <div class="project-title">
@@ -72,6 +68,11 @@
                   {{ getProjectStatusText(projectData?.status) }}
                 </a-tag>
               </a-descriptions-item>
+              <a-descriptions-item label="优先级">
+                <a-tag :color="getPriorityColor(projectData?.priority)">
+                  {{ getPriorityText(projectData?.priority) }}
+                </a-tag>
+              </a-descriptions-item>
               <a-descriptions-item label="Git分支">
                 {{ projectData?.gitBranch || '-' }}
               </a-descriptions-item>
@@ -108,19 +109,16 @@
           </div>
         </a-tab-pane>
 
-        <!-- Git分支管理 -->
-        <a-tab-pane key="git" tab="Git分支">
-          <GitBranchManager :project-id="projectId" :project-data="projectData" />
-        </a-tab-pane>
-
-        <!-- 应用配置 -->
-        <a-tab-pane key="config" tab="应用配置">
-          <AppConfigManager :project-id="projectId" />
-        </a-tab-pane>
+        
 
         <!-- 流水线 -->
         <a-tab-pane key="pipeline" tab="流水线">
-          <PipelineManager :project-id="projectId" />
+          <div class="tab-content">
+            <div class="pipeline-manager">
+              <!-- 仅保留新建发布与流水线历史，由 PipelineManager 统一承载 -->
+              <PipelineManager :project-id="projectId" :app-id="projectData?.relatedAppId" />
+            </div>
+          </div>
         </a-tab-pane>
       </a-tabs>
     </PageWrapper>
@@ -156,22 +154,21 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, onMounted, computed } from 'vue';
+  import { ref, reactive,watch, onMounted, computed } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { PageWrapper } from '/@/components/Page';
   import { BasicModal, useModal } from '/@/components/Modal';
   import { Icon } from '/@/components/Icon';
   import { useMessage } from '/@/hooks/web/useMessage';
+  import {  } from './Project.api';
   import { 
     getProjectDetail, 
     createGitBranch, 
-    triggerPipeline,
     generateGitBranchName 
   } from './Project.api';
   import { ProjectModel, ProjectType, ProjectStatus } from './Project.data';
   import ProjectModal from './components/ProjectModal.vue';
-  import GitBranchManager from './components/GitBranchManager.vue';
-  import AppConfigManager from './components/AppConfigManager.vue';
+  
   import PipelineManager from './components/PipelineManager.vue';
   import { formatToDateTime } from '/@/utils/dateUtil';
 
@@ -191,7 +188,7 @@
   // 加载状态
   const loading = ref(false);
   const gitBranchLoading = ref(false);
-  const pipelineLoading = ref(false);
+  
   
   // Git分支创建结果
   const gitBranchModalVisible = ref(false);
@@ -214,6 +211,19 @@
     try {
       loading.value = true;
       const result = await getProjectDetail({ id: projectId.value });
+      // 设计链接为字符串时解析为数组，保证页面渲染正常
+      let designLinks: any = result?.designLinks;
+      if (typeof designLinks === 'string') {
+        try {
+          designLinks = JSON.parse(designLinks);
+        } catch (e) {
+          designLinks = [];
+        }
+      }
+      if (!Array.isArray(designLinks)) {
+        designLinks = [];
+      }
+      result.designLinks = designLinks;
       projectData.value = result;
     } catch (error) {
       createMessage.error('加载项目详情失败');
@@ -275,24 +285,7 @@
     }
   }
 
-  /**
-   * 触发流水线
-   */
-  async function handleTriggerPipeline() {
-    if (!projectId.value) return;
-    
-    try {
-      pipelineLoading.value = true;
-      await triggerPipeline({ projectId: projectId.value });
-      createMessage.success('流水线触发成功');
-      // 切换到流水线标签页
-      activeTab.value = 'pipeline';
-    } catch (error) {
-      createMessage.error('触发流水线失败');
-    } finally {
-      pipelineLoading.value = false;
-    }
-  }
+  // 已移除：项目管理页内的触发流水线逻辑，统一由 PipelineManager 承载
 
   /**
    * 编辑成功回调
@@ -343,6 +336,28 @@
       [ProjectStatus.CLOSED]: '已关闭',
     };
     return textMap[status!] || status;
+  }
+
+  /**
+   * 优先级展示（颜色与文本）
+   */
+  function getPriorityColor(priority?: string) {
+    const map: Record<string, string> = {
+      low: 'green',
+      medium: 'orange',
+      high: 'red',
+    };
+    return map[(priority || '').toLowerCase()] || 'default';
+  }
+
+  function getPriorityText(priority?: string) {
+    const map: Record<string, string> = {
+      low: '低',
+      medium: '中',
+      high: '高',
+    };
+    const key = (priority || '').toLowerCase();
+    return map[key] || (priority || '-');
   }
 
   /**
@@ -488,6 +503,11 @@
           font-weight: 600;
         }
       }
+    }
+
+    // 设置 PageWrapper 内容区背景为白色
+    :deep(.content-white) {
+      background-color: #ffffff;
     }
   }
 </style>

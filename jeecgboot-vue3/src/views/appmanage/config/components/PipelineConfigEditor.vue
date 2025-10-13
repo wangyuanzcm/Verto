@@ -284,13 +284,31 @@
   /**
    * 阶段操作成功回调
    */
-  function handleStageSuccess(data: { stage: PipelineStage; index?: number }) {
-    if (data.index !== undefined) {
+  function handleStageSuccess(data: any) {
+    // 兼容两种回调形式：
+    // 1) StageModal 直接 emit(values)
+    // 2) StageModal emit({ stage: values, index })
+    const rawStage = data?.stage ?? data;
+    const index = data?.index;
+
+    // 规范化为 PipelineStage 结构
+    const normalizedStage: PipelineStage = {
+      id:
+        rawStage?.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: rawStage?.name ?? rawStage?.stageName ?? '未命名阶段',
+      type: rawStage?.type ?? rawStage?.stageType ?? 'custom',
+      environment: rawStage?.environment ?? rawStage?.env ?? '',
+      timeout: rawStage?.timeout ?? 30,
+      retryCount: rawStage?.retryCount ?? 0,
+      script: rawStage?.script ?? rawStage?.command ?? ''
+    } as PipelineStage;
+
+    if (typeof index === 'number' && index >= 0) {
       // 编辑
-      config.stages[data.index] = data.stage;
+      config.stages[index] = normalizedStage;
     } else {
       // 新增
-      config.stages.push(data.stage);
+      config.stages.push(normalizedStage);
     }
   }
 

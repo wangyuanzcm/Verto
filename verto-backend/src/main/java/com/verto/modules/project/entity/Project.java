@@ -36,58 +36,120 @@ public class Project implements Serializable {
     private String id;
 
     /**
-     * 项目ID
+     * 项目类型(requirement:需求,bug:缺陷)
      */
-    @Schema(description = "项目ID")
-    private String projectId;
+    @Schema(description = "项目类型(requirement:需求,bug:缺陷)")
+    private String projectType;
 
     /**
-     * 应用名称
+     * 需求ID
      */
-    @Schema(description = "应用名称")
-    private String appName;
+    @Schema(description = "需求ID")
+    private String requirementId;
 
     /**
-     * 应用代码
+     * 缺陷ID
      */
-    @Schema(description = "应用代码")
-    private String appCode;
+    @Schema(description = "缺陷ID")
+    private String bugId;
 
     /**
-     * 应用类型
+     * 项目标题
      */
-    @Schema(description = "应用类型")
-    private String appType;
-
-    /**
-     * Git仓库地址
-     */
-    @Schema(description = "Git仓库地址")
-    private String gitUrl;
-
-    /**
-     * 开发人员
-     */
-    @Schema(description = "开发人员")
-    private String developer;
-
-    /**
-     * 测试人员
-     */
-    @Schema(description = "测试人员")
-    private String tester;
-
-    /**
-     * 状态：1-进行中，2-已完成，3-已暂停，0-已取消
-     */
-    @Schema(description = "状态：1-进行中，2-已完成，3-已暂停，0-已取消")
-    private Integer status;
+    @Schema(description = "项目标题")
+    private String title;
 
     /**
      * 项目描述
      */
     @Schema(description = "项目描述")
     private String description;
+
+    /**
+     * 关联应用ID
+     */
+    @Schema(description = "关联应用ID")
+    private String relatedAppId;
+
+    /**
+     * 关联应用名称
+     */
+    @Schema(description = "关联应用名称")
+    private String relatedAppName;
+
+    /**
+     * 开发者ID
+     */
+    @Schema(description = "开发者ID")
+    private String developerId;
+
+    /**
+     * 开发者姓名
+     */
+    @Schema(description = "开发者姓名")
+    private String developerName;
+
+    /**
+     * 优先级(低:low, 中:medium, 高:high)
+     */
+    @Schema(description = "优先级(低:low, 中:medium, 高:high)")
+    private String priority;
+
+    /**
+     * 设计链接(JSON数组)
+     */
+    @Schema(description = "设计链接(JSON数组)")
+    private String designLinks;
+
+    /**
+     * 开始时间
+     */
+    @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "开始时间")
+    private Date startTime;
+
+    /**
+     * 测试时间
+     */
+    @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "测试时间")
+    private Date testTime;
+
+    /**
+     * 上线时间
+     */
+    @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "上线时间")
+    private Date onlineTime;
+
+    /**
+     * 发布时间
+     */
+    @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "发布时间")
+    private Date releaseTime;
+
+    /**
+     * 状态(planning, developing, testing, released)
+     */
+    @Schema(description = "状态(planning, developing, testing, released)")
+    private String status;
+
+    /**
+     * Git分支
+     */
+    @Schema(description = "Git分支")
+    private String gitBranch;
+
+    /**
+     * 应用配置(JSON)
+     */
+    @Schema(description = "应用配置(JSON)")
+    private String appConfig;
 
     /**
      * 创建人
@@ -116,58 +178,4 @@ public class Project implements Serializable {
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Schema(description = "更新时间")
     private Date updateTime;
-
-    // 手动添加必要的 getter 方法，确保编译通过
-    public String getProjectId() {
-        return projectId;
-    }
-
-    public String getAppName() {
-        return appName;
-    }
-
-    public String getAppCode() {
-        return appCode;
-    }
-
-    public String getAppType() {
-        return appType;
-    }
-
-    public String getDeveloper() {
-        return developer;
-    }
-
-    public String getTester() {
-        return tester;
-    }
-
-    public Integer getStatus() {
-        return status;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public String getGitUrl() {
-        return gitUrl;
-    }
-
-    // 手动添加必要的 setter 方法，确保编译通过
-    public void setCreateTime(Date createTime) {
-        this.createTime = createTime;
-    }
-
-    public void setCreateBy(String createBy) {
-        this.createBy = createBy;
-    }
-
-    public void setUpdateTime(Date updateTime) {
-        this.updateTime = updateTime;
-    }
-
-    public void setUpdateBy(String updateBy) {
-        this.updateBy = updateBy;
-    }
 }

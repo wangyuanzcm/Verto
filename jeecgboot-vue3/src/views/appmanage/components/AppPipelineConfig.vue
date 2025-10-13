@@ -32,17 +32,6 @@
     >
       <!-- 与配置管理保持一致，使用 BasicForm 构建表单 -->
       <BasicForm @register="registerCreateForm" />
-
-      <!-- 快速填充：从现有流水线配置一键生成 Jenkinsfile 并填入表单 -->
-      <div class="quick-fill-section">
-        <a-divider>快速填充</a-divider>
-        <a-space>
-          <a-select v-model:value="selectedConfigId" style="min-width: 280px" placeholder="选择现有流水线配置">
-            <a-select-option v-for="cfg in pipelineConfigs" :key="cfg.id" :value="cfg.id">{{ cfg.name }}</a-select-option>
-          </a-select>
-          <a-button type="default" @click="handlePrefillFromSelected">一键填充</a-button>
-        </a-space>
-      </div>
     </BasicModal>
 
     <a-divider />
@@ -159,8 +148,6 @@
                 <a-list-item>
                   <template #actions>
                     <a @click="handleEditConfig(item)">编辑</a>
-                    <a @click="handleCopyConfig(item)">复制</a>
-                    <a @click="handleUseConfigForJenkins(item)" style="color: #722ed1;">应用到新建流水线</a>
                     <a @click="handleDeleteConfig(item)" style="color: #ff4d4f;">删除</a>
                   </template>
 
@@ -202,6 +189,7 @@
       v-model:open="configDrawerVisible"
       :title="configDrawerTitle"
       :width="800"
+      showFooter
       :mask-closable="false"
       :destroy-on-close="true"
       @close="handleConfigDrawerClose"
@@ -222,7 +210,7 @@
       <div class="pipeline-editor-section">
         <PipelineConfigEditor
           ref="pipelineEditorRef"
-          v-model:config="currentConfig.content"
+          v-model:value="currentConfig.content"
         />
       </div>
 
@@ -231,8 +219,9 @@
         <a-space>
           <a-button @click="handleConfigDrawerClose">取消</a-button>
           <a-button type="primary" @click="handleSaveConfig" :loading="saveLoading">
-            {{ isEditMode ? '更新' : '保存' }}
+            {{ isEditMode ? '更新配置' : '提交配置' }}
           </a-button>
+          <a-button type="primary" @click="handleCreateJenkinsFromConfig" v-if="!isEditMode">创建 Jenkins 流水线</a-button>
         </a-space>
       </template>
     </BasicDrawer>
@@ -359,7 +348,8 @@
     },
     {
       field: 'jenkinsfilePath',
-      label: 'Jenkinsfile 路径',
+      label: 'Jenkinsfile 路径（来自配置管理）',
+      helpMessage: '该路径对应配置管理页面中的配置内容',
       component: 'Input',
       required: true,
       defaultValue: 'Jenkinsfile',
@@ -389,7 +379,7 @@
     autoSubmitOnEnter: true,
   });
 
-  const selectedConfigId = ref<string>();
+  // 注：已移除弹框中的“快速填充”选择器，改为仅通过嵌入的配置管理列表进行复制与预填
 
   // 运行历史相关
   const historyLoading = ref(false);
@@ -505,44 +495,33 @@
   async function loadPipelineHistory() {
     try {
       historyLoading.value = true;
-      // 模拟API调用
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      // 模拟数据
-      pipelineHistory.value = [
-        {
-          id: '1',
-          pipelineName: '主分支构建',
-          status: 'success',
-          commitMessage: 'feat: 添加用户管理功能',
-          commitHash: 'a1b2c3d',
-          triggeredBy: '张三',
-          duration: 180000, // 3分钟
-          startTime: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: '2',
-          pipelineName: '测试环境部署',
-          status: 'running',
-          commitMessage: 'fix: 修复登录问题',
-          commitHash: 'e4f5g6h',
-          triggeredBy: '李四',
-          duration: 120000, // 2分钟
-          startTime: new Date(Date.now() - 1800000).toISOString(),
-        },
-        {
-          id: '3',
-          pipelineName: '生产环境部署',
-          status: 'failed',
-          commitMessage: 'refactor: 重构数据库连接',
-          commitHash: 'i7j8k9l',
-          triggeredBy: '王五',
-          duration: 300000, // 5分钟
-          startTime: new Date(Date.now() - 7200000).toISOString(),
-        },
-      ];
-      
-      historyPagination.total = pipelineHistory.value.length;
+      if (!props.appId) {
+        message.warning('缺少应用ID，无法加载运行历史');
+        return;
+      }
+
+      const resp: any = await getPipelineHistory(props.appId, {
+        search: searchText.value,
+        status: statusFilter.value,
+        startDate: dateRange.value?.[0],
+        endDate: dateRange.value?.[1],
+        page: historyPagination.current,
+        pageSize: historyPagination.pageSize,
+      });
+
+      const list = resp?.result?.records || resp?.records || resp?.data || resp?.list || [];
+      const total = resp?.result?.total || resp?.total || (Array.isArray(list) ? list.length : 0);
+      pipelineHistory.value = (list || []).map((item: any) => ({
+        id: item.id || item.historyId || item.buildId || item.jobId,
+        pipelineName: item.pipelineName || item.name || item.jobName || item.pipeline || '未命名流水线',
+        status: item.status || item.buildStatus || 'unknown',
+        commitMessage: item.commitMessage || item.message || '',
+        commitHash: item.commitHash || item.sha || '',
+        triggeredBy: item.triggeredBy || item.userName || item.triggerUser || '',
+        duration: item.duration || (item.endTime && item.startTime ? new Date(item.endTime).getTime() - new Date(item.startTime).getTime() : 0),
+        startTime: item.startTime || item.createdAt || item.start || new Date().toISOString(),
+      }));
+      historyPagination.total = total;
     } catch (error) {
       message.error('加载运行历史失败');
     } finally {
@@ -556,97 +535,27 @@
   async function loadPipelineConfigs() {
     try {
       configLoading.value = true;
-      // 模拟API调用
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      
-      // 模拟数据
-      pipelineConfigs.value = [
-        {
-          id: '1',
-          name: '主分支构建流水线',
-          environment: 'prod',
-          description: '用于主分支的自动构建和部署',
-          status: 'enabled',
-          stageCount: 4,
-          updatedTime: new Date(Date.now() - 86400000).toISOString(),
-          config: {
-            stages: [
-              {
-                id: '1',
-                name: '代码检出',
-                type: 'checkout',
-                environment: 'prod',
-                timeout: 5,
-                retryCount: 1,
-                script: 'git checkout main',
-              },
-              {
-                id: '2',
-                name: '构建',
-                type: 'build',
-                environment: 'prod',
-                timeout: 30,
-                retryCount: 2,
-                script: 'npm run build',
-              },
-            ],
-            triggers: [
-              {
-                id: '1',
-                type: 'push',
-                branches: ['main'],
-              },
-            ],
-            variables: [
-              {
-                id: '1',
-                key: 'NODE_ENV',
-                value: 'production',
-                description: '环境变量',
-              },
-            ],
-            notifications: [
-              {
-                id: '1',
-                type: 'email',
-                recipients: ['admin@example.com'],
-                events: ['success', 'failed'],
-              },
-            ],
-          },
-        },
-        {
-          id: '2',
-          name: '测试环境流水线',
-          environment: 'test',
-          description: '用于测试环境的自动化测试和部署',
-          status: 'enabled',
-          stageCount: 3,
-          updatedTime: new Date(Date.now() - 172800000).toISOString(),
-          config: {
-            stages: [
-              {
-                id: '1',
-                name: '单元测试',
-                type: 'test',
-                environment: 'test',
-                timeout: 15,
-                retryCount: 1,
-                script: 'npm test',
-              },
-            ],
-            triggers: [
-              {
-                id: '1',
-                type: 'push',
-                branches: ['develop'],
-              },
-            ],
-            variables: [],
-            notifications: [],
-          },
-        },
-      ];
+      if (!props.appId) {
+        message.warning('缺少应用ID，无法加载配置列表');
+        return;
+      }
+
+      const resp: any = await getPipelineConfig(props.appId);
+      const list = resp?.result || resp?.data || resp?.records || resp?.list || [];
+      pipelineConfigs.value = (list || []).map((item: any) => {
+        const content = item.content || item.config || {};
+        const stages = content?.stages || [];
+        return {
+          id: item.id || item.configId || item.id,
+          name: item.name || item.configName || '未命名配置',
+          environment: item.environment || item.env || 'dev',
+          description: item.description || '',
+          status: item.status || (item.enabled ? 'enabled' : 'disabled'),
+          stageCount: Array.isArray(stages) ? stages.length : 0,
+          updatedTime: item.updatedTime || item.updateTime || item.modifiedAt || item.lastUpdated || new Date().toISOString(),
+          config: content,
+        };
+      });
     } catch (error) {
       message.error('加载配置列表失败');
     } finally {
@@ -669,10 +578,22 @@
    * 创建新流水线
    */
   function handleCreatePipeline() {
-    // 打开创建 Jenkins 流水线的弹窗（与新增配置弹框风格一致）
-    resetCreateForm();
-    setCreateFormFields({ useScm: true, branch: 'main', jenkinsfilePath: 'Jenkinsfile' });
-    openCreateJenkinsModal(true);
+    // 打开配置编辑抽屉（与配置管理编辑抽屉交互形式保持一致）
+    isEditMode.value = false;
+    Object.assign(currentConfig, {
+      id: '',
+      name: '',
+      environment: 'dev',
+      description: '',
+      status: 'enabled',
+      content: {
+        stages: [],
+        triggers: [],
+        variables: [],
+        notifications: [],
+      } as PipelineConfig,
+    });
+    configDrawerVisible.value = true;
   }
 
   /**
@@ -741,36 +662,11 @@
   }
 
   /**
-   * 在弹框内一键从选择的配置填充
+   * 在弹框内一键从选择的配置填充（已移除快速填充入口，保留从配置管理列表复制）
    */
-  function handlePrefillFromSelected() {
-    try {
-      const id = selectedConfigId.value;
-      if (!id) {
-        message.warning('请先选择一个现有流水线配置');
-        return;
-      }
-      const item = pipelineConfigs.value.find((c) => c.id === id);
-      if (!item || !item.config) {
-        message.warning('未找到有效的流水线配置');
-        return;
-      }
-      const script = generateJenkinsfileFromConfig(item.config as PipelineConfig);
-      setCreateFormFields({
-        jobName: item.name || 'new-pipeline-job',
-        useScm: false,
-        pipelineScript: script,
-        repoUrl: '',
-        branch: 'main',
-        credentialsId: '',
-        jenkinsfilePath: 'Jenkinsfile',
-      });
-      message.success('已根据选择的配置生成 Jenkinsfile 并填充到表单');
-    } catch (e) {
-      console.error(e);
-      message.error('填充失败，请稍后重试');
-    }
-  }
+  // function handlePrefillFromSelected() {
+  //   // 已废弃：通过弹框中的下拉选择进行快速填充
+  // }
 
   /**
    * 提交创建 Jenkins 流水线
@@ -845,37 +741,32 @@
   /**
    * 查看运行日志
    */
-  function handleViewLogs(item: any) {
-    // 模拟日志数据
-    currentLogs.stages = [
-      {
-        name: '构建',
-        logs: `[2024-01-20 10:00:00] 开始构建阶段
-[2024-01-20 10:00:01] 拉取代码: ${item.commitHash}
-[2024-01-20 10:00:05] 安装依赖...
-[2024-01-20 10:01:30] 编译项目...
-[2024-01-20 10:02:45] 构建完成`,
-      },
-      {
-        name: '测试',
-        logs: `[2024-01-20 10:02:46] 开始测试阶段
-[2024-01-20 10:02:47] 运行单元测试...
-[2024-01-20 10:03:15] 测试通过: 95/100
-[2024-01-20 10:03:16] 生成测试报告...
-[2024-01-20 10:03:20] 测试完成`,
-      },
-      {
-        name: '部署',
-        logs: `[2024-01-20 10:03:21] 开始部署阶段
-[2024-01-20 10:03:22] 构建Docker镜像...
-[2024-01-20 10:04:10] 推送到镜像仓库...
-[2024-01-20 10:04:45] 更新Kubernetes配置...
-[2024-01-20 10:05:00] 部署完成`,
-      },
-    ];
-    
-    activeLogTab.value = currentLogs.stages[0]?.name || '';
-    logModalVisible.value = true;
+  async function handleViewLogs(item: any) {
+    try {
+      if (!props.appId) {
+        message.warning('缺少应用ID，无法获取日志');
+        return;
+      }
+      const resp: any = await getPipelineLogs(props.appId, item.id);
+      const logsData = resp?.result || resp?.data || resp || {};
+      if (Array.isArray(logsData?.stages)) {
+        currentLogs.stages = logsData.stages.map((s: any) => ({
+          name: s.name || s.stageName || '阶段',
+          logs: s.logs || s.content || '',
+        }));
+      } else {
+        currentLogs.stages = [
+          {
+            name: '日志',
+            logs: typeof logsData === 'string' ? logsData : JSON.stringify(logsData, null, 2),
+          },
+        ];
+      }
+      activeLogTab.value = currentLogs.stages[0]?.name || '';
+      logModalVisible.value = true;
+    } catch (error) {
+      message.error('获取运行日志失败');
+    }
   }
 
   /**
@@ -883,9 +774,11 @@
    */
   async function handleRerun(item: any) {
     try {
-      message.loading('正在重新运行流水线...', 2);
-      // 模拟API调用
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!props.appId) {
+        message.warning('缺少应用ID，无法重新运行');
+        return;
+      }
+      await rerunPipeline(props.appId, item.id);
       message.success('流水线已重新启动');
       loadPipelineHistory();
     } catch (error) {
@@ -898,9 +791,11 @@
    */
   async function handleCancel(item: any) {
     try {
-      message.loading('正在取消运行...', 2);
-      // 模拟API调用
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (!props.appId) {
+        message.warning('缺少应用ID，无法取消运行');
+        return;
+      }
+      await cancelPipeline(props.appId, item.id);
       message.success('已取消运行');
       loadPipelineHistory();
     } catch (error) {
@@ -929,9 +824,12 @@
    */
   async function handleCopyConfig(item: any) {
     try {
-      message.loading('正在复制配置...', 1);
-      // 模拟API调用
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (!props.appId) {
+        message.warning('缺少应用ID，无法复制配置');
+        return;
+      }
+      const newName = `${item.name}-copy`;
+      await copyPipelineConfig(props.appId, item.id, newName);
       message.success('配置已复制');
       loadPipelineConfigs();
     } catch (error) {
@@ -944,9 +842,11 @@
    */
   async function handleDeleteConfig(item: any) {
     try {
-      message.loading('正在删除配置...', 1);
-      // 模拟API调用
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (!props.appId) {
+        message.warning('缺少应用ID，无法删除配置');
+        return;
+      }
+      await deletePipelineConfig(props.appId, item.id);
       message.success('配置已删除');
       loadPipelineConfigs();
     } catch (error) {
@@ -972,17 +872,26 @@
         return;
       }
 
+      if (!props.appId) {
+        message.warning('缺少应用ID，无法提交配置');
+        return;
+      }
+
       saveLoading.value = true;
-      message.loading(isEditMode.value ? '正在更新配置...' : '正在保存配置...', 2);
-      
-      // 模拟API调用
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      message.success(isEditMode.value ? '配置更新成功' : '配置保存成功');
+      const payload = {
+        id: currentConfig.id || undefined,
+        name: currentConfig.name,
+        environment: currentConfig.environment,
+        description: currentConfig.description,
+        status: currentConfig.status,
+        content: currentConfig.content as PipelineConfig,
+      };
+      await savePipelineConfig(props.appId, payload);
+      message.success(isEditMode.value ? '配置更新成功' : '配置提交成功');
       configDrawerVisible.value = false;
       loadPipelineConfigs();
     } catch (error) {
-      message.error(isEditMode.value ? '更新配置失败' : '保存配置失败');
+      message.error(isEditMode.value ? '更新配置失败' : '提交配置失败');
     } finally {
       saveLoading.value = false;
     }
@@ -993,6 +902,60 @@
    */
   function handleSaveConfig() {
     handleConfigSave();
+  }
+
+  /**
+   * 从抽屉中的流水线配置创建 Jenkins 流水线
+   * 后端会根据 stages、triggers 等自动聚合 Jenkins 配置并创建 Job；
+   * 兼容：同时传递生成的 Jenkinsfile 以便后端直接使用（useInlineScript=true）。
+   */
+  async function handleCreateJenkinsFromConfig() {
+    try {
+      // 先校验基础信息
+      const basicFormValid = await basicFormRef.value?.validate();
+      if (!basicFormValid) {
+        return;
+      }
+
+      const cfg = currentConfig.content as PipelineConfig;
+      if (!currentConfig.name) {
+        message.warning('请填写配置名称');
+        return;
+      }
+
+      // 生成 Jenkinsfile（前端兼容方案）
+      const script = generateJenkinsfileFromConfig(cfg);
+
+      const payload = {
+        jobName: currentConfig.name,
+        useScm: false,
+        repoUrl: '',
+        branch: 'main',
+        credentialsId: '',
+        jenkinsfilePath: 'Jenkinsfile',
+        useInlineScript: true,
+        pipelineScript: script,
+        // 额外传递原始配置，后端可直接解析聚合
+        pipelineConfig: cfg,
+        appId: props.appId,
+      };
+
+      setCreateJenkinsModalProps({ confirmLoading: true });
+      const resp = await createJenkinsPipeline(payload);
+      if (resp?.success) {
+        message.success('Jenkins 流水线创建成功');
+        configDrawerVisible.value = false;
+        handleRefresh();
+      } else {
+        const msg = resp?.message || resp?.error || '创建失败';
+        message.error(`创建失败：${msg}`);
+      }
+    } catch (e: any) {
+      console.error(e);
+      message.error(`创建失败：${e?.message || '未知错误'}`);
+    } finally {
+      setCreateJenkinsModalProps({ confirmLoading: false });
+    }
   }
 
   /**
