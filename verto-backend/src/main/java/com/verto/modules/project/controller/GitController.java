@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
@@ -20,7 +22,9 @@ import java.util.Map;
 @Slf4j
 public class GitController {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    @Autowired
+    @Qualifier("githubRestTemplate")
+    private RestTemplate restTemplate;
 
     @Operation(summary = "创建Git仓库（当前支持GitHub）")
     @PostMapping("/repo/create")
@@ -87,13 +91,21 @@ public class GitController {
     @Operation(summary = "搜索当前用户可访问的Git仓库（当前支持GitHub）")
     @GetMapping("/repos")
     public Result<Map<String, Object>> listRepos(@RequestParam(value = "query", required = false) String query,
-                                                @RequestParam(value = "token", required = false) String token) {
+                                                @RequestParam(value = "token", required = false) String token,
+                                                jakarta.servlet.http.HttpServletRequest request) {
         try {
-            // 若未提供 token，则返回空列表（避免 401 导致的后端错误信息不友好）
+            // 若未提供 token，尝试从 OAuth 回调设置的 Cookie 中解析
             if (token == null || token.trim().isEmpty()) {
-                Map<String, Object> empty = new HashMap<>();
-                empty.put("repos", new Object[0]);
-                return Result.ok("未提供token，返回空列表", empty);
+                String cookieToken = null;
+                if (request != null && request.getCookies() != null) {
+                    for (jakarta.servlet.http.Cookie c : request.getCookies()) {
+                        if ("verto_github_token".equals(c.getName())) {
+                            cookieToken = c.getValue();
+                            break;
+                        }
+                    }
+                }
+                token = cookieToken;
             }
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/vnd.github+json");
@@ -140,13 +152,21 @@ public class GitController {
 
     @Operation(summary = "获取当前用户权限范围内的Git前缀（当前支持GitHub）")
     @GetMapping("/prefixes")
-    public Result<Map<String, Object>> getPrefixes(@RequestParam(value = "token", required = false) String token) {
+    public Result<Map<String, Object>> getPrefixes(@RequestParam(value = "token", required = false) String token,
+                                                   jakarta.servlet.http.HttpServletRequest request) {
         try {
-            // 若未提供 token，则返回空列表（避免 401 导致的后端错误信息不友好）
+            // 若未提供 token，尝试从 OAuth 回调设置的 Cookie 中解析
             if (token == null || token.trim().isEmpty()) {
-                Map<String, Object> empty = new HashMap<>();
-                empty.put("prefixes", new java.util.ArrayList<>());
-                return Result.ok("未提供token，返回空列表", empty);
+                String cookieToken = null;
+                if (request != null && request.getCookies() != null) {
+                    for (jakarta.servlet.http.Cookie c : request.getCookies()) {
+                        if ("verto_github_token".equals(c.getName())) {
+                            cookieToken = c.getValue();
+                            break;
+                        }
+                    }
+                }
+                token = cookieToken;
             }
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/vnd.github+json");

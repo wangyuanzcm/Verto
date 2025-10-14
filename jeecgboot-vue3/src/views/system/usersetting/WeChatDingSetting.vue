@@ -156,6 +156,8 @@
    * @param source
    */
   function onThirdLogin(source) {
+    // JeecgBoot 的第三方登录统一由 jeecg-boot 服务提供
+    // 保持原始地址 `${glob.uploadUrl}/sys/thirdLogin/render/${source}`，包括 GitHub 在内
     let url = `${glob.uploadUrl}/sys/thirdLogin/render/${source}`;
     //窗口为不空关闭
     console.log("unref(windowsIndex) ::",unref(windowsIndex))
@@ -193,6 +195,7 @@
         // 结构形如：{ source, uuid, username, avatar, isObj: true }
         thirdUserUuid.value = token.uuid;
         await bindThirdAccount();
+        // GitHub OAuth 回调已设置 Cookie，后续调用后端 Git API 将自动携带 token
       } else {
         cmsFailed();
       }

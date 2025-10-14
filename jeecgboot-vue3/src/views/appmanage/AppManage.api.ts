@@ -52,6 +52,10 @@ export enum Api {
   // Git 仓库搜索 & 前缀查询
   getGitRepos = '/verto-backend/project/git/repos',
   getGitPrefixes = '/verto-backend/project/git/prefixes',
+  // 同步应用的 Git 仓库详细信息并持久化
+  syncGitRepoInfo = '/verto-backend/appmanage/app/git/sync',
+  // 查询已持久化的 Git 仓库信息（不触发同步）
+  getGitRepoInfo = '/verto-backend/appmanage/app/git/info',
 }
 
 /**
@@ -295,6 +299,26 @@ export const getGitRepos = (params: { query?: string }) => {
  */
 export const getGitPrefixes = () => {
   return defHttp.get({ url: Api.getGitPrefixes }, { isTransformResponse: false });
+};
+
+/**
+ * 同步应用的 Git 仓库详细信息并持久化（后续同步为更新）
+ * @param appId 应用ID
+ */
+export const syncGitRepoInfo = (appId: string) => {
+  // 将 appId 作为查询参数拼接到 URL，确保后端 @RequestParam 能正确接收
+  return defHttp.post(
+    { url: Api.syncGitRepoInfo, params: { appId } },
+    { isTransformResponse: false, joinParamsToUrl: true },
+  );
+};
+
+/**
+ * 获取应用的 Git 仓库信息（已持久化）
+ * @param appId 应用ID
+ */
+export const getGitRepoInfo = (appId: string) => {
+  return defHttp.get({ url: Api.getGitRepoInfo, params: { appId } }, { isTransformResponse: false });
 };
 
 // ==================== Staff模块相关API ====================

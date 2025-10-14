@@ -106,6 +106,12 @@
     <a-row :gutter="24" class="mt-4">
       <a-col :span="24">
         <a-card title="Git仓库信息" :bordered="false">
+          <template #extra>
+            <a-button :loading="syncLoading" type="primary" size="small" @click="syncGitInfo">
+              <Icon icon="ant-design:sync-outlined" :size="16" />
+              同步
+            </a-button>
+          </template>
           <a-row :gutter="16">
             <a-col :span="12">
               <a-descriptions :column="1" bordered>
@@ -123,7 +129,7 @@
                   {{ (appInfo.gitInfo && appInfo.gitInfo.defaultBranch) || '暂无数据' }}
                 </a-descriptions-item>
                 <a-descriptions-item label="最后提交">
-                  {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommit) || '暂无数据' }}
+                  {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommitSha) || '暂无数据' }}
                 </a-descriptions-item>
               </a-descriptions>
             </a-col>
@@ -145,8 +151,8 @@
       </a-col>
     </a-row>
 
-    <!-- 依赖信息 -->
-    <a-row :gutter="24" class="mt-4">
+    <!-- 依赖信息（暂不展示） -->
+    <a-row v-if="showDependencies" :gutter="24" class="mt-4">
       <a-col :span="24">
         <a-card title="依赖信息" :bordered="false">
           <div v-if="packageJsonLoading" class="loading-container">
@@ -361,7 +367,7 @@ import { ref, onMounted, h } from 'vue';
 import Icon from '/@/components/Icon';
 import { useCopyToClipboard } from '@/hooks/web/useCopyToClipboard';
 import { useMessage } from '@/hooks/web/useMessage';
-import { getAppPackageJson, editApp } from '../AppManage.api';
+import { getAppPackageJson, editApp, syncGitRepoInfo, getGitRepoInfo } from '../AppManage.api';
 
 /**
  * 应用信息接口定义
@@ -389,7 +395,10 @@ interface AppInfo {
   gitInfo: {
     repoUrl: string;
     defaultBranch: string;
+    // 后端字段为 lastCommitSha 与 lastCommitMessage，这里同时保留聚合字段 lastCommit
     lastCommit: string;
+    lastCommitSha?: string;
+    lastCommitMessage?: string;
     lastCommitter: string;
     lastCommitTime: string;
     branchCount: number;
@@ -422,6 +431,8 @@ const packageJsonData = ref<PackageJsonData | null>(null);
 const packageJsonLoading = ref(false);
 const packageJsonError = ref<string | null>(null);
 const dependencyTabKey = ref('dependencies');
+// 控制依赖信息展示（当前需求：暂时不展示）
+const showDependencies = ref(false);
 
 // 表格列定义
 const dependencyColumns = [
@@ -519,6 +530,9 @@ const appInfo = ref<AppInfo>({
     branchCount: props.appDetail?.branchCount || 0,
   },
 });
+
+// Git仓库信息同步状态
+const syncLoading = ref(false);
 
 // 编辑相关
 const editVisible = ref(false);
@@ -740,8 +754,74 @@ const loadPackageJsonData = async () => {
 
 onMounted(() => {
   loadAppInfo();
-  loadPackageJsonData();
+  // 页面初始化时加载已持久化的 Git 仓库信息
+  loadGitRepoInfo();
+  // 依赖信息暂不展示，避免不必要的接口调用
+  if (showDependencies.value) {
+    loadPackageJsonData();
+  }
 });
+
+/**
+ * 同步 Git 仓库详细信息并持久化，后续同步为更新
+ */
+const syncGitInfo = async () => {
+  if (!props.appId) {
+    return createMessage.warning('缺少应用ID，无法同步');
+  }
+  syncLoading.value = true;
+  try {
+    const res = await syncGitRepoInfo(props.appId);
+    if (res && res.success) {
+      const info = res.result || {};
+      // 更新前端展示数据
+      appInfo.value.gitInfo = {
+        repoUrl: info.htmlUrl || appInfo.value.gitInfo?.repoUrl || props.appDetail?.gitUrl || '',
+        defaultBranch: info.defaultBranch || '',
+        lastCommit: `${info.lastCommitSha || ''}${info.lastCommitSha ? ' ' : ''}${info.lastCommitMessage || ''}`.trim(),
+        lastCommitSha: info.lastCommitSha || '',
+        lastCommitMessage: info.lastCommitMessage || '',
+        lastCommitter: info.lastCommitter || '',
+        lastCommitTime: info.lastCommitTime || '',
+        branchCount: info.branchCount || 0,
+      };
+      createMessage.success('Git 仓库信息同步成功');
+    } else {
+      createMessage.error(res?.message || '同步失败');
+    }
+  } catch (e) {
+    console.error('同步 Git 仓库失败:', e);
+    createMessage.error('同步失败，请检查后端服务或令牌配置');
+  } finally {
+    syncLoading.value = false;
+  }
+};
+
+/**
+ * 初始化加载已持久化的 Git 仓库信息
+ */
+const loadGitRepoInfo = async () => {
+  if (!props.appId) return;
+  try {
+    const res = await getGitRepoInfo(props.appId);
+    if (res && res.success) {
+      const info = res.result || {};
+      appInfo.value.gitInfo = {
+        repoUrl: info.htmlUrl || appInfo.value.gitInfo?.repoUrl || props.appDetail?.gitUrl || '',
+        defaultBranch: info.defaultBranch || '',
+        lastCommit: `${info.lastCommitSha || ''}${info.lastCommitSha ? ' ' : ''}${info.lastCommitMessage || ''}`.trim(),
+        lastCommitSha: info.lastCommitSha || '',
+        lastCommitMessage: info.lastCommitMessage || '',
+        lastCommitter: info.lastCommitter || '',
+        lastCommitTime: info.lastCommitTime || '',
+        branchCount: info.branchCount || 0,
+      };
+    }
+  } catch (e) {
+    // 保持静默失败，页面显示“暂无数据”
+    console.warn('初始化加载 Git 仓库信息失败:', e);
+  }
+};
 
 </script>
 

@@ -25,6 +25,38 @@ CREATE TABLE `app_manage` (
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='应用管理表';
 
+-- 2.1. 应用Git仓库信息表
+DROP TABLE IF EXISTS `app_git_repo_info`;
+CREATE TABLE `app_git_repo_info` (
+  `id` varchar(32) NOT NULL COMMENT '主键ID',
+  `app_id` varchar(32) NOT NULL COMMENT '应用ID',
+  `owner` varchar(100) NOT NULL COMMENT '仓库所有者',
+  `repo_name` varchar(200) NOT NULL COMMENT '仓库名称',
+  `html_url` varchar(500) COMMENT '仓库页面地址',
+  `clone_url` varchar(500) COMMENT 'HTTP克隆地址',
+  `ssh_url` varchar(500) COMMENT 'SSH克隆地址',
+  `description` text COMMENT '仓库描述',
+  `visibility` varchar(20) COMMENT '可见性(public/private)',
+  `stars` int DEFAULT 0 COMMENT 'Star数量',
+  `forks` int DEFAULT 0 COMMENT 'Fork数量',
+  `open_issues` int DEFAULT 0 COMMENT '未关闭Issue数量',
+  `license` varchar(100) COMMENT '许可证',
+  `topics` text COMMENT '主题标签(逗号分隔)',
+  `default_branch` varchar(100) COMMENT '默认分支',
+  `branch_count` int DEFAULT 0 COMMENT '分支数量',
+  `last_commit_sha` varchar(100) COMMENT '最后一次提交SHA',
+  `last_commit_message` text COMMENT '最后一次提交信息',
+  `last_committer` varchar(100) COMMENT '最后提交者',
+  `last_commit_time` datetime COMMENT '最后提交时间',
+  `created_at` datetime COMMENT '仓库创建时间',
+  `updated_at` datetime COMMENT '仓库更新时间',
+  `last_synced_at` datetime COMMENT '最近同步时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_app_id` (`app_id`),
+  KEY `idx_owner_repo` (`owner`,`repo_name`),
+  KEY `idx_updated_at` (`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='应用Git仓库信息表';
+
 -- 3. 人员管理表
 DROP TABLE IF EXISTS `staff`;
 CREATE TABLE `staff` (
@@ -220,3 +252,4 @@ SELECT COUNT(*) as project_count FROM project;
 SELECT COUNT(*) as pipeline_count FROM project_pipeline;
 SELECT COUNT(*) as component_count FROM material_component;
 SELECT COUNT(*) as template_count FROM material_template;
+SELECT COUNT(*) as git_repo_info_count FROM app_git_repo_info;

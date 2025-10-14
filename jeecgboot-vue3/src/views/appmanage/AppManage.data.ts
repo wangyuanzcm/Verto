@@ -59,18 +59,7 @@ export const formSchema: FormSchema[] = [
     },
   },
   {
-    label: 'Git前缀',
-    field: 'gitPrefix',
-    component: 'Input',
-    slot: 'gitPrefix',
-    ifShow: ({ values }) => values?.projectSource === 'new',
-    componentProps: {
-      placeholder: '已根据当前用户权限自动设置',
-      disabled: true,
-    },
-  },
-  {
-    label: '项目类型路径',
+    label: '项目类型',
     field: 'appPath',
     component: 'Select',
     ifShow: ({ values }) => values?.projectSource === 'new',
@@ -80,7 +69,7 @@ export const formSchema: FormSchema[] = [
         { label: 'h5', value: 'h5' },
         { label: 'miniprogram', value: 'miniprogram' },
       ],
-      placeholder: '请选择项目类型路径',
+      placeholder: '请选择项目类型',
     },
     required: true,
   },
@@ -101,30 +90,6 @@ export const formSchema: FormSchema[] = [
       },
     ],
     required: true,
-  },
-  {
-    label: '仓库可见性',
-    field: 'repoVisibility',
-    component: 'Select',
-    componentProps: {
-      options: [
-        { label: '私有', value: 'private' },
-        { label: '公开', value: 'public' },
-      ],
-      placeholder: '请选择仓库可见性',
-    },
-    ifShow: ({ values }) => values?.projectSource === 'new',
-    defaultValue: 'private',
-  },
-  {
-    label: 'Git访问令牌',
-    field: 'gitToken',
-    component: 'InputPassword',
-    componentProps: {
-      placeholder: '可选：用于创建仓库的令牌（GitHub需repo权限）',
-    },
-    ifShow: ({ values }) => values?.projectSource === 'new',
-    required: false,
   },
   {
     label: '所属领域',
@@ -227,9 +192,10 @@ export interface AppManageModel {
   appName: string;
   appDescription: string;
   gitUrl: string;
-  repoVisibility?: 'private' | 'public';
-  gitToken?: string;
   templateType?: string;
+  // 新建项目时用于组合仓库地址
+  appPath?: string;
+  repoName?: string;
   domain: string;
   managers: string[];
   createTime?: string;

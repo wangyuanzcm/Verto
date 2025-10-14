@@ -49,10 +49,6 @@
           style="width: 100%"
         />
       </template>
-      <!-- 新建项目：固定前缀展示（仅读） -->
-      <template #gitPrefix="{ model, field }">
-        <a-input v-model:value="model[field]" disabled placeholder="已根据当前用户权限自动设置" />
-      </template>
     </BasicForm>
   </BasicModal>
 </template>
@@ -62,7 +58,7 @@
   import { BasicModal, useModalInner } from '/@/components/Modal';
   import { BasicForm, useForm } from '/@/components/Form/index';
   import { useMessage } from '/@/hooks/web/useMessage';
-  import { saveApp, editApp, createGitRepo, getGitRepos, getGitPrefixes } from '../AppManage.api';
+  import { saveApp, editApp, createGitRepo, getGitRepos } from '../AppManage.api';
   import { formSchema } from '../AppManage.data';
   import type { AppManageModel } from '../AppManage.data';
   import AppTemplateSelect from './AppTemplateSelect.vue';
@@ -83,6 +79,7 @@
 
       const gitUrlOptions = ref<Array<{ label: string; value: string }>>([]);
       const selectedGitPrefix = ref<string>('');
+      const envGitPrefix = (import.meta as any)?.env?.VITE_GIT_PREFIX || (import.meta as any)?.env?.VITE_GITHUB_PREFIX || '';
 
       const [registerForm, { setFieldsValue, resetFields, validate }] = useForm({
         labelWidth: 100,
@@ -99,6 +96,9 @@
         currentStep.value = 0;
         selectedTemplate.value = '';
         selectedTemplateDetail.value = null;
+
+        // 使用环境变量作为固定的 Git 前缀
+        selectedGitPrefix.value = (envGitPrefix || '').trim();
 
         if (unref(isUpdate)) {
           rowId.value = data.record.id;
@@ -158,20 +158,11 @@
         // 根据模板类型设置默认值
         setFieldsValue({
           appType: template === 'blank' ? '0' : template === 'standard' ? '1' : '2',
-          templateType: template
+          templateType: template,
+          projectSource: 'new',
         });
 
-        // 预加载用户可用的 Git 前缀（用于新建项目固定前缀）
-        try {
-          const resp = await getGitPrefixes();
-          const prefixes = resp?.result?.prefixes || resp?.result || [];
-          if (Array.isArray(prefixes) && prefixes.length > 0) {
-            selectedGitPrefix.value = prefixes[0];
-            setFieldsValue({ gitPrefix: selectedGitPrefix.value });
-          }
-        } catch (e) {
-          console.warn('获取Git前缀失败', e);
-        }
+        // 不再调用后端获取前缀，前缀从前端环境变量读取
       }
 
       /**
@@ -226,21 +217,29 @@
           // 如果是新增并选择了“创建新项目”，先创建Git仓库
           if (!unref(isUpdate) && values.projectSource === 'new') {
             try {
-              // 组合新项目仓库地址：固定前缀 + 类型路径 + 项目名称
-              const prefix = values.gitPrefix || selectedGitPrefix.value || '';
+              // 组合新项目仓库地址：所有者前缀 + 仓库名称（不再拼接项目类型路径）
+              const prefix = selectedGitPrefix.value || '';
               const path = values.appPath || '';
               const name = values.repoName || '';
-              const buildGitUrl = (p: string, t: string, n: string) => {
+
+              // 生成仓库名：项目类型-项目名称（例如 web-user-center）
+              const repoName = path ? `${path}-${name}` : name;
+              const buildGitUrl = (p: string, r: string) => {
                 if (!p) return '';
                 const _p = p.endsWith('/') ? p.slice(0, -1) : p;
-                const _t = t ? `/${t}` : '';
-                const _n = n ? `/${n}` : '';
-                return `${_p}${_t}${_n}`;
+                const _r = r ? `/${r}` : '';
+                return `${_p}${_r}`;
               };
-              const repoUrl = buildGitUrl(prefix, path, name);
+              const repoUrl = buildGitUrl(prefix, repoName);
 
-              if (!repoUrl) {
-                createMessage.error('仓库前缀或项目名称缺失');
+              if (!name) {
+                createMessage.error('项目名称缺失');
+                confirmLoading.value = false;
+                setModalProps({ confirmLoading: false });
+                return;
+              }
+              if (!prefix) {
+                createMessage.error('未获取到GitHub账户前缀，请先完成账号绑定或授权');
                 confirmLoading.value = false;
                 setModalProps({ confirmLoading: false });
                 return;
@@ -249,10 +248,17 @@
               // 写入到提交数据
               submitData.gitUrl = repoUrl as any;
 
+              // 从 Cookie 中读取 GitHub OAuth Token（创建仓库需要令牌）
+              function getCookie(name: string): string | null {
+                const matches = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
+                return matches ? decodeURIComponent(matches[1]) : null;
+              }
+              const cookieToken = getCookie('verto_github_token');
+
               const gitResp = await createGitRepo({
                 gitUrl: repoUrl,
-                token: values.gitToken,
-                visibility: values.repoVisibility || 'private',
+                token: cookieToken || undefined,
+                visibility: 'private',
               });
               if (!gitResp?.success) {
                 createMessage.error(gitResp?.message || '创建Git仓库失败');

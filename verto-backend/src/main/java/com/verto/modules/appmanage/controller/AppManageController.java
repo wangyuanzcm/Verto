@@ -7,9 +7,13 @@ import com.verto.common.api.Result;
 import com.verto.modules.appmanage.entity.AppManage;
 import com.verto.modules.appmanage.entity.AppStatistics;
 import com.verto.modules.appmanage.entity.PackageJsonInfo;
+import com.verto.modules.appmanage.entity.AppGitRepoInfo;
 import com.verto.modules.appmanage.service.IAppManageService;
 import com.verto.modules.appmanage.service.IAppStatisticsService;
 import com.verto.modules.appmanage.service.IPackageJsonService;
+import com.verto.modules.appmanage.service.IAppGitRepoInfoService;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.web.client.RestTemplate;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,6 +45,13 @@ public class AppManageController {
 
     @Autowired
     private IAppStatisticsService appStatisticsService;
+
+    @Autowired
+    private IAppGitRepoInfoService appGitRepoInfoService;
+
+    @Autowired
+    @Qualifier("githubRestTemplate")
+    private RestTemplate githubRestTemplate;
 
     /**
      * 分页查询应用列表
@@ -196,5 +207,193 @@ public class AppManageController {
             log.error("获取应用统计数据失败", e);
             return Result.error("获取统计数据失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 同步并持久化 Git 仓库详细信息到应用绑定表（app_git_repo_info），后续同步会更新。
+     */
+    @Operation(summary = "同步应用的Git仓库详细信息并持久化")
+    @PostMapping("/git/sync")
+    public Result<AppGitRepoInfo> syncGitRepoInfo(@Parameter(description = "应用ID") @RequestParam(name = "appId", required = true) String appId) {
+        try {
+            AppManage appManage = appManageService.getById(appId);
+            if (appManage == null) {
+                return Result.error("未找到应用");
+            }
+            String gitUrl = appManage.getGitUrl();
+            if (gitUrl == null || gitUrl.trim().isEmpty()) {
+                return Result.error("该应用未配置 Git 仓库地址");
+            }
+
+            String[] ownerRepo = parseOwnerRepo(gitUrl);
+            if (ownerRepo == null) {
+                return Result.error("无法解析 Git 仓库地址: " + gitUrl);
+            }
+            String owner = ownerRepo[0];
+            String repo = ownerRepo[1];
+
+            // 获取仓库基本信息
+            String repoUrl = String.format("https://api.github.com/repos/%s/%s", owner, repo);
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> repoInfo = githubRestTemplate.getForObject(repoUrl, java.util.Map.class);
+            if (repoInfo == null || repoInfo.isEmpty()) {
+                return Result.error("GitHub 仓库信息获取失败");
+            }
+
+            AppGitRepoInfo info = new AppGitRepoInfo();
+            info.setAppId(appId);
+            info.setOwner(owner);
+            info.setRepoName(repo);
+            info.setHtmlUrl((String) repoInfo.get("html_url"));
+            info.setCloneUrl((String) repoInfo.get("clone_url"));
+            info.setSshUrl((String) repoInfo.get("ssh_url"));
+            info.setDescription((String) repoInfo.get("description"));
+            Object privateObj = repoInfo.get("private");
+            info.setVisibility(Boolean.TRUE.equals(privateObj) ? "private" : "public");
+            info.setStars(toInt(repoInfo.get("stargazers_count")));
+            info.setForks(toInt(repoInfo.get("forks_count")));
+            info.setOpenIssues(toInt(repoInfo.get("open_issues_count")));
+            Object licenseObj = repoInfo.get("license");
+            if (licenseObj instanceof java.util.Map) {
+                info.setLicense((String) ((java.util.Map<?, ?>) licenseObj).get("name"));
+            }
+            Object topicsObj = repoInfo.get("topics");
+            if (topicsObj instanceof java.util.List) {
+                info.setTopics(String.join(",", ((java.util.List<String>) topicsObj)));
+            }
+            String defaultBranch = (String) repoInfo.get("default_branch");
+            info.setDefaultBranch(defaultBranch);
+            info.setCreatedAt(parseIsoDatetime((String) repoInfo.get("created_at")));
+            info.setUpdatedAt(parseIsoDatetime((String) repoInfo.get("updated_at")));
+
+            // 获取分支数量（仅统计第一页）
+            try {
+                String branchesUrl = String.format("https://api.github.com/repos/%s/%s/branches?per_page=100", owner, repo);
+                java.util.List<?> branches = githubRestTemplate.getForObject(branchesUrl, java.util.List.class);
+                if (branches != null) {
+                    info.setBranchCount(branches.size());
+                }
+            } catch (Exception e) {
+                log.warn("获取分支列表失败: {}", e.getMessage());
+            }
+
+            // 获取默认分支最新提交
+            try {
+                if (defaultBranch != null && !defaultBranch.isEmpty()) {
+                    String commitsUrl = String.format("https://api.github.com/repos/%s/%s/commits?sha=%s&per_page=1", owner, repo, defaultBranch);
+                    java.util.List<?> commits = githubRestTemplate.getForObject(commitsUrl, java.util.List.class);
+                    if (commits != null && !commits.isEmpty()) {
+                        Object first = commits.get(0);
+                        if (first instanceof java.util.Map) {
+                            java.util.Map<?, ?> commitMap = (java.util.Map<?, ?>) first;
+                            info.setLastCommitSha((String) commitMap.get("sha"));
+                            Object commitInner = commitMap.get("commit");
+                            if (commitInner instanceof java.util.Map) {
+                                java.util.Map<?, ?> inner = (java.util.Map<?, ?>) commitInner;
+                                info.setLastCommitMessage((String) inner.get("message"));
+                                Object committerObj = inner.get("committer");
+                                if (committerObj instanceof java.util.Map) {
+                                    java.util.Map<?, ?> committerMap = (java.util.Map<?, ?>) committerObj;
+                                    info.setLastCommitter((String) committerMap.get("name"));
+                                    info.setLastCommitTime(parseIsoDatetime((String) committerMap.get("date")));
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("获取最新提交失败: {}", e.getMessage());
+            }
+
+            info.setLastSyncedAt(java.time.LocalDateTime.now());
+            boolean ok = appGitRepoInfoService.upsertByAppId(info);
+            if (!ok) {
+                return Result.error("持久化 Git 仓库信息失败");
+            }
+            return Result.ok(info);
+        } catch (Exception e) {
+            log.error("同步Git仓库信息失败", e);
+            return Result.error("同步失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取已持久化的 Git 仓库信息（不触发同步），用于前端页面初始化展示。
+     *
+     * @param appId 应用ID
+     * @return app_git_repo_info 记录
+     */
+    @Operation(summary = "查询应用的Git仓库信息（已持久化）")
+    @GetMapping("/git/info")
+    public Result<AppGitRepoInfo> getGitRepoInfo(@Parameter(description = "应用ID") @RequestParam(name = "appId", required = true) String appId) {
+        try {
+            com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<AppGitRepoInfo> qw = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+            qw.eq("app_id", appId);
+            AppGitRepoInfo info = appGitRepoInfoService.getOne(qw, false);
+            if (info == null) {
+                return Result.error("未找到该应用的 Git 仓库信息");
+            }
+            return Result.ok(info);
+        } catch (Exception e) {
+            log.error("查询应用Git仓库信息失败", e);
+            return Result.error("查询失败: " + e.getMessage());
+        }
+    }
+
+    private static Integer toInt(Object o) {
+        try {
+            if (o == null) return null;
+            if (o instanceof Number) return ((Number) o).intValue();
+            return Integer.parseInt(String.valueOf(o));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static java.time.LocalDateTime parseIsoDatetime(String s) {
+        try {
+            if (s == null || s.isEmpty()) return null;
+            // GitHub timestamps are ISO_INSTANT (e.g., 2024-01-01T12:00:00Z)
+            java.time.Instant instant = java.time.Instant.parse(s);
+            return java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 支持解析 https://github.com/{owner}/{repo} 或 git@github.com:{owner}/{repo}.git
+     */
+    private static String[] parseOwnerRepo(String gitUrl) {
+        if (gitUrl == null) return null;
+        String url = gitUrl.trim();
+        try {
+            if (url.startsWith("http://") || url.startsWith("https://")) {
+                // e.g. https://github.com/owner/repo or https://github.com/owner/repo.git
+                java.net.URI uri = java.net.URI.create(url);
+                String path = uri.getPath(); // /owner/repo(.git)
+                if (path != null) {
+                    String[] parts = path.replaceFirst("^/", "").split("/");
+                    if (parts.length >= 2) {
+                        String owner = parts[0];
+                        String repo = parts[1].replaceAll("\\.git$", "");
+                        return new String[]{owner, repo};
+                    }
+                }
+            } else if (url.startsWith("git@")) {
+                // e.g. git@github.com:owner/repo.git
+                int colon = url.indexOf(":");
+                if (colon > 0 && colon + 1 < url.length()) {
+                    String path = url.substring(colon + 1);
+                    String[] parts = path.split("/");
+                    if (parts.length >= 2) {
+                        String owner = parts[0];
+                        String repo = parts[1].replaceAll("\\.git$", "");
+                        return new String[]{owner, repo};
+                    }
+                }
+            }
+        } catch (Exception ignored) { }
+        return null;
     }
 }
