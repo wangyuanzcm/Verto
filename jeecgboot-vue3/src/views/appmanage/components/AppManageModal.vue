@@ -36,6 +36,23 @@
           :labelInValue="true"
         />
       </template>
+      <!-- 现有项目：Git地址下拉（可搜索） -->
+      <template #gitUrl="{ model, field }">
+        <a-select
+          v-model:value="model[field]"
+          :options="gitUrlOptions"
+          show-search
+          :filter-option="false"
+          allow-clear
+          placeholder="请选择或搜索已有仓库"
+          @search="onGitSearch"
+          style="width: 100%"
+        />
+      </template>
+      <!-- 新建项目：固定前缀展示（仅读） -->
+      <template #gitPrefix="{ model, field }">
+        <a-input v-model:value="model[field]" disabled placeholder="已根据当前用户权限自动设置" />
+      </template>
     </BasicForm>
   </BasicModal>
 </template>
@@ -45,7 +62,7 @@
   import { BasicModal, useModalInner } from '/@/components/Modal';
   import { BasicForm, useForm } from '/@/components/Form/index';
   import { useMessage } from '/@/hooks/web/useMessage';
-  import { saveApp, editApp } from '../AppManage.api';
+  import { saveApp, editApp, createGitRepo, getGitRepos, getGitPrefixes } from '../AppManage.api';
   import { formSchema } from '../AppManage.data';
   import type { AppManageModel } from '../AppManage.data';
   import AppTemplateSelect from './AppTemplateSelect.vue';
@@ -63,6 +80,9 @@
       const currentStep = ref(0);
       const selectedTemplate = ref('');
       const selectedTemplateDetail = ref(null);
+
+      const gitUrlOptions = ref<Array<{ label: string; value: string }>>([]);
+      const selectedGitPrefix = ref<string>('');
 
       const [registerForm, { setFieldsValue, resetFields, validate }] = useForm({
         labelWidth: 100,
@@ -131,7 +151,7 @@
       /**
        * 处理模板选择下一步
        */
-      function handleTemplateNext(template: string) {
+      async function handleTemplateNext(template: string) {
         selectedTemplate.value = template;
         currentStep.value = 1;
         
@@ -140,6 +160,18 @@
           appType: template === 'blank' ? '0' : template === 'standard' ? '1' : '2',
           templateType: template
         });
+
+        // 预加载用户可用的 Git 前缀（用于新建项目固定前缀）
+        try {
+          const resp = await getGitPrefixes();
+          const prefixes = resp?.result?.prefixes || resp?.result || [];
+          if (Array.isArray(prefixes) && prefixes.length > 0) {
+            selectedGitPrefix.value = prefixes[0];
+            setFieldsValue({ gitPrefix: selectedGitPrefix.value });
+          }
+        } catch (e) {
+          console.warn('获取Git前缀失败', e);
+        }
       }
 
       /**
@@ -191,6 +223,56 @@
             }
           }
 
+          // 如果是新增并选择了“创建新项目”，先创建Git仓库
+          if (!unref(isUpdate) && values.projectSource === 'new') {
+            try {
+              // 组合新项目仓库地址：固定前缀 + 类型路径 + 项目名称
+              const prefix = values.gitPrefix || selectedGitPrefix.value || '';
+              const path = values.appPath || '';
+              const name = values.repoName || '';
+              const buildGitUrl = (p: string, t: string, n: string) => {
+                if (!p) return '';
+                const _p = p.endsWith('/') ? p.slice(0, -1) : p;
+                const _t = t ? `/${t}` : '';
+                const _n = n ? `/${n}` : '';
+                return `${_p}${_t}${_n}`;
+              };
+              const repoUrl = buildGitUrl(prefix, path, name);
+
+              if (!repoUrl) {
+                createMessage.error('仓库前缀或项目名称缺失');
+                confirmLoading.value = false;
+                setModalProps({ confirmLoading: false });
+                return;
+              }
+
+              // 写入到提交数据
+              submitData.gitUrl = repoUrl as any;
+
+              const gitResp = await createGitRepo({
+                gitUrl: repoUrl,
+                token: values.gitToken,
+                visibility: values.repoVisibility || 'private',
+              });
+              if (!gitResp?.success) {
+                createMessage.error(gitResp?.message || '创建Git仓库失败');
+                confirmLoading.value = false;
+                setModalProps({ confirmLoading: false });
+                return;
+              }
+              // 使用后端返回的仓库地址（如有）
+              if (gitResp?.result?.repoUrl) {
+                submitData.gitUrl = gitResp.result.repoUrl;
+              }
+            } catch (e) {
+              console.error('创建Git仓库异常:', e);
+              createMessage.error('创建Git仓库异常，请检查权限或令牌');
+              confirmLoading.value = false;
+              setModalProps({ confirmLoading: false });
+              return;
+            }
+          }
+
           // 调用API（更新使用 edit，新增使用 save）
           const result = unref(isUpdate)
             ? await editApp(submitData)
@@ -219,6 +301,20 @@
         emit('success', result); // 传递创建的应用信息，用于跳转到应用详情页
       }
       
+      // 搜索现有仓库
+      async function onGitSearch(query: string) {
+        try {
+          const resp = await getGitRepos({ query });
+          const list = resp?.result?.repos || resp?.result || [];
+          gitUrlOptions.value = (list || []).slice(0, 50).map((item: any) => ({
+            label: item?.name ? `${item.name} (${item.clone_url || item.httpUrlToRepo || item.ssh_url || item.url})` : (item?.clone_url || item?.httpUrlToRepo || item?.ssh_url || item?.url || ''),
+            value: item?.clone_url || item?.httpUrlToRepo || item?.ssh_url || item?.url || '',
+          })).filter((opt: any) => !!opt.value);
+        } catch (e) {
+          console.warn('搜索仓库失败', e);
+        }
+      }
+
       return {
         registerModal,
         registerForm,
@@ -232,6 +328,8 @@
         confirmLoading,
         isUpdate,
         currentStep,
+        gitUrlOptions,
+        onGitSearch,
       };
     },
   };

@@ -78,6 +78,19 @@ public class ThirdLoginController {
 	@Autowired
 	public ISysBaseAPI sysBaseAPI;
 
+	/**
+	 * 显式提供 GitHub 授权地址接口，避免部分环境下 source 参数大小写或网关路由导致的访问失败
+	 * 访问地址：/sys/thirdLogin/render/github
+	 */
+	@RequestMapping("/render/github")
+	public void renderGithub(HttpServletResponse response) throws IOException {
+		log.info("第三方登录进入render：GITHUB (explicit endpoint)");
+		AuthRequest authRequest = factory.get("GITHUB");
+		String authorizeUrl = authRequest.authorize(AuthStateUtils.createState());
+		log.info("第三方登录认证地址：" + authorizeUrl);
+		response.sendRedirect(authorizeUrl);
+	}
+
 	@RequestMapping("/render/{source}")
     public void render(@PathVariable("source") String source, HttpServletResponse response) throws IOException {
         log.info("第三方登录进入render：" + source);
@@ -139,6 +152,16 @@ public class ThirdLoginController {
         result.setMessage("第三方登录异常,请联系管理员");
         return "thirdLogin";
     }
+
+	/**
+	 * 显式提供 GitHub 回调接口，避免部分环境下 source 参数大小写或网关路由导致的访问失败
+	 * 访问地址：/sys/thirdLogin/github/callback
+	 */
+	@RequestMapping("/github/callback")
+	public String loginGithub(AuthCallback callback, ModelMap modelMap) {
+		// 统一使用小写 github，避免与前端查询 thirdType 大小写不一致导致的显示问题
+		return loginThird("github", callback, modelMap);
+	}
 
 	/**
 	 * 创建新账号

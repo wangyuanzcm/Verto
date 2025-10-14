@@ -12,6 +12,19 @@ export const formSchema: FormSchema[] = [
     show: false,
   },
   {
+    label: '项目来源',
+    field: 'projectSource',
+    required: true,
+    component: 'RadioGroup',
+    componentProps: {
+      options: [
+        { label: '添加已有项目', value: 'existing' },
+        { label: '创建新项目', value: 'new' },
+      ],
+    },
+    defaultValue: 'existing',
+  },
+  {
     label: '应用简称',
     field: 'appName',
     required: true,
@@ -39,15 +52,79 @@ export const formSchema: FormSchema[] = [
     field: 'gitUrl',
     required: true,
     component: 'Input',
+    slot: 'gitUrl',
+    ifShow: ({ values }) => values?.projectSource === 'existing',
     componentProps: {
-      placeholder: '请输入Git仓库地址',
+      placeholder: '请选择或搜索已有仓库',
+    },
+  },
+  {
+    label: 'Git前缀',
+    field: 'gitPrefix',
+    component: 'Input',
+    slot: 'gitPrefix',
+    ifShow: ({ values }) => values?.projectSource === 'new',
+    componentProps: {
+      placeholder: '已根据当前用户权限自动设置',
+      disabled: true,
+    },
+  },
+  {
+    label: '项目类型路径',
+    field: 'appPath',
+    component: 'Select',
+    ifShow: ({ values }) => values?.projectSource === 'new',
+    componentProps: {
+      options: [
+        { label: 'web', value: 'web' },
+        { label: 'h5', value: 'h5' },
+        { label: 'miniprogram', value: 'miniprogram' },
+      ],
+      placeholder: '请选择项目类型路径',
+    },
+    required: true,
+  },
+  {
+    label: '项目名称',
+    field: 'repoName',
+    component: 'Input',
+    ifShow: ({ values }) => values?.projectSource === 'new',
+    componentProps: {
+      placeholder: '仅填写项目名称，例如 user-center',
+      showCount: true,
+      maxlength: 100,
     },
     rules: [
       {
-        pattern: /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/,
-        message: '请输入有效的Git地址',
+        pattern: /^[a-zA-Z0-9-_]+$/,
+        message: '仅允许字母、数字、-、_ 组成的项目名称',
       },
     ],
+    required: true,
+  },
+  {
+    label: '仓库可见性',
+    field: 'repoVisibility',
+    component: 'Select',
+    componentProps: {
+      options: [
+        { label: '私有', value: 'private' },
+        { label: '公开', value: 'public' },
+      ],
+      placeholder: '请选择仓库可见性',
+    },
+    ifShow: ({ values }) => values?.projectSource === 'new',
+    defaultValue: 'private',
+  },
+  {
+    label: 'Git访问令牌',
+    field: 'gitToken',
+    component: 'InputPassword',
+    componentProps: {
+      placeholder: '可选：用于创建仓库的令牌（GitHub需repo权限）',
+    },
+    ifShow: ({ values }) => values?.projectSource === 'new',
+    required: false,
   },
   {
     label: '所属领域',
@@ -146,9 +223,13 @@ export const columns: BasicColumn[] = [
  */
 export interface AppManageModel {
   id?: string;
+  projectSource?: 'existing' | 'new';
   appName: string;
   appDescription: string;
   gitUrl: string;
+  repoVisibility?: 'private' | 'public';
+  gitToken?: string;
+  templateType?: string;
   domain: string;
   managers: string[];
   createTime?: string;

@@ -21,6 +21,16 @@
         <span class="blue-e5 pointer" style="margin-left: 24px" @click="dingDingBind">{{ !bindDingData.sysUserId ? '绑定' : '解绑' }}</span>
       </span>
     </div>
+    <!-- GitHub 绑定 -->
+    <div class="account-row-item">
+      <div class="account-label gray-75">GitHub绑定</div>
+      <span>
+        <GithubFilled :style="!bindGithubData.sysUserId ? { color: '#9e9e9e' } : { color: '#000' }" class="item-icon" />
+        <span class="gray-75" style="margin-left: 12px">GitHub</span>
+        <span class="gray-75" style="margin-left: 8px" v-if="bindGithubData.realname">{{ '已绑定：' + bindGithubData.realname }}</span>
+        <span class="blue-e5 pointer" style="margin-left: 24px" @click="githubBind">{{ !bindGithubData.sysUserId ? '绑定' : '解绑' }}</span>
+      </span>
+    </div>
     <div class="account-row-item">
       <div class="account-label gray-75">账号绑定</div>
       <span>
@@ -38,7 +48,7 @@
   import { bindThirdAppAccount, deleteThirdAccount, getThirdAccountByUserId } from './UserSetting.api';
   import { useUserStore } from '/@/store/modules/user';
   import { useModal } from '/@/components/Modal';
-  import { DingtalkCircleFilled, createFromIconfontCN, WechatFilled } from '@ant-design/icons-vue';
+  import { DingtalkCircleFilled, createFromIconfontCN, WechatFilled, GithubFilled } from '@ant-design/icons-vue';
   import { useGlobSetting } from '/@/hooks/setting';
   import { useMessage } from '/@/hooks/web/useMessage';
   import { Modal } from 'ant-design-vue';
@@ -57,6 +67,8 @@
   const bindDingData = ref<any>({});
   //绑定企业微信的数据
   const bindEnterpriseData = ref<any>({});
+  //绑定GitHub的数据
+  const bindGithubData = ref<any>({});
 
   const glob = useGlobSetting();
   //第三方类型
@@ -75,10 +87,12 @@
    * 初始化钉钉和企业微信数据
    */
   async function initUserDetail() {
-    let values = await getThirdAccountByUserId({ thirdType: 'wechat_open,dingtalk,wechat_enterprise' });
+    // 同时查询 github 与 GITHUB，兼容历史大小写不一致的数据
+    let values = await getThirdAccountByUserId({ thirdType: 'wechat_open,dingtalk,wechat_enterprise,github,GITHUB' });
     bindWechatData.value = "";
     bindDingData.value = "";
     bindEnterpriseData.value = "";
+    bindGithubData.value = "";
     if (values && values.result) {
       let result = values.result;
       for (let i = 0; i < result.length; i++) {
@@ -126,6 +140,18 @@
   }
 
   /**
+   * GitHub 绑定解绑事件
+   */
+  function githubBind() {
+    let data = unref(bindGithubData);
+    if (!data.sysUserId) {
+      onThirdLogin('github');
+    } else {
+      deleteAccount({ sysUserId: data.sysUserId, id: data.id }, 'GitHub');
+    }
+  }
+
+  /**
    * 第三方登录
    * @param source
    */
@@ -149,23 +175,29 @@
     receiveMessage.value = async function (event) {
       let token = event.data;
       if (typeof token === 'string') {
-        //如果是字符串类型 说明是token信息
+        // 如果是字符串类型 说明是token信息
         if (token === '登录失败') {
           cmsFailed();
         } else if (token.includes('绑定手机号')) {
           let strings = token.split(',');
           thirdUserUuid.value = strings[1];
           await bindThirdAccount();
-        }else{
-          if(token){
+        } else {
+          // 存在 token 但不包含“绑定手机号”，说明该第三方账号已绑定到其他敲敲云账号
+          if (token) {
             createMessage.warning('该敲敲云账号已被其它第三方账号绑定,请解绑或绑定其它敲敲云账号');
           }
         }
+      } else if (typeof token === 'object' && token && token.isObj === true) {
+        // thirdLogin.ftl 在未返回 token 时，会传递 thirdLoginModel 对象
+        // 结构形如：{ source, uuid, username, avatar, isObj: true }
+        thirdUserUuid.value = token.uuid;
+        await bindThirdAccount();
       } else {
         cmsFailed();
       }
-      window.removeEventListener('message', unref(receiveMessage),false);
-      windowsIndex.value = "";
+      window.removeEventListener('message', unref(receiveMessage), false);
+      windowsIndex.value = '';
     };
     window.addEventListener('message', unref(receiveMessage), false);
   }
@@ -184,6 +216,8 @@
         if (res.success) {
           if (res.result) {
             setThirdDetail(res.result);
+            // 再次拉取用户的第三方绑定信息，确保 UI 状态与服务端一致
+            initUserDetail();
           }
         } else {
           createMessage.warning(res.message);
@@ -207,13 +241,16 @@
    * @param value
    */
   function setThirdDetail(value) {
-    let type = value.thirdType;
+    // 兼容大小写，统一转为小写进行比较
+    let type = (value.thirdType || '').toLowerCase();
     if (type == 'wechat_open') {
       bindWechatData.value = value;
     } else if (type == 'dingtalk') {
       bindDingData.value = value;
     } else if (type == 'wechat_enterprise') {
       bindEnterpriseData.value = value;
+    } else if (type == 'github') {
+      bindGithubData.value = value;
     }
   }
 

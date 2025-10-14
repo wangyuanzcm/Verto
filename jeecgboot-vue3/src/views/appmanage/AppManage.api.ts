@@ -45,6 +45,13 @@ export enum Api {
   
   // 获取应用统计数据
   getStatistics = '/verto-backend/appmanage/app/statistics',
+
+  // Git 相关（项目仓库创建与权限校验）
+  createGitRepo = '/verto-backend/project/git/repo/create',
+  checkGitPermission = '/verto-backend/project/git/permission/check',
+  // Git 仓库搜索 & 前缀查询
+  getGitRepos = '/verto-backend/project/git/repos',
+  getGitPrefixes = '/verto-backend/project/git/prefixes',
 }
 
 /**
@@ -255,6 +262,39 @@ export const createJenkinsPipeline = (payload: any) => {
  */
 export const getAppStatistics = (appId: string) => {
   return defHttp.get({ url: Api.getStatistics, params: { id: appId } }, { isTransformResponse: false });
+};
+
+// ==================== Git 相关API ====================
+
+/**
+ * 创建 Git 仓库（当前支持 GitHub）
+ * @param payload 包含 gitUrl、token、visibility
+ */
+export const createGitRepo = (payload: any) => {
+  return defHttp.post({ url: Api.createGitRepo, data: payload }, { isTransformResponse: false });
+};
+
+/**
+ * 校验 Git 权限
+ * @param params 包含 gitUrl、token
+ */
+export const checkGitPermission = (params: any) => {
+  return defHttp.get({ url: Api.checkGitPermission, params }, { isTransformResponse: false });
+};
+
+/**
+ * 搜索当前用户可访问的 Git 仓库（支持关键字查询）
+ * @param params { query?: string }
+ */
+export const getGitRepos = (params: { query?: string }) => {
+  return defHttp.get({ url: Api.getGitRepos, params }, { isTransformResponse: false });
+};
+
+/**
+ * 获取当前用户权限范围内的 Git 前缀（用于新建项目固定前缀）
+ */
+export const getGitPrefixes = () => {
+  return defHttp.get({ url: Api.getGitPrefixes }, { isTransformResponse: false });
 };
 
 // ==================== Staff模块相关API ====================
