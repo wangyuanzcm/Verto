@@ -230,7 +230,7 @@
                 const _r = r ? `/${r}` : '';
                 return `${_p}${_r}`;
               };
-              const repoUrl = buildGitUrl(prefix, repoName);
+              const repoUrl = buildGitUrl(envGitPrefix, repoName);
 
               if (!name) {
                 createMessage.error('项目名称缺失');
@@ -238,7 +238,7 @@
                 setModalProps({ confirmLoading: false });
                 return;
               }
-              if (!prefix) {
+              if (!envGitPrefix) {
                 createMessage.error('未获取到GitHub账户前缀，请先完成账号绑定或授权');
                 confirmLoading.value = false;
                 setModalProps({ confirmLoading: false });
