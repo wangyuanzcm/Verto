@@ -18,6 +18,8 @@ export interface StaffModel {
   status?: number;
   createTime?: string;
   updateTime?: string;
+  /** 总积分 */
+  points?: number;
 }
 
 /**
@@ -66,6 +68,13 @@ export const columns: BasicColumn[] = [
       }
       return text || '-';
     },
+  },
+  {
+    title: '积分',
+    dataIndex: 'points',
+    width: 90,
+    sorter: true,
+    customRender: ({ text }) => (text ?? 0),
   },
   {
     title: '状态',

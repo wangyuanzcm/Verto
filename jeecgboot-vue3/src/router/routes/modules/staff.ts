@@ -27,6 +27,16 @@ const staff: AppRouteModule = {
       component: () => import('/@/views/staff/index.vue'),
     },
     {
+      path: 'points',
+      name: 'StaffPointsManage',
+      meta: {
+        title: '积分管理',
+        ignoreKeepAlive: true,
+        currentActiveMenu: '/staff/list',
+      },
+      component: () => import('/@/views/staff/StaffPointsManage.vue'),
+    },
+    {
       path: 'detail/:id',
       name: 'StaffDetail',
       meta: {

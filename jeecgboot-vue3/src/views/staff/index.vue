@@ -67,7 +67,7 @@
         fullScreen: true,
       },
       actionColumn: {
-        width: 200,
+        width: 300,
         title: '操作',
         dataIndex: 'action',
         slots: { customRender: 'action' },
@@ -112,6 +112,14 @@
   }
 
   /**
+   * 积分管理
+   * @param record 人员记录
+   */
+  function handlePointsManage(record: StaffModel) {
+    router.push({ path: '/staff/points', query: { staffId: record.id } });
+  }
+
+  /**
    * 删除人员
    * @param record 人员记录
    */
@@ -148,6 +156,11 @@
         label: '查看',
         icon: 'ant-design:eye-outlined',
         onClick: handleView.bind(null, record),
+      },
+      {
+        label: '积分管理',
+        icon: 'mdi:cards-outline',
+        onClick: handlePointsManage.bind(null, record),
       },
       {
         label: '编辑',

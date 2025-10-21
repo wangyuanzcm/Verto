@@ -38,16 +38,34 @@
         <TableAction :actions="getTableAction(record)" />
       </template>
     </BasicTable>
+    
     <ComponentModal @register="registerModal" @success="handleSuccess" />
+    
+    <!-- 版本管理弹窗 -->
+    <BasicModal
+      v-bind="$attrs"
+      @register="registerVersionModal"
+      title="Tag版本管理"
+      width="1000px"
+      :canFullscreen="false"
+      :footer="null"
+    >
+      <TagVersionManager 
+        v-if="currentVersionComponent"
+        :componentData="currentVersionComponent"
+        @versionChanged="handleVersionChanged"
+      />
+    </BasicModal>
   </div>
 </template>
 
 <script lang="ts" setup>
   import { ref, computed, unref } from 'vue';
   import { BasicTable, useTable, TableAction } from '/@/components/Table';
-  import { useModal } from '/@/components/Modal';
+  import { BasicModal, useModal } from '/@/components/Modal';
   import { useListPage } from '/@/hooks/system/useListPage';
   import ComponentModal from './ComponentModal.vue';
+  import TagVersionManager from './TagVersionManager.vue';
   import { componentColumns, componentSearchFormSchema } from '../material.data';
   import { getComponentList, deleteComponent, batchDeleteComponent, getExportUrl, getImportUrl } from '../material.api';
 
@@ -57,7 +75,10 @@
    */
   defineOptions({ name: 'ComponentManagement' });
 
+  const currentVersionComponent = ref(null);
+  
   const [registerModal, { openModal }] = useModal();
+  const [registerVersionModal, { openModal: openVersionModal, closeModal: closeVersionModal }] = useModal();
   const { prefixCls, tableContext, onExportXls, onImportXls, exportLoading, importLoading } = useListPage({
     tableProps: {
       title: '组件管理',
@@ -70,7 +91,7 @@
         autoSubmitOnEnter: true,
       },
       actionColumn: {
-        width: 120,
+        width: 180,
         fixed: 'right',
       },
       beforeFetch: (params) => {
@@ -141,23 +162,49 @@
   }
 
   /**
-   * 操作栏
+   * 获取表格操作按钮
    */
-  function getTableAction(record) {
-    return [
+  function getTableAction(record): ActionItem[] {
+    const actions: ActionItem[] = [
       {
         label: '编辑',
         onClick: handleEdit.bind(null, record),
       },
-      {
-        label: '删除',
-        color: 'error',
-        popConfirm: {
-          title: '是否确认删除',
-          confirm: handleDelete.bind(null, record),
-        },
-      },
     ];
+
+    // 模块联邦类型的组件添加版本管理功能
+    if (record.distributionType === 'federation') {
+      actions.push({
+        label: '版本管理',
+        onClick: handleVersionManagement.bind(null, record),
+      });
+    }
+
+    actions.push({
+      label: '删除',
+      color: 'error',
+      popConfirm: {
+        title: '是否确认删除',
+        confirm: handleDelete.bind(null, record),
+      },
+    });
+
+    return actions;
+  }
+
+  /**
+   * 版本管理
+   */
+  function handleVersionManagement(record) {
+    currentVersionComponent.value = record;
+    openVersionModal(true);
+  }
+
+  /**
+   * 版本变更回调
+   */
+  function handleVersionChanged() {
+    reload();
   }
 </script>
 

@@ -9,6 +9,8 @@ import com.verto.modules.pipeline.service.IProjectPipelineService;
 import com.verto.modules.pipeline.dto.PipelineCreateRequest;
 import com.verto.modules.pipeline.dto.PipelineDefinitionRequest;
 import com.verto.modules.pipeline.service.IJenkinsService;
+import com.verto.modules.project.entity.Project;
+import com.verto.modules.project.service.IProjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +37,9 @@ public class ProjectPipelineController {
 
     @Autowired
     private IJenkinsService jenkinsService;
+
+    @Autowired
+    private IProjectService projectService;
 
     /**
      * 获取流水线配置
@@ -152,17 +157,75 @@ public class ProjectPipelineController {
      */
     @Operation(summary = "获取流水线历史记录")
     @GetMapping(value = "/history")
-    public Result<IPage<ProjectPipeline>> getHistory(@Parameter(description = "项目ID") @RequestParam(name = "projectId", required = true) String projectId,
-                                                     @Parameter(description = "页码") @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
-                                                     @Parameter(description = "每页大小") @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize) {
+    public Result<IPage<ProjectPipeline>> getHistory(
+            @Parameter(description = "项目ID") @RequestParam(name = "projectId", required = true) String projectId,
+            @Parameter(description = "页码(pageNo 与 page 皆可)") @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
+            @Parameter(description = "每页大小(size 与 pageSize 皆可)") @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
+            @Parameter(description = "页码(别名)") @RequestParam(name = "page", required = false) Integer page,
+            @Parameter(description = "每页大小(别名)") @RequestParam(name = "size", required = false) Integer size,
+            @Parameter(description = "状态过滤") @RequestParam(name = "status", required = false) String status,
+            @Parameter(description = "分支过滤") @RequestParam(name = "branch", required = false) String branch,
+            @Parameter(description = "起始日期(yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss)") @RequestParam(name = "startDate", required = false) String startDate,
+            @Parameter(description = "结束日期(yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss)") @RequestParam(name = "endDate", required = false) String endDate) {
+
+        // 兼容前端参数命名
+        if (page != null) {
+            pageNo = page;
+        }
+        if (size != null) {
+            pageSize = size;
+        }
+
         QueryWrapper<ProjectPipeline> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("project_id", projectId);
+
+        // 分支过滤
+        if (org.springframework.util.StringUtils.hasText(branch)) {
+            queryWrapper.eq("git_branch", branch);
+        }
+        // 状态过滤
+        if (org.springframework.util.StringUtils.hasText(status)) {
+            queryWrapper.eq("status", status);
+        }
+        // 时间范围过滤（按 start_time）
+        java.util.Date start = parseDate(startDate);
+        java.util.Date end = parseDate(endDate);
+        if (start != null && end != null) {
+            queryWrapper.between("start_time", start, end);
+        } else if (start != null) {
+            queryWrapper.ge("start_time", start);
+        } else if (end != null) {
+            queryWrapper.le("start_time", end);
+        }
+
         queryWrapper.orderByDesc("create_time");
-        
-        Page<ProjectPipeline> page = new Page<>(pageNo, pageSize);
-        IPage<ProjectPipeline> pageList = projectPipelineService.page(page, queryWrapper);
-        
+
+        Page<ProjectPipeline> pageObj = new Page<>(pageNo, pageSize);
+        IPage<ProjectPipeline> pageList = projectPipelineService.page(pageObj, queryWrapper);
+
         return Result.ok(pageList);
+    }
+
+    /**
+     * 解析日期字符串为 Date
+     * 支持格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss
+     */
+    private java.util.Date parseDate(String dateStr) {
+        if (!org.springframework.util.StringUtils.hasText(dateStr)) {
+            return null;
+        }
+        try {
+            java.text.SimpleDateFormat sdf;
+            if (dateStr.trim().length() == 10) {
+                sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
+            } else {
+                sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            }
+            return sdf.parse(dateStr.trim());
+        } catch (Exception e) {
+            log.warn("日期解析失败: {}", dateStr);
+            return null;
+        }
     }
 
     /**
@@ -175,37 +238,84 @@ public class ProjectPipelineController {
     @PostMapping(value = "/trigger")
     public Result<Map<String, Object>> triggerBuild(@RequestBody Map<String, Object> triggerData) {
         String projectId = (String) triggerData.get("projectId");
+        String environment = (String) triggerData.getOrDefault("environment", "test");
         String branch = (String) triggerData.get("branch");
-        
-        // 创建新的构建记录
+        String commitId = (String) triggerData.get("commitId");
+
+        // 兼容前端 parameters 对象（可能包含 version、remark、pipelineConfigId 等）
+        @SuppressWarnings("unchecked")
+        Map<String, Object> extraParams = (Map<String, Object>) triggerData.get("parameters");
+
+        // 读取项目信息，用于映射到 Jenkins Job 名称
+        Project project = projectService.getById(projectId);
+        String relatedAppId = project != null ? project.getRelatedAppId() : null;
+        // 约定：使用 app-<appId>-<env> 作为 Jenkins Job 名称；如果缺失，则回退为 project-<projectId>-<env>
+        String jobName;
+        if (org.springframework.util.StringUtils.hasText(relatedAppId)) {
+            jobName = "app-" + relatedAppId + "-" + environment;
+        } else {
+            jobName = "project-" + projectId + "-" + environment;
+        }
+
+        // 创建新的构建记录（先写入 DB）
         ProjectPipeline pipeline = new ProjectPipeline();
         pipeline.setProjectId(projectId);
-        pipeline.setBranch(branch);
+        // 如未指定分支，默认使用项目记录中的 gitBranch 或 main
+        String effectiveBranch = org.springframework.util.StringUtils.hasText(branch)
+                ? branch
+                : (project != null && org.springframework.util.StringUtils.hasText(project.getGitBranch()) ? project.getGitBranch() : "main");
+        pipeline.setBranch(effectiveBranch);
+        pipeline.setCommitId(commitId);
         pipeline.setStatus("running");
         pipeline.setStartTime(new Date());
         pipeline.setCurrentStage("build");
         pipeline.setProgress(0);
         pipeline.setCreateTime(new Date());
         pipeline.setCreateBy("admin");
-        
+
         // 获取当前项目的最大构建编号
         QueryWrapper<ProjectPipeline> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("project_id", projectId);
         queryWrapper.orderByDesc("build_number");
         queryWrapper.last("LIMIT 1");
         ProjectPipeline lastPipeline = projectPipelineService.getOne(queryWrapper);
-        
-        int nextBuildNumber = (lastPipeline != null && lastPipeline.getBuildNumber() != null) ? 
-                              lastPipeline.getBuildNumber() + 1 : 1;
+
+        int nextBuildNumber = (lastPipeline != null && lastPipeline.getBuildNumber() != null) ?
+                lastPipeline.getBuildNumber() + 1 : 1;
         pipeline.setBuildNumber(nextBuildNumber);
-        
+
         projectPipelineService.save(pipeline);
-        
+
+        // 组装 Jenkins 参数
+        Map<String, String> jenkinsParams = new HashMap<>();
+        jenkinsParams.put("BRANCH", effectiveBranch);
+        if (org.springframework.util.StringUtils.hasText(commitId)) {
+            jenkinsParams.put("COMMIT_ID", commitId);
+        }
+        if (extraParams != null && !extraParams.isEmpty()) {
+            // 透传其他参数（例如 VERSION、REMARK、pipelineConfigId 等），Jenkins job 未定义时将忽略
+            extraParams.forEach((k, v) -> {
+                if (v != null) {
+                    jenkinsParams.put(k.toUpperCase(), String.valueOf(v));
+                }
+            });
+        }
+
+        // 调用 Jenkins 触发构建
+        Map<String, Object> jenkinsResp = jenkinsService.triggerBuild(jobName, jenkinsParams);
+        if (jenkinsResp.containsKey("error")) {
+            return Result.error("触发 Jenkins 构建失败: " + jenkinsResp.get("error"));
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("buildId", pipeline.getId());
         result.put("buildNumber", nextBuildNumber);
         result.put("status", "triggered");
-        
+        result.put("jenkinsJob", jobName);
+        result.put("jenkinsJobUrl", jenkinsResp.get("jobUrl"));
+        result.put("jenkinsQueueUrl", jenkinsResp.get("queueUrl"));
+        result.put("jenkinsQueueId", jenkinsResp.get("queueId"));
+
         return Result.ok(result);
     }
 

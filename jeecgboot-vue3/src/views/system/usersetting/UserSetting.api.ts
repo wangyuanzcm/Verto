@@ -20,6 +20,10 @@ enum Api {
   userLogOff = '/sys/user/userLogOff',
   //没有绑定手机号用的修改密码请求地址
   updatePasswordNotBindPhone = '/sys/user/updatePasswordNotBindPhone',
+  // Verto Backend OAuth 接口
+  vertoOAuthBind = '/verto-backend/oauth/bind',
+  vertoOAuthUnbind = '/verto-backend/oauth/unbind',
+  vertoOAuthGetUserBindings = '/verto-backend/oauth/user/bindings',
 }
 
 /**
@@ -149,3 +153,27 @@ export const changePhone = (params) => {
 export const userLogOff = (params) => {
   return defHttp.put({ url: Api.userLogOff, params },{ isTransformResponse:false });
 }
+
+/**
+ * Verto Backend - 绑定第三方账号
+ * @param params { thirdType: string, thirdUserUuid: string }
+ */
+export const vertoOAuthBind = (params) => {
+  return defHttp.post({ url: Api.vertoOAuthBind, params }, { isTransformResponse: false, joinParamsToUrl: true });
+};
+
+/**
+ * Verto Backend - 解绑第三方账号
+ * @param params { thirdType: string }
+ */
+export const vertoOAuthUnbind = (params) => {
+  return defHttp.post({ url: Api.vertoOAuthUnbind, params }, { isTransformResponse: false, joinParamsToUrl: true });
+};
+
+/**
+ * Verto Backend - 获取用户的第三方绑定信息
+ * @param params { platform?: string }
+ */
+export const vertoOAuthGetUserBindings = (params) => {
+  return defHttp.get({ url: Api.vertoOAuthGetUserBindings, params }, { isTransformResponse: false });
+};

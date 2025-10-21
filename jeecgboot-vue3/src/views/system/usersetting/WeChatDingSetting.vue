@@ -45,7 +45,7 @@
 <script lang="ts" setup name="we-chat-ding-setting">
   import { onMounted, ref, reactive, unref } from 'vue';
   import { CollapseContainer } from '/@/components/Container';
-  import { bindThirdAppAccount, deleteThirdAccount, getThirdAccountByUserId } from './UserSetting.api';
+  import { bindThirdAppAccount, deleteThirdAccount, getThirdAccountByUserId, vertoOAuthBind, vertoOAuthUnbind, vertoOAuthGetUserBindings } from './UserSetting.api';
   import { useUserStore } from '/@/store/modules/user';
   import { useModal } from '/@/components/Modal';
   import { DingtalkCircleFilled, createFromIconfontCN, WechatFilled, GithubFilled } from '@ant-design/icons-vue';
@@ -98,6 +98,27 @@
       for (let i = 0; i < result.length; i++) {
         setThirdDetail(result[i]);
       }
+    }
+    // 额外：从 verto-backend 获取 GitHub 等第三方绑定信息并合并到 UI
+    try {
+      const vertoRes = await vertoOAuthGetUserBindings();
+      if (vertoRes && vertoRes.success && vertoRes.result) {
+        const list = Array.isArray(vertoRes.result) ? vertoRes.result : [vertoRes.result];
+        list.forEach((item: any) => {
+          const normalized = {
+            realname: item?.username || item?.realname || '',
+            thirdType: (item?.platform || item?.thirdType || '').toLowerCase(),
+            sysUserId: userStore.getUserInfo?.id || '',
+            id: item?.id || '',
+            uuid: item?.uuid || '',
+          };
+          if (normalized.thirdType) {
+            setThirdDetail(normalized);
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('获取 verto-backend 用户绑定信息失败: ', e);
     }
   }
 
@@ -159,6 +180,13 @@
     // JeecgBoot 的第三方登录统一由 jeecg-boot 服务提供
     // 保持原始地址 `${glob.uploadUrl}/sys/thirdLogin/render/${source}`，包括 GitHub 在内
     let url = `${glob.uploadUrl}/sys/thirdLogin/render/${source}`;
+    // 如果是 GitHub，优先走 verto-backend 的 OAuth 绑定逻辑（必须先访问 authorize，而不是 callback）
+    if (source === 'github') {
+      const backendPath = '/verto-backend/oauth/github/authorize';
+      const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const base = (glob.domainUrl || '').replace(/\/$/, '');
+      url = isDev ? backendPath : `${base}${backendPath}`;
+    }
     //窗口为不空关闭
     console.log("unref(windowsIndex) ::",unref(windowsIndex))
     if(unref(windowsIndex)){
@@ -190,12 +218,32 @@
             createMessage.warning('该敲敲云账号已被其它第三方账号绑定,请解绑或绑定其它敲敲云账号');
           }
         }
-      } else if (typeof token === 'object' && token && token.isObj === true) {
-        // thirdLogin.ftl 在未返回 token 时，会传递 thirdLoginModel 对象
-        // 结构形如：{ source, uuid, username, avatar, isObj: true }
-        thirdUserUuid.value = token.uuid;
-        await bindThirdAccount();
-        // GitHub OAuth 回调已设置 Cookie，后续调用后端 Git API 将自动携带 token
+      } else if (typeof token === 'object' && token) {
+        // 兼容两种回传模式：jeecg-boot 的 thirdLoginModel 以及 verto-backend 的 OAuth 回调
+        if (token.isObj === true) {
+          // thirdLogin.ftl 在未返回 token 时，会传递 thirdLoginModel 对象
+          // 结构形如：{ source, uuid, username, avatar, isObj: true }
+          thirdUserUuid.value = token.uuid;
+          await bindThirdAccount();
+          // GitHub OAuth 回调已设置 Cookie，后续调用后端 Git API 将自动携带 token
+        } else if (token.vertoOAuth === true && token.platform === 'github') {
+          // verto-backend 回传：{ vertoOAuth:true, platform:'github', uuid, username, accessToken } 或 { ..., error }
+          if (token.error) {
+            createMessage.warning('GitHub授权失败：' + token.error);
+          } else {
+            thirdType.value = 'github';
+            thirdUserUuid.value = token.uuid;
+            await bindThirdAccount();
+            // 可选：在前端缓存 GitHub 账号信息以改善用户体验
+            bindGithubData.value = {
+              realname: token.username,
+              thirdType: 'github',
+              sysUserId: userStore.getUserInfo?.id || '',
+            };
+          }
+        } else {
+          cmsFailed();
+        }
       } else {
         cmsFailed();
       }
@@ -213,21 +261,46 @@
       cmsFailed();
       return;
     }
+    
     let params = { thirdUserUuid: unref(thirdUserUuid), thirdType: unref(thirdType) };
-    await bindThirdAppAccount(params)
+    
+    // 根据第三方类型选择不同的API
+    const currentThirdType = unref(thirdType).toLowerCase();
+    let apiCall;
+    
+    if (currentThirdType === 'github') {
+      // 使用 verto-backend 的 OAuth API
+      apiCall = vertoOAuthBind(params);
+    } else {
+      // 使用原有的 jeecgboot API
+      apiCall = bindThirdAppAccount(params);
+    }
+    
+    await apiCall
       .then((res) => {
         if (res.success) {
           if (res.result) {
-            setThirdDetail(res.result);
+            const normalized = currentThirdType === 'github'
+              ? {
+                  realname: res.result?.username || res.result?.realname || '',
+                  thirdType: 'github',
+                  sysUserId: userStore.getUserInfo?.id || '',
+                  id: res.result?.id || '',
+                  uuid: res.result?.uuid || unref(thirdUserUuid) || '',
+                }
+              : res.result;
+            setThirdDetail(normalized);
             // 再次拉取用户的第三方绑定信息，确保 UI 状态与服务端一致
             initUserDetail();
           }
+          createMessage.success('第三方账号绑定成功');
         } else {
-          createMessage.warning(res.message);
+          createMessage.warning(res.message || '第三方账号绑定失败，请稍后重试');
         }
       })
       .catch((res) => {
-        createMessage.warning(res.message);
+        console.error('绑定失败:', res);
+        createMessage.warning(res.message || '第三方账号绑定失败，请稍后重试');
       });
   }
 
@@ -268,14 +341,21 @@
       okText: '确认',
       cancelText: '取消',
       onOk: async () => {
-        await deleteThirdAccount(params).then((res) =>{
-          if(res.success){
+        const isGithub = text === 'GitHub' || (params?.thirdType || '').toLowerCase() === 'github';
+        try {
+          const res = isGithub
+            ? await vertoOAuthUnbind({ thirdUserUuid: bindGithubData.value?.uuid || '', thirdType: 'github' })
+            : await deleteThirdAccount(params);
+          if (res.success) {
             initUserDetail();
-            createMessage.success(res.message)
-          }else{
-            createMessage.warning(res.message)
+            createMessage.success(res.message || '解绑成功');
+          } else {
+            createMessage.warning(res.message || '解绑失败');
           }
-        });
+        } catch (err) {
+          console.error('解绑失败: ', err);
+          createMessage.warning('解绑失败，请稍后重试');
+        }
       },
     });
   }

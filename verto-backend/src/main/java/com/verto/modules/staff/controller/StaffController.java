@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.verto.common.api.Result;
 import com.verto.modules.staff.entity.Staff;
 import com.verto.modules.staff.service.IStaffService;
+import com.verto.modules.staff.service.IStaffPointsLogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +32,9 @@ public class StaffController {
 
     @Autowired
     private IStaffService staffService;
+
+    @Autowired
+    private IStaffPointsLogService staffPointsLogService;
 
     /**
      * 分页查询人员列表
@@ -77,7 +81,15 @@ public class StaffController {
         
         Page<Staff> page = new Page<>(pageNo, pageSize);
         IPage<Staff> pageList = staffService.page(page, queryWrapper);
-        
+
+        // 聚合每条记录的总积分并塞入非持久化字段 points
+        if (pageList != null && pageList.getRecords() != null && !pageList.getRecords().isEmpty()) {
+            List<Staff> records = pageList.getRecords();
+            List<String> staffIds = records.stream().map(Staff::getId).toList();
+            var pointsMap = staffPointsLogService.getTotalPointsMapByStaffIds(staffIds);
+            records.forEach(s -> s.setPoints(pointsMap.getOrDefault(s.getId(), 0)));
+        }
+
         return Result.ok(pageList);
     }
 

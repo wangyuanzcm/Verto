@@ -2,8 +2,13 @@ package com.verto.modules.project.controller;
 
 import com.verto.common.api.Result;
 import com.verto.modules.project.dto.GitRepoCreateRequest;
+import com.verto.modules.project.entity.Project;
+import com.verto.modules.project.service.IProjectService;
+import com.verto.modules.appmanage.entity.AppManage;
+import com.verto.modules.appmanage.service.IAppManageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Parameter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +30,12 @@ public class GitController {
     @Autowired
     @Qualifier("githubRestTemplate")
     private RestTemplate restTemplate;
+
+    @Autowired
+    private IProjectService projectService;
+
+    @Autowired
+    private IAppManageService appManageService;
 
     @Operation(summary = "创建Git仓库（当前支持GitHub）")
     @PostMapping("/repo/create")
@@ -147,6 +158,223 @@ public class GitController {
             Map<String, Object> empty = new HashMap<>();
             empty.put("repos", new Object[0]);
             return Result.ok("获取仓库列表异常: " + e.getMessage(), empty);
+        }
+    }
+
+    @Operation(summary = "获取项目的Git分支列表")
+    @GetMapping("/branches")
+    public Result<java.util.List<java.util.Map<String, Object>>> getBranches(
+            @Parameter(description = "项目ID") @RequestParam(name = "projectId", required = true) String projectId,
+            @Parameter(description = "Git访问Token，可选；不传则尝试从Cookie中读取 verto_github_token")
+            @RequestParam(name = "token", required = false) String token,
+            jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            // 1) 查询项目
+            Project project = projectService.getById(projectId);
+            if (project == null) {
+                return Result.error("未找到项目: " + projectId);
+            }
+            String appId = project.getRelatedAppId();
+            if (appId == null || appId.trim().isEmpty()) {
+                return Result.error("项目未关联应用，无法获取Git仓库地址");
+            }
+
+            // 2) 查询应用以获取 gitUrl
+            AppManage app = appManageService.getById(appId);
+            if (app == null) {
+                return Result.error("未找到关联应用: " + appId);
+            }
+            String gitUrl = app.getGitUrl();
+            if (gitUrl == null || gitUrl.trim().isEmpty()) {
+                return Result.error("关联应用未配置Git仓库地址");
+            }
+
+            // 3) 解析 owner/repo
+            String[] ownerRepo = parseOwnerRepo(gitUrl);
+            if (ownerRepo == null) {
+                return Result.error("无法解析Git仓库地址: " + gitUrl);
+            }
+            String owner = ownerRepo[0];
+            String repo = ownerRepo[1];
+
+            // 若未提供 token，尝试从 OAuth 回调设置的 Cookie 中解析
+            if (token == null || token.trim().isEmpty()) {
+                String cookieToken = null;
+                if (request != null && request.getCookies() != null) {
+                    for (jakarta.servlet.http.Cookie c : request.getCookies()) {
+                        if ("verto_github_token".equals(c.getName())) {
+                            cookieToken = c.getValue();
+                            break;
+                        }
+                    }
+                }
+                token = cookieToken;
+            }
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set("Accept", "application/vnd.github+json");
+            if (token != null && !token.trim().isEmpty()) {
+                headers.set("Authorization", "Bearer " + token.trim());
+            }
+            org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
+
+            // 4) 调用 GitHub API 获取分支
+            String branchesUrl = String.format("https://api.github.com/repos/%s/%s/branches?per_page=100", owner, repo);
+            org.springframework.http.ResponseEntity<Object[]> resp = restTemplate.exchange(branchesUrl, org.springframework.http.HttpMethod.GET, entity, Object[].class);
+            Object[] branches = resp.getBody();
+
+            java.util.List<java.util.Map<String, Object>> list = new java.util.ArrayList<>();
+            if (branches != null) {
+                for (Object o : branches) {
+                    if (!(o instanceof java.util.Map)) continue;
+                    java.util.Map<?, ?> m = (java.util.Map<?, ?>) o;
+                    String name = m.get("name") != null ? m.get("name").toString() : null;
+                    Object protectedObj = m.get("protected");
+                    Object commitObj = m.get("commit");
+                    String sha = null;
+                    if (commitObj instanceof java.util.Map) {
+                        Object shaObj = ((java.util.Map<?, ?>) commitObj).get("sha");
+                        if (shaObj != null) sha = shaObj.toString();
+                    }
+                    if (name != null) {
+                        java.util.Map<String, Object> item = new java.util.HashMap<>();
+                        item.put("name", name);
+                        item.put("protected", java.lang.Boolean.TRUE.equals(protectedObj));
+                        item.put("sha", sha);
+                        // 简单状态：默认标记为 active
+                        item.put("status", "active");
+                        list.add(item);
+                    }
+                }
+            }
+            return Result.ok(list);
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.warn("获取分支列表失败: {}", e.getMessage());
+            return Result.error("获取分支列表失败: " + e.getStatusCode());
+        } catch (Exception e) {
+            log.error("获取分支列表异常", e);
+            return Result.error("获取分支列表异常: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "获取项目指定分支的提交记录（当前支持GitHub）")
+    @GetMapping("/commits")
+    public Result<java.util.List<java.util.Map<String, Object>>> getCommits(
+            @Parameter(description = "项目ID") @RequestParam(name = "projectId", required = true) String projectId,
+            @Parameter(description = "分支名称，不传则尝试使用项目的 gitBranch 字段") @RequestParam(name = "branch", required = false) String branch,
+            @Parameter(description = "页码") @RequestParam(name = "page", defaultValue = "1") Integer page,
+            @Parameter(description = "每页大小（GitHub最多100）") @RequestParam(name = "pageSize", defaultValue = "50") Integer pageSize,
+            @Parameter(description = "Git访问Token，可选；不传则尝试从Cookie中读取 verto_github_token") @RequestParam(name = "token", required = false) String token,
+            jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            // 1) 查询项目，获取关联应用及 gitUrl
+            Project project = projectService.getById(projectId);
+            if (project == null) {
+                return Result.error("未找到项目: " + projectId);
+            }
+            String appId = project.getRelatedAppId();
+            if (appId == null || appId.trim().isEmpty()) {
+                return Result.error("项目未关联应用，无法获取Git仓库地址");
+            }
+
+            AppManage app = appManageService.getById(appId);
+            if (app == null) {
+                return Result.error("未找到关联应用: " + appId);
+            }
+            String gitUrl = app.getGitUrl();
+            if (gitUrl == null || gitUrl.trim().isEmpty()) {
+                return Result.error("关联应用未配置Git仓库地址");
+            }
+
+            // 默认分支：若未传则尝试使用项目的 gitBranch
+            if (branch == null || branch.trim().isEmpty()) {
+                branch = project.getGitBranch();
+            }
+            if (branch == null || branch.trim().isEmpty()) {
+                return Result.error("未指定分支，且项目未配置默认分支");
+            }
+
+            // 2) 解析 owner/repo
+            String[] ownerRepo = parseOwnerRepo(gitUrl);
+            if (ownerRepo == null) {
+                return Result.error("无法解析Git仓库地址: " + gitUrl);
+            }
+            String owner = ownerRepo[0];
+            String repo = ownerRepo[1];
+
+            // 3) 令牌处理：优先本次传入，其次 Cookie，最后使用 RestTemplate 上的默认 PAT
+            if (token == null || token.trim().isEmpty()) {
+                String cookieToken = null;
+                if (request != null && request.getCookies() != null) {
+                    for (jakarta.servlet.http.Cookie c : request.getCookies()) {
+                        if ("verto_github_token".equals(c.getName())) {
+                            cookieToken = c.getValue();
+                            break;
+                        }
+                    }
+                }
+                token = cookieToken;
+            }
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set("Accept", "application/vnd.github+json");
+            if (token != null && !token.trim().isEmpty()) {
+                headers.set("Authorization", "Bearer " + token.trim());
+            }
+            org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
+
+            // 4) 调用 GitHub API 获取提交列表
+            if (pageSize == null || pageSize <= 0) pageSize = 50;
+            if (pageSize > 100) pageSize = 100; // GitHub per_page 上限 100
+            if (page == null || page <= 0) page = 1;
+
+            String commitsUrl = String.format("https://api.github.com/repos/%s/%s/commits?sha=%s&per_page=%d&page=%d",
+                    owner, repo, java.net.URLEncoder.encode(branch, java.nio.charset.StandardCharsets.UTF_8), pageSize, page);
+            org.springframework.http.ResponseEntity<Object[]> resp = restTemplate.exchange(commitsUrl, org.springframework.http.HttpMethod.GET, entity, Object[].class);
+            Object[] commits = resp.getBody();
+
+            java.util.List<java.util.Map<String, Object>> list = new java.util.ArrayList<>();
+            if (commits != null) {
+                for (Object o : commits) {
+                    if (!(o instanceof java.util.Map)) continue;
+                    java.util.Map<?, ?> m = (java.util.Map<?, ?>) o;
+                    String sha = m.get("sha") != null ? m.get("sha").toString() : null;
+                    String htmlUrl = m.get("html_url") != null ? m.get("html_url").toString() : null;
+                    String message = null;
+                    String author = null;
+                    String date = null;
+                    Object commitObj = m.get("commit");
+                    if (commitObj instanceof java.util.Map) {
+                        Object msgObj = ((java.util.Map<?, ?>) commitObj).get("message");
+                        if (msgObj != null) message = msgObj.toString();
+                        Object authorObj = ((java.util.Map<?, ?>) commitObj).get("author");
+                        if (authorObj instanceof java.util.Map) {
+                            Object nameObj = ((java.util.Map<?, ?>) authorObj).get("name");
+                            Object dateObj = ((java.util.Map<?, ?>) authorObj).get("date");
+                            if (nameObj != null) author = nameObj.toString();
+                            if (dateObj != null) date = dateObj.toString();
+                        }
+                    }
+                    if (sha != null) {
+                        java.util.Map<String, Object> item = new java.util.HashMap<>();
+                        item.put("id", sha);
+                        item.put("shortId", sha.substring(0, Math.min(8, sha.length())));
+                        item.put("message", message);
+                        item.put("author", author);
+                        item.put("date", date);
+                        item.put("htmlUrl", htmlUrl);
+                        item.put("branch", branch);
+                        list.add(item);
+                    }
+                }
+            }
+            return Result.ok(list);
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.warn("获取提交列表失败: {}", e.getMessage());
+            return Result.error("获取提交列表失败: " + e.getStatusCode());
+        } catch (Exception e) {
+            log.error("获取提交列表异常", e);
+            return Result.error("获取提交列表异常: " + e.getMessage());
         }
     }
 
@@ -274,5 +502,41 @@ public class GitController {
             log.error("创建GitHub仓库异常", e);
             return Result.error("创建GitHub仓库异常: " + e.getMessage());
         }
+    }
+
+    /**
+     * 支持解析 https://github.com/{owner}/{repo} 或 git@github.com:{owner}/{repo}.git
+     */
+    private static String[] parseOwnerRepo(String gitUrl) {
+        if (gitUrl == null) return null;
+        String url = gitUrl.trim();
+        try {
+            if (url.startsWith("http://") || url.startsWith("https://")) {
+                // e.g. https://github.com/owner/repo 或 https://github.com/owner/repo.git
+                java.net.URI uri = java.net.URI.create(url);
+                String path = uri.getPath(); // /owner/repo(.git)
+                if (path != null) {
+                    String[] parts = path.replaceFirst("^/", "").split("/");
+                    if (parts.length >= 2) {
+                        String owner = parts[0];
+                        String repo = parts[1].replaceAll("\\.git$", "");
+                        return new String[]{owner, repo};
+                    }
+                }
+            } else if (url.startsWith("git@")) {
+                // e.g. git@github.com:owner/repo.git
+                int colon = url.indexOf(":");
+                if (colon > 0 && colon + 1 < url.length()) {
+                    String path = url.substring(colon + 1);
+                    String[] parts = path.split("/");
+                    if (parts.length >= 2) {
+                        String owner = parts[0];
+                        String repo = parts[1].replaceAll("\\.git$", "");
+                        return new String[]{owner, repo};
+                    }
+                }
+            }
+        } catch (Exception ignored) { }
+        return null;
     }
 }

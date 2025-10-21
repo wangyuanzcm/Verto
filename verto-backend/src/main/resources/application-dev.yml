@@ -139,3 +139,11 @@ github:
     token: ${GITHUB_PAT:}
     # 认证方案，GitHub PAT 默认使用 "token"，如需改为 Bearer 可调整此值
     auth-scheme: token
+  oauth:
+    # 请在本地 .env 或启动参数中配置以下值（不要提交真实值到仓库）
+    client-id: Ov23lix6XmSi7HsicS36
+    client-secret: 194a47e04be1052085d7f24da375d02f5a8412c7
+    # 回调地址需在 GitHub OAuth App 中配置，示例为本地开发
+    redirect-uri: http://localhost:8882/verto-backend/oauth/github/callback
+    # 请求的权限范围，可按需调整
+    scope: read:user user:email repo

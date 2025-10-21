@@ -19,6 +19,11 @@ enum Api {
   departmentStats = '/verto-backend/staff/departmentStats',
   checkEmployeeNo = '/verto-backend/staff/checkEmployeeNo',
   checkEmail = '/verto-backend/staff/checkEmail',
+  // 积分相关
+  pointsSummary = '/verto-backend/staff/points/summary',
+  pointsLogs = '/verto-backend/staff/points/logs',
+  // 可选：手动加分接口（用于测试或管理员操作）
+  pointsAdjust = '/verto-backend/staff/points/adjust',
 }
 
 /**
@@ -149,3 +154,32 @@ export const checkEmployeeNo = (employeeNo, id) => defHttp.get({ url: Api.checkE
  * @param id 当前记录ID（编辑时排除自己）
  */
 export const checkEmail = (email, id) => defHttp.get({ url: Api.checkEmail, params: { email, id } });
+
+/**
+ * 获取人员总积分
+ * @param staffId 人员ID
+ */
+export const getStaffPointsSummary = (staffId: string) =>
+  defHttp.get({ url: Api.pointsSummary, params: { staffId } });
+
+/**
+ * 获取人员积分流水
+ * @param staffId 人员ID
+ * @param params  其他查询参数（如分页、事件类型过滤）
+ */
+export const getStaffPointsLogs = (staffId: string, params?: Record<string, any>) =>
+  defHttp.get({ url: Api.pointsLogs, params: { staffId, ...(params || {}) } });
+
+/**
+ * 调整人员积分（正负均可）—可选：用于管理员手动调整或联调期间测试
+ * @param staffId 人员ID
+ * @param delta   变动积分，支持负数
+ * @param remark  备注
+ * @param source  来源对象信息，如 { sourceType: 'PROJECT', sourceId }
+ */
+export const adjustStaffPoints = (
+  staffId: string,
+  delta: number,
+  remark?: string,
+  source?: { sourceType?: string; sourceId?: string; eventType?: string }
+) => defHttp.post({ url: Api.pointsAdjust, params: { staffId, delta, remark, ...(source || {}) } });

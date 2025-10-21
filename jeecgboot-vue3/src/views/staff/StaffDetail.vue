@@ -52,6 +52,21 @@
           </a-descriptions>
         </a-card>
 
+        <a-card title="积分情况" class="mt-4" :loading="pointsLoading">
+          <div style="margin-bottom: 12px;">
+            <a-statistic title="总积分" :value="pointsSummary.totalPoints || 0" />
+          </div>
+          <a-table
+            :dataSource="pointsLogs"
+            :columns="pointsColumns"
+            :loading="pointsLoading"
+            size="small"
+            rowKey="id"
+            bordered
+            :pagination="{ pageSize: 10 }"
+          />
+        </a-card>
+
         <a-card title="其他信息" class="mt-4" v-if="staffInfo.remark">
           <p>{{ staffInfo.remark }}</p>
         </a-card>
@@ -66,7 +81,7 @@
   import { PageWrapper } from '/@/components/Page';
   import { Icon } from '/@/components/Icon';
   import { useMessage } from '/@/hooks/web/useMessage';
-  import { getStaffById } from './staff.api';
+  import { getStaffById, getStaffPointsSummary, getStaffPointsLogs } from './staff.api';
 
   const route = useRoute();
   const router = useRouter();
@@ -74,6 +89,17 @@
 
   const loading = ref(false);
   const staffInfo = ref<any>({});
+  const pointsLoading = ref(false);
+  const pointsSummary = ref<{ totalPoints?: number }>({ totalPoints: 0 });
+  const pointsLogs = ref<any[]>([]);
+  const pointsColumns = [
+    { title: '事件', dataIndex: 'eventType', key: 'eventType', width: 160 },
+    { title: '来源类型', dataIndex: 'sourceType', key: 'sourceType', width: 120 },
+    { title: '来源ID/名称', dataIndex: 'sourceName', key: 'sourceName', width: 200 },
+    { title: '积分变动', dataIndex: 'delta', key: 'delta', width: 100 },
+    { title: '备注', dataIndex: 'remark', key: 'remark' },
+    { title: '时间', dataIndex: 'createTime', key: 'createTime', width: 180 },
+  ];
 
   /**
    * 获取人员详情信息
@@ -88,6 +114,24 @@
       createMessage.error('获取人员详情失败');
     } finally {
       loading.value = false;
+    }
+  }
+
+  /**
+   * 获取人员积分信息
+   */
+  async function fetchStaffPoints() {
+    try {
+      pointsLoading.value = true;
+      const id = route.params.id as string;
+      const summary = await getStaffPointsSummary(id);
+      pointsSummary.value = summary || { totalPoints: 0 };
+      const logsRes = await getStaffPointsLogs(id);
+      pointsLogs.value = Array.isArray(logsRes?.records) ? logsRes.records : (logsRes || []);
+    } catch (error) {
+      createMessage.error('获取积分信息失败');
+    } finally {
+      pointsLoading.value = false;
     }
   }
 
@@ -107,6 +151,7 @@
 
   onMounted(() => {
     fetchStaffDetail();
+    fetchStaffPoints();
   });
 </script>
 

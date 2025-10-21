@@ -12,35 +12,88 @@ export const componentColumns: BasicColumn[] = [
     title: '组件名称',
     align: 'center',
     dataIndex: 'componentName',
+    width: 150,
+  },
+  {
+    title: '分发方式',
+    align: 'center',
+    dataIndex: 'distributionType',
+    width: 120,
+    customRender: ({ text }) => {
+      const typeMap = {
+        'npm': 'NPM包',
+        'federation': '模块联邦',
+      };
+      return typeMap[text] || text;
+    },
   },
   {
     title: '组件类型',
     align: 'center',
     dataIndex: 'componentType',
+    width: 120,
     customRender: ({ text }) => {
       const typeMap = {
         'form': '表单组件',
         'display': '展示组件',
         'layout': '布局组件',
         'business': '业务组件',
+        'page': '页面组件',
       };
       return typeMap[text] || text;
+    },
+  },
+  {
+    title: '技术栈',
+    align: 'center',
+    dataIndex: 'techStack',
+    width: 120,
+    customRender: ({ text }) => {
+      if (!text) return '-';
+      const stackMap = {
+        'vue3': 'Vue3',
+        'react': 'React',
+        'angular': 'Angular',
+        'vanilla': 'Vanilla JS',
+      };
+      return stackMap[text] || text;
     },
   },
   {
     title: '版本',
     align: 'center',
     dataIndex: 'version',
+    width: 100,
   },
   {
-    title: '描述',
+    title: '关联项目',
     align: 'center',
-    dataIndex: 'description',
+    dataIndex: 'relatedProject',
+    width: 150,
+    customRender: ({ text, record }) => {
+      if (record.distributionType === 'federation' && text) {
+        return text;
+      }
+      return record.distributionType === 'npm' ? '无' : '-';
+    },
+  },
+  {
+    title: 'Tag版本',
+    align: 'center',
+    dataIndex: 'projectTag',
+    width: 120,
+    customRender: ({ text, record }) => {
+      if (record.distributionType === 'federation' && text) {
+        return `v${text}`;
+      }
+      return record.distributionType === 'federation' ? '未指定' : '-';
+    },
   },
   {
     title: '状态',
     align: 'center',
     dataIndex: 'status',
+    width: 100,
     customRender: ({ text }) => {
       return render.renderDict(text, 'valid_status');
     },
@@ -49,6 +102,7 @@ export const componentColumns: BasicColumn[] = [
     title: '创建时间',
     align: 'center',
     dataIndex: 'createTime',
+    width: 150,
     sorter: true,
   },
 ];
@@ -189,8 +243,24 @@ export const componentFormSchema: FormSchema[] = [
     field: 'componentName',
     component: 'Input',
     required: true,
+    componentProps: {
+      placeholder: '请输入组件名称',
+    },
     dynamicRules: ({ model, schema }) => {
       return [{ required: true, message: '请输入组件名称!' }];
+    },
+  },
+  {
+    label: '分发方式',
+    field: 'distributionType',
+    component: 'RadioButtonGroup',
+    required: true,
+    defaultValue: 'npm',
+    componentProps: {
+      options: [
+        { label: 'NPM包', value: 'npm' },
+        { label: '模块联邦', value: 'federation' },
+      ],
     },
   },
   {
@@ -199,11 +269,13 @@ export const componentFormSchema: FormSchema[] = [
     component: 'Select',
     required: true,
     componentProps: {
+      placeholder: '请选择组件类型',
       options: [
         { label: '表单组件', value: 'form' },
         { label: '展示组件', value: 'display' },
         { label: '布局组件', value: 'layout' },
         { label: '业务组件', value: 'business' },
+        { label: '页面组件', value: 'page' },
       ],
     },
     dynamicRules: ({ model, schema }) => {
@@ -211,12 +283,89 @@ export const componentFormSchema: FormSchema[] = [
     },
   },
   {
+    label: '技术栈',
+    field: 'techStack',
+    component: 'Select',
+    required: true,
+    componentProps: {
+      placeholder: '请选择技术栈',
+      options: [
+        { label: 'Vue3', value: 'vue3' },
+        { label: 'React', value: 'react' },
+        { label: 'Angular', value: 'angular' },
+        { label: 'Vanilla JS', value: 'vanilla' },
+      ],
+    },
+  },
+  {
     label: '版本',
     field: 'version',
     component: 'Input',
     required: true,
+    componentProps: {
+      placeholder: '请输入版本号，如：1.0.0',
+    },
     dynamicRules: ({ model, schema }) => {
       return [{ required: true, message: '请输入版本号!' }];
+    },
+  },
+  {
+    label: '关联项目',
+    field: 'relatedProject',
+    component: 'Input',
+    ifShow: ({ values }) => values.distributionType === 'federation',
+    required: ({ values }) => values.distributionType === 'federation',
+    componentProps: {
+      placeholder: '请输入关联的业务项目名称',
+    },
+  },
+  {
+    label: '项目仓库地址',
+    field: 'projectRepository',
+    component: 'Input',
+    ifShow: ({ values }) => values.distributionType === 'federation',
+    componentProps: {
+      placeholder: '请输入项目Git仓库地址',
+    },
+  },
+  {
+    label: 'Tag版本',
+    field: 'projectTag',
+    component: 'Input',
+    ifShow: ({ values }) => values.distributionType === 'federation',
+    required: ({ values }) => values.distributionType === 'federation',
+    componentProps: {
+      placeholder: '请输入项目Tag版本，如：1.2.0',
+      addonBefore: 'v',
+    },
+  },
+  {
+    label: '远程模块名',
+    field: 'remoteModuleName',
+    component: 'Input',
+    ifShow: ({ values }) => values.distributionType === 'federation',
+    required: ({ values }) => values.distributionType === 'federation',
+    componentProps: {
+      placeholder: '请输入模块联邦导出的模块名',
+    },
+  },
+  {
+    label: 'NPM包名',
+    field: 'npmPackageName',
+    component: 'Input',
+    ifShow: ({ values }) => values.distributionType === 'npm',
+    required: ({ values }) => values.distributionType === 'npm',
+    componentProps: {
+      placeholder: '请输入NPM包名，如：@company/component-name',
+    },
+  },
+  {
+    label: '包仓库地址',
+    field: 'packageRepository',
+    component: 'Input',
+    ifShow: ({ values }) => values.distributionType === 'npm',
+    componentProps: {
+      placeholder: '请输入NPM包仓库地址（可选）',
     },
   },
   {
@@ -237,6 +386,16 @@ export const componentFormSchema: FormSchema[] = [
     field: 'description',
     component: 'InputTextArea',
     componentProps: {
+      placeholder: '请输入组件描述',
+      rows: 3,
+    },
+  },
+  {
+    label: '使用说明',
+    field: 'usageInstructions',
+    component: 'InputTextArea',
+    componentProps: {
+      placeholder: '请输入组件使用说明和示例代码',
       rows: 4,
     },
   },
@@ -244,8 +403,10 @@ export const componentFormSchema: FormSchema[] = [
     label: '状态',
     field: 'status',
     component: 'JDictSelectTag',
+    required: true,
     componentProps: {
       dictCode: 'valid_status',
+      placeholder: '请选择状态',
     },
     defaultValue: '1',
   },

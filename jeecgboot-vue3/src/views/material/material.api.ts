@@ -14,6 +14,9 @@ enum ComponentApi {
   deleteBatch = '/verto-backend/material/component/deleteBatch',
   importExcel = '/verto-backend/material/component/importExcel',
   exportXls = '/verto-backend/material/component/exportXls',
+  // 版本管理相关API
+  getProjectTags = '/verto-backend/material/component/getProjectTags',
+  switchVersion = '/verto-backend/material/component/switchVersion',
 }
 
 /**
@@ -144,5 +147,23 @@ export const addTemplate = (params) => {
  * 更新模板
  */
 export const updateTemplate = (params) => {
-  return defHttp.post({ url: TemplateApi.edit, params }, { isTransformResponse: false });
+  return defHttp.put({ url: TemplateApi.edit, params });
 };
+
+// ==================== 版本管理相关API ====================
+
+/**
+ * 获取项目Tag版本列表
+ * @param params 包含repository和project信息
+ */
+export const getProjectTags = (params) => {
+  return defHttp.get({ url: ComponentApi.getProjectTags, params });
+};
+
+/**
+  * 切换组件版本
+  * @param params 包含componentId和targetVersion
+  */
+ export const switchComponentVersion = (params) => {
+   return defHttp.post({ url: ComponentApi.switchVersion, params });
+ };

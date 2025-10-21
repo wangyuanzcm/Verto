@@ -84,7 +84,7 @@
 import { ref, reactive, onMounted, computed, h } from 'vue';
 import { useMessage } from '/@/hooks/web/useMessage';
 import { formatToDateTime } from '/@/utils/dateUtil';
-import { getPipelineHistory, triggerPipeline, retryBuild, getBuildLogs, getGitBranches, getProjectDetail } from '../Project.api';
+import { getPipelineHistory, triggerPipeline, retryBuild, getBuildLogs, getGitBranches, getGitCommits, getProjectDetail } from '../Project.api';
 import { getPipelineConfig as getAppPipelineConfig } from '/@/views/appmanage/AppManage.api';
 
 const props = defineProps<{ projectId: string | number; appId?: string | number }>();
@@ -282,18 +282,29 @@ async function onBranchChange(branch: string) {
 }
 
 async function loadCommits(branch?: string) {
-  // 由于当前未提供项目级提交列表API，这里尝试从历史列表中提取该分支的提交作为备选
+  // 优先使用后端Git提交接口获取提交列表
   try {
     commitsLoading.value = true;
-    const res: any = await getPipelineHistory({ projectId: String(props.projectId), page: 1, pageSize: 50, branch });
-    const list = Array.isArray(res?.records) ? res.records : (Array.isArray(res) ? res : []);
-    const commits = (list || [])
-      .filter((i: any) => (!branch || i?.branch === branch) && !!i?.commitId)
-      .map((i: any) => ({ id: i.commitId, shortId: String(i.commitId).slice(0, 8), message: i.commitMessage || '' }));
-    // 去重
-    const uniq: Record<string, any> = {};
-    commits.forEach((c) => { if (!uniq[c.id]) uniq[c.id] = c; });
-    commitList.value = Object.values(uniq);
+    const res: any = await getGitCommits({ projectId: String(props.projectId), branch, page: 1, pageSize: 50 });
+    const arr = Array.isArray(res) ? res : (Array.isArray(res?.records) ? res.records : []);
+    const commits = (arr || []).map((c: any) => ({
+      id: c?.id || c?.sha || c,
+      shortId: (c?.shortId || c?.id || c?.sha || '').toString().slice(0, 8),
+      message: c?.message || c?.commitMessage || '',
+    }));
+    // 兼容：若后端返回为空，回退到从流水线历史中提取
+    if (!commits.length) {
+      const history: any = await getPipelineHistory({ projectId: String(props.projectId), page: 1, pageSize: 50, branch });
+      const list = Array.isArray(history?.records) ? history.records : (Array.isArray(history) ? history : []);
+      const histCommits = (list || [])
+        .filter((i: any) => (!branch || i?.branch === branch) && !!i?.commitId)
+        .map((i: any) => ({ id: i.commitId, shortId: String(i.commitId).slice(0, 8), message: i.commitMessage || '' }));
+      const uniq: Record<string, any> = {};
+      histCommits.forEach((c) => { if (!uniq[c.id]) uniq[c.id] = c; });
+      commitList.value = Object.values(uniq);
+    } else {
+      commitList.value = commits;
+    }
   } catch (e) {
     console.warn('获取提交列表失败:', e);
   } finally {

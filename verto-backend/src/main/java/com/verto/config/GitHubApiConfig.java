@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
-@EnableConfigurationProperties(GitHubProperties.class)
+@EnableConfigurationProperties({GitHubProperties.class, GitHubOAuthProperties.class})
 public class GitHubApiConfig {
 
     @Bean("githubRestTemplate")

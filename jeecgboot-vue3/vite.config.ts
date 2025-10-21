@@ -89,7 +89,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     },
     build: {
       minify: 'esbuild',
-      target: 'es2015',
+      target: 'esnext',
       cssTarget: 'chrome80',
       outDir: OUTPUT_DIR,
       rollupOptions: {
@@ -116,6 +116,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     },
     esbuild: {
       //清除全局的console.log和debug
+      target: 'esnext',
       drop: isBuild ? ['console', 'debugger'] : [],
     },
     define: {
@@ -138,7 +139,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     plugins: createVitePlugins(viteEnv, isBuild, isQiankunMicro),
     optimizeDeps: {
       esbuildOptions: {
-        target: 'es2020',
+        target: 'esnext',
       },
       exclude: [
         //升级vite4后，需要排除online依赖

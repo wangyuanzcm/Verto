@@ -1,6 +1,7 @@
 package com.verto.modules.staff.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -118,6 +119,13 @@ public class Staff implements Serializable {
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Schema(description = "更新时间")
     private Date updateTime;
+
+    /**
+     * 总积分（非持久化字段，用于列表展示）
+     */
+    @TableField(exist = false)
+    @Schema(description = "总积分")
+    private Integer points;
 
     // 手动添加必要的 getter 和 setter 方法，确保编译通过
     public String getName() {

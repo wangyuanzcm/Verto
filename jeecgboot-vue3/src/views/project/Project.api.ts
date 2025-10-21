@@ -17,6 +17,7 @@ enum Api {
   // Git分支管理API
   createGitBranch = '/verto-backend/project/git/createBranch',
   getGitBranches = '/verto-backend/project/git/branches',
+  getGitCommits = '/verto-backend/project/git/commits',
   deleteGitBranch = '/verto-backend/project/git/deleteBranch',
   
   // 应用配置API
@@ -167,6 +168,13 @@ export const createGitBranch = (params: {
  */
 export const getGitBranches = (params: { projectId: string }) =>
   defHttp.get<any[]>({ url: Api.getGitBranches, params });
+
+/**
+ * 获取Git提交列表
+ * @param params 查询参数
+ */
+export const getGitCommits = (params: { projectId: string; branch?: string; page?: number; pageSize?: number }) =>
+  defHttp.get<any[]>({ url: Api.getGitCommits, params });
 
 /**
  * 删除Git分支

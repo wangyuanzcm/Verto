@@ -20,4 +20,12 @@ public interface IJenkinsService {
      * @return 结果信息，包含 jobUrl、action 等字段；失败时包含 error
      */
     Map<String, Object> createPipelineJobFromDefinition(PipelineDefinitionRequest request);
+
+    /**
+     * 触发 Jenkins 构建（支持参数化构建）
+     * @param jobName Jenkins 作业名称
+     * @param parameters 构建参数（例如 BRANCH、COMMIT_ID、VERSION 等）
+     * @return 结果信息，包含 queueUrl、queueId、jobUrl 等字段；失败时包含 error
+     */
+    Map<String, Object> triggerBuild(String jobName, Map<String, String> parameters);
 }

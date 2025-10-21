@@ -23,6 +23,8 @@ import { createMetadataReporter } from './metadata-reporter';
 // //预编译加载插件(不支持vite3作废)
 // import OptimizationPersist from 'vite-plugin-optimize-persist';
 // import PkgConfig from 'vite-plugin-package-config';
+// Module Federation for Vite
+import federation from '@originjs/vite-plugin-federation';
 
 /**
  *
@@ -59,6 +61,23 @@ export function createVitePlugins(viteEnv: ViteEnv, isBuild: boolean, isQiankunM
 
   // vite-plugin-purge-icons
   vitePlugins.push(purgeIcons());
+
+  // Module Federation - expose Form components as remote
+  vitePlugins.push(
+    federation({
+      name: 'jeecg-form-remote',
+      filename: 'remoteEntry.js',
+      exposes: {
+        './Form': './src/components/Form/index.ts',
+      },
+      shared: {
+        vue: { singleton: true, requiredVersion: '^3.0.0' },
+        'vue-router': { singleton: true, requiredVersion: '^4.0.0' },
+        pinia: { singleton: true, requiredVersion: '^2.0.0' },
+        'ant-design-vue': { singleton: true },
+      },
+    })
+  );
 
   // rollup-plugin-visualizer
   vitePlugins.push(configVisualizerConfig());
