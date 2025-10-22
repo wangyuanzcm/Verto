@@ -59,6 +59,16 @@ export interface PipelineStage {
   dependencies?: string[];
   timeout?: number;
   retryCount?: number;
+  // 扩展支持 StageModal 的更多字段
+  order?: number;
+  executor?: string;
+  workingDirectory?: string;
+  continueOnError?: boolean;
+  parallel?: boolean;
+  conditions?: any;
+  artifacts?: any;
+  enabled?: boolean;
+  description?: string;
 }
 
 export interface PipelineTrigger {
@@ -262,7 +272,7 @@ export const configColumns: BasicColumn[] = [
   },
   {
     title: '创建时间',
-    dataIndex: 'createdTime',
+    dataIndex: 'createTime',
     width: 180,
   },
 ];

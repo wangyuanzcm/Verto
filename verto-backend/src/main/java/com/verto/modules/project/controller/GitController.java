@@ -6,6 +6,7 @@ import com.verto.modules.project.entity.Project;
 import com.verto.modules.project.service.IProjectService;
 import com.verto.modules.appmanage.entity.AppManage;
 import com.verto.modules.appmanage.service.IAppManageService;
+import com.verto.modules.oauth.service.OAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -37,9 +38,40 @@ public class GitController {
     @Autowired
     private IAppManageService appManageService;
 
+    @Autowired
+    private OAuthService oauthService;
+
+    // 统一解析本次请求应使用的 GitHub 访问令牌：优先入参 token，其次 Authorization 头，最后根据当前系统用户绑定信息从后端获取
+    private String resolveUserToken(jakarta.servlet.http.HttpServletRequest request, String token) {
+        if (token != null && !token.trim().isEmpty()) {
+            return token.trim();
+        }
+        if (request != null) {
+            String auth = request.getHeader("Authorization");
+            if (auth != null && auth.startsWith("Bearer ")) {
+                return auth.substring(7).trim();
+            }
+            // 从请求头解析系统用户ID（X-User-Id）
+            String currentUserId = request.getHeader("X-User-Id");
+            if (currentUserId == null || currentUserId.trim().isEmpty()) {
+                return null; // 用户ID缺失，无法获取令牌
+            }
+            try {
+                String dbToken = oauthService.getAccessTokenForSystemUser(currentUserId, "github");
+                if (dbToken != null && !dbToken.trim().isEmpty()) {
+                    return dbToken.trim();
+                }
+            } catch (Exception e) {
+                log.warn("后端令牌解析失败: {}", e.getMessage());
+            }
+        }
+        return null;
+    }
+
     @Operation(summary = "创建Git仓库（当前支持GitHub）")
     @PostMapping("/repo/create")
-    public Result<Map<String, Object>> createRepo(@RequestBody GitRepoCreateRequest req) {
+    public Result<Map<String, Object>> createRepo(@RequestBody GitRepoCreateRequest req,
+                                                  jakarta.servlet.http.HttpServletRequest request) {
         try {
             if (req.getGitUrl() == null || req.getGitUrl().trim().isEmpty()) {
                 return Result.error("gitUrl不能为空");
@@ -53,8 +85,10 @@ public class GitController {
                 host = idx > 0 ? url.substring(0, idx) : url;
             }
 
+            String token = resolveUserToken(request, req.getToken());
+
             if (host.contains("github.com")) {
-                return createGithubRepo(req);
+                return createGithubRepo(req, token);
             }
 
             return Result.error("暂不支持该Git提供商: " + host);
@@ -67,7 +101,8 @@ public class GitController {
     @Operation(summary = "校验Git权限（当前支持GitHub）")
     @GetMapping("/permission/check")
     public Result<Map<String, Object>> checkPermission(@RequestParam("gitUrl") String gitUrl,
-                                                       @RequestParam(value = "token", required = false) String token) {
+                                                       @RequestParam(value = "token", required = false) String token,
+                                                       jakarta.servlet.http.HttpServletRequest request) {
         try {
             URI uri = URI.create(gitUrl);
             String host = uri.getHost();
@@ -80,10 +115,12 @@ public class GitController {
                 return Result.error("暂不支持该Git提供商: " + host);
             }
 
+            String resolvedToken = resolveUserToken(request, token);
+
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/vnd.github+json");
-            if (token != null && !token.trim().isEmpty()) {
-                headers.set("Authorization", "Bearer " + token.trim());
+            if (resolvedToken != null && !resolvedToken.trim().isEmpty()) {
+                headers.set("Authorization", "Bearer " + resolvedToken);
             }
             HttpEntity<Void> entity = new HttpEntity<>(headers);
             ResponseEntity<Map> resp = restTemplate.exchange("https://api.github.com/user", HttpMethod.GET, entity, Map.class);
@@ -105,23 +142,11 @@ public class GitController {
                                                 @RequestParam(value = "token", required = false) String token,
                                                 jakarta.servlet.http.HttpServletRequest request) {
         try {
-            // 若未提供 token，尝试从 OAuth 回调设置的 Cookie 中解析
-            if (token == null || token.trim().isEmpty()) {
-                String cookieToken = null;
-                if (request != null && request.getCookies() != null) {
-                    for (jakarta.servlet.http.Cookie c : request.getCookies()) {
-                        if ("verto_github_token".equals(c.getName())) {
-                            cookieToken = c.getValue();
-                            break;
-                        }
-                    }
-                }
-                token = cookieToken;
-            }
+            String resolvedToken = resolveUserToken(request, token);
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/vnd.github+json");
-            if (token != null && !token.trim().isEmpty()) {
-                headers.set("Authorization", "Bearer " + token.trim());
+            if (resolvedToken != null && !resolvedToken.trim().isEmpty()) {
+                headers.set("Authorization", "Bearer " + resolvedToken);
             }
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
@@ -165,8 +190,7 @@ public class GitController {
     @GetMapping("/branches")
     public Result<java.util.List<java.util.Map<String, Object>>> getBranches(
             @Parameter(description = "项目ID") @RequestParam(name = "projectId", required = true) String projectId,
-            @Parameter(description = "Git访问Token，可选；不传则尝试从Cookie中读取 verto_github_token")
-            @RequestParam(name = "token", required = false) String token,
+            @Parameter(description = "Git访问Token，可选；不传则尝试从请求头 Authorization: Bearer 中读取") @RequestParam(name = "token", required = false) String token,
             jakarta.servlet.http.HttpServletRequest request) {
         try {
             // 1) 查询项目
@@ -197,24 +221,12 @@ public class GitController {
             String owner = ownerRepo[0];
             String repo = ownerRepo[1];
 
-            // 若未提供 token，尝试从 OAuth 回调设置的 Cookie 中解析
-            if (token == null || token.trim().isEmpty()) {
-                String cookieToken = null;
-                if (request != null && request.getCookies() != null) {
-                    for (jakarta.servlet.http.Cookie c : request.getCookies()) {
-                        if ("verto_github_token".equals(c.getName())) {
-                            cookieToken = c.getValue();
-                            break;
-                        }
-                    }
-                }
-                token = cookieToken;
-            }
+            String resolvedToken = resolveUserToken(request, token);
 
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             headers.set("Accept", "application/vnd.github+json");
-            if (token != null && !token.trim().isEmpty()) {
-                headers.set("Authorization", "Bearer " + token.trim());
+            if (resolvedToken != null && !resolvedToken.trim().isEmpty()) {
+                headers.set("Authorization", "Bearer " + resolvedToken);
             }
             org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
 
@@ -264,7 +276,7 @@ public class GitController {
             @Parameter(description = "分支名称，不传则尝试使用项目的 gitBranch 字段") @RequestParam(name = "branch", required = false) String branch,
             @Parameter(description = "页码") @RequestParam(name = "page", defaultValue = "1") Integer page,
             @Parameter(description = "每页大小（GitHub最多100）") @RequestParam(name = "pageSize", defaultValue = "50") Integer pageSize,
-            @Parameter(description = "Git访问Token，可选；不传则尝试从Cookie中读取 verto_github_token") @RequestParam(name = "token", required = false) String token,
+            @Parameter(description = "Git访问Token，可选；不传则尝试从请求头 Authorization: Bearer 中读取") @RequestParam(name = "token", required = false) String token,
             jakarta.servlet.http.HttpServletRequest request) {
         try {
             // 1) 查询项目，获取关联应用及 gitUrl
@@ -302,24 +314,13 @@ public class GitController {
             String owner = ownerRepo[0];
             String repo = ownerRepo[1];
 
-            // 3) 令牌处理：优先本次传入，其次 Cookie，最后使用 RestTemplate 上的默认 PAT
-            if (token == null || token.trim().isEmpty()) {
-                String cookieToken = null;
-                if (request != null && request.getCookies() != null) {
-                    for (jakarta.servlet.http.Cookie c : request.getCookies()) {
-                        if ("verto_github_token".equals(c.getName())) {
-                            cookieToken = c.getValue();
-                            break;
-                        }
-                    }
-                }
-                token = cookieToken;
-            }
+            // 3) 统一解析令牌（优先入参token，其次Authorization头，最后根据系统用户绑定信息从后端获取）
+            String resolvedToken = resolveUserToken(request, token);
 
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             headers.set("Accept", "application/vnd.github+json");
-            if (token != null && !token.trim().isEmpty()) {
-                headers.set("Authorization", "Bearer " + token.trim());
+            if (resolvedToken != null && !resolvedToken.trim().isEmpty()) {
+                headers.set("Authorization", "Bearer " + resolvedToken);
             }
             org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
 
@@ -383,25 +384,13 @@ public class GitController {
     public Result<Map<String, Object>> getPrefixes(@RequestParam(value = "token", required = false) String token,
                                                    jakarta.servlet.http.HttpServletRequest request) {
         try {
-            // 若未提供 token，尝试从 OAuth 回调设置的 Cookie 中解析
-            if (token == null || token.trim().isEmpty()) {
-                String cookieToken = null;
-                if (request != null && request.getCookies() != null) {
-                    for (jakarta.servlet.http.Cookie c : request.getCookies()) {
-                        if ("verto_github_token".equals(c.getName())) {
-                            cookieToken = c.getValue();
-                            break;
-                        }
-                    }
-                }
-                token = cookieToken;
-            }
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Accept", "application/vnd.github+json");
-            if (token != null && !token.trim().isEmpty()) {
-                headers.set("Authorization", "Bearer " + token.trim());
-            }
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            String resolvedToken = resolveUserToken(request, token);
+             HttpHeaders headers = new HttpHeaders();
+             headers.set("Accept", "application/vnd.github+json");
+             if (resolvedToken != null && !resolvedToken.trim().isEmpty()) {
+             headers.set("Authorization", "Bearer " + resolvedToken);
+             }
+             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
             // 获取用户信息
             ResponseEntity<Map> userResp = restTemplate.exchange("https://api.github.com/user", HttpMethod.GET, entity, Map.class);
@@ -444,7 +433,7 @@ public class GitController {
         }
     }
 
-    private Result<Map<String, Object>> createGithubRepo(GitRepoCreateRequest req) {
+    private Result<Map<String, Object>> createGithubRepo(GitRepoCreateRequest req, String token) {
         try {
             String cleaned = req.getGitUrl()
                     .replace("https://github.com/", "")
@@ -459,8 +448,8 @@ public class GitController {
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/vnd.github+json");
-            if (req.getToken() != null && !req.getToken().trim().isEmpty()) {
-                headers.set("Authorization", "Bearer " + req.getToken().trim());
+            if (token != null && !token.trim().isEmpty()) {
+                headers.set("Authorization", "Bearer " + token.trim());
             }
             headers.setContentType(MediaType.APPLICATION_JSON);
 

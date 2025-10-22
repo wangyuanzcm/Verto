@@ -178,6 +178,15 @@ const transform: AxiosTransform = {
     config.headers[ConfigEnum.VERSION] = 'v3';
     //--update-end--author:liusq---date:20220325---for:增加vue3标记
     // update-end--author:liaozhiyang---date:20240509---for：【issues/1220】登录时，vue3版本不加载字典数据设置无效
+
+    // 临时：将当前登录用户ID放入请求头，后端从 X-User-Id 解析系统用户ID
+    const userStoreForHeader = useUserStoreWithOut();
+    const ui = userStoreForHeader?.getUserInfo as any;
+    const currentUserId = ui?.userId || ui?.id;
+    if (currentUserId) {
+      (config.headers as Record<string, any>)["X-User-Id"] = String(currentUserId);
+    }
+
     if (token && (config as Recordable)?.requestOptions?.withToken !== false) {
       // jwt token
       config.headers.Authorization = options.authenticationScheme ? `${options.authenticationScheme} ${token}` : token;

@@ -25,7 +25,8 @@
               </template>
             </a-descriptions-item>
             <a-descriptions-item label="应用状态">
-              <template v-if="appInfo.status">
+              <!-- 注意：0 是有效值（禁用），不能用简单的 truthy 判断 -->
+              <template v-if="appInfo.status !== null && appInfo.status !== undefined">
                 <a-tag :color="getStatusColor(appInfo.status)">
                   {{ getStatusText(appInfo.status) }}
                 </a-tag>
@@ -64,303 +65,269 @@
                 暂无数据
               </template>
             </a-descriptions-item>
-            <a-descriptions-item label="应用描述" :span="2">
-              {{ appInfo.description || '暂无数据' }}
-            </a-descriptions-item>
           </a-descriptions>
         </a-card>
       </a-col>
     </a-row>
 
-    <!-- 初始化命令 -->
-    <a-row :gutter="24" class="mt-4">
-      <a-col :span="24">
-        <a-card title="初始化命令" :bordered="false" v-if="appDetail && (appDetail.initCommand || appDetail.templateType)" class="init-command-card">
-          <div class="init-command-container">
-            <div class="command-header">
-              <span class="command-title">
-                <Icon icon="ant-design:code-outlined" :size="18" />
-                {{ getInitCommandTitle() }}
-              </span>
-              <a-button type="link" @click="copyInitCommand" size="small">
-                <Icon icon="ant-design:copy-outlined" :size="16" />
-                复制命令
+      <!-- Git 仓库信息 -->
+      <a-row :gutter="24" class="mt-4">
+        <a-col :span="24">
+          <a-card title="Git仓库信息" :bordered="false">
+            <template #extra>
+              <a-button :loading="syncLoading" type="primary" size="small" @click="syncGitInfo">
+                <Icon icon="ant-design:sync-outlined" :size="16" />
+                同步
               </a-button>
-            </div>
-            <div class="command-content">
-              <a-alert type="info" show-icon>
-                <template #message>
-                  <div class="command-text">{{ getInitCommand() }}</div>
-                </template>
-                <template #description>
-                  <div class="command-desc">{{ getInitCommandDesc() }}</div>
-                </template>
-              </a-alert>
-            </div>
-          </div>
-        </a-card>
-      </a-col>
-    </a-row>
+            </template>
+            <a-row :gutter="16">
+              <a-col :span="12">
+                <a-descriptions :column="1" bordered>
+                  <a-descriptions-item label="仓库地址">
+                    <template v-if="appInfo.gitInfo && appInfo.gitInfo.repoUrl">
+                      <a :href="appInfo.gitInfo.repoUrl" target="_blank">
+                        {{ appInfo.gitInfo.repoUrl }}
+                      </a>
+                    </template>
+                    <template v-else>
+                      暂无数据
+                    </template>
+                  </a-descriptions-item>
+                  <a-descriptions-item label="默认分支">
+                    {{ (appInfo.gitInfo && appInfo.gitInfo.defaultBranch) || '暂无数据' }}
+                  </a-descriptions-item>
+                  <a-descriptions-item label="最后提交">
+                    {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommitSha) || '暂无数据' }}
+                  </a-descriptions-item>
+                </a-descriptions>
+              </a-col>
+              <a-col :span="12">
+                <a-descriptions :column="1" bordered>
+                  <a-descriptions-item label="提交者">
+                    {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommitter) || '暂无数据' }}
+                  </a-descriptions-item>
+                  <a-descriptions-item label="提交时间">
+                    {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommitTime) || '暂无数据' }}
+                  </a-descriptions-item>
+                  <a-descriptions-item label="分支数量">
+                    {{ (appInfo.gitInfo && appInfo.gitInfo.branchCount) || '暂无数据' }}
+                  </a-descriptions-item>
+                </a-descriptions>
+              </a-col>
+            </a-row>
+          </a-card>
+        </a-col>
+      </a-row>
 
-    <!-- Git仓库信息 -->
-    <a-row :gutter="24" class="mt-4">
-      <a-col :span="24">
-        <a-card title="Git仓库信息" :bordered="false">
-          <template #extra>
-            <a-button :loading="syncLoading" type="primary" size="small" @click="syncGitInfo">
-              <Icon icon="ant-design:sync-outlined" :size="16" />
-              同步
-            </a-button>
-          </template>
-          <a-row :gutter="16">
+      <!-- 依赖信息（暂不展示） -->
+      <a-row v-if="showDependencies" :gutter="24" class="mt-4">
+        <a-col :span="24">
+          <a-card title="依赖信息" :bordered="false">
+            <div v-if="packageJsonLoading" class="loading-container">
+              <a-spin size="large" />
+              <div class="loading-text">正在加载依赖信息...</div>
+            </div>
+            <div v-else-if="packageJsonError" class="error-container">
+              <a-alert type="error" :message="packageJsonError" show-icon />
+            </div>
+            <div v-else-if="packageJsonData">
+              <a-tabs v-model:activeKey="dependencyTabKey" type="card">
+                <!-- 生产依赖 -->
+                <a-tab-pane key="dependencies" :tab="`生产依赖 (${getDependencyCount('dependencies')})`">
+                  <div class="dependency-section">
+                    <div class="dependency-header">
+                      <span class="dependency-title">
+                        <Icon icon="ant-design:package-outlined" :size="18" />
+                        生产环境依赖包
+                      </span>
+                      <a-button type="link" @click="copyDependencies('dependencies')" size="small">
+                        <Icon icon="ant-design:copy-outlined" :size="16" />
+                        复制依赖列表
+                      </a-button>
+                    </div>
+                    <a-descriptions 
+                      :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
+                      size="small"
+                      bordered
+                      class="dependency-descriptions"
+                    >
+                      <a-descriptions-item 
+                        v-for="(version, name) in packageJsonData.dependencies" 
+                        :key="name"
+                        :label="name"
+                      >
+                        <a-tag color="blue">{{ version }}</a-tag>
+                      </a-descriptions-item>
+                    </a-descriptions>
+                  </div>
+                </a-tab-pane>
+
+                <!-- 开发依赖 -->
+                <a-tab-pane key="devDependencies" :tab="`开发依赖 (${getDependencyCount('devDependencies')})`">
+                  <div class="dependency-section">
+                    <div class="dependency-header">
+                      <span class="dependency-title">
+                        <Icon icon="ant-design:tool-outlined" :size="18" />
+                        开发环境依赖包
+                      </span>
+                      <a-button type="link" @click="copyDependencies('devDependencies')" size="small">
+                        <Icon icon="ant-design:copy-outlined" :size="16" />
+                        复制依赖列表
+                      </a-button>
+                    </div>
+                    <a-descriptions 
+                      :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
+                      size="small"
+                      bordered
+                      class="dependency-descriptions"
+                    >
+                      <a-descriptions-item 
+                        v-for="(version, name) in packageJsonData.devDependencies" 
+                        :key="name"
+                        :label="name"
+                      >
+                        <a-tag color="orange">{{ version }}</a-tag>
+                      </a-descriptions-item>
+                    </a-descriptions>
+                  </div>
+                </a-tab-pane>
+
+                <!-- 可选依赖 -->
+                <a-tab-pane key="optionalDependencies" :tab="`可选依赖 (${getDependencyCount('optionalDependencies')})`" v-if="packageJsonData.optionalDependencies">
+                  <div class="dependency-section">
+                    <div class="dependency-header">
+                      <span class="dependency-title">
+                        <Icon icon="ant-design:question-circle-outlined" :size="18" />
+                        可选依赖包
+                      </span>
+                      <a-button type="link" @click="copyDependencies('optionalDependencies')" size="small">
+                        <Icon icon="ant-design:copy-outlined" :size="16" />
+                        复制依赖列表
+                      </a-button>
+                    </div>
+                    <a-descriptions 
+                      :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
+                      size="small"
+                      bordered
+                      class="dependency-descriptions"
+                    >
+                      <a-descriptions-item 
+                        v-for="(version, name) in packageJsonData.optionalDependencies" 
+                        :key="name"
+                        :label="name"
+                      >
+                        <a-tag color="purple">{{ version }}</a-tag>
+                      </a-descriptions-item>
+                    </a-descriptions>
+                  </div>
+                </a-tab-pane>
+
+                <!-- 同级依赖 -->
+                <a-tab-pane key="peerDependencies" :tab="`同级依赖 (${getDependencyCount('peerDependencies')})`" v-if="packageJsonData.peerDependencies">
+                  <div class="dependency-section">
+                    <div class="dependency-header">
+                      <span class="dependency-title">
+                        <Icon icon="ant-design:share-alt-outlined" :size="18" />
+                        同级依赖包
+                      </span>
+                      <a-button type="link" @click="copyDependencies('peerDependencies')" size="small">
+                        <Icon icon="ant-design:copy-outlined" :size="16" />
+                        复制依赖列表
+                      </a-button>
+                    </div>
+                    <a-descriptions 
+                      :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
+                      size="small"
+                      bordered
+                      class="dependency-descriptions"
+                    >
+                      <a-descriptions-item 
+                        v-for="(version, name) in packageJsonData.peerDependencies" 
+                        :key="name"
+                        :label="name"
+                      >
+                        <a-tag color="green">{{ version }}</a-tag>
+                      </a-descriptions-item>
+                    </a-descriptions>
+                  </div>
+                </a-tab-pane>
+              </a-tabs>
+            </div>
+            <div v-else class="no-data-container">
+              <a-empty description="未找到 package.json 文件" />
+            </div>
+          </a-card>
+        </a-col>
+      </a-row>
+      
+      <!-- 编辑弹窗 -->
+      <a-modal
+        v-model:visible="editVisible"
+        title="编辑应用信息"
+        :destroyOnClose="true"
+        @ok="handleEditOk"
+        @cancel="handleEditCancel"
+        :width="720"
+      >
+        <a-form :model="editModel" layout="vertical" class="edit-form" style="width: 80%; max-width: none;margin:0 auto;">
+          <a-row :gutter="[16, 8]">
             <a-col :span="12">
-              <a-descriptions :column="1" bordered>
-                <a-descriptions-item label="仓库地址">
-                  <template v-if="appInfo.gitInfo && appInfo.gitInfo.repoUrl">
-                    <a :href="appInfo.gitInfo.repoUrl" target="_blank">
-                      {{ appInfo.gitInfo.repoUrl }}
-                    </a>
-                  </template>
-                  <template v-else>
-                    暂无数据
-                  </template>
-                </a-descriptions-item>
-                <a-descriptions-item label="默认分支">
-                  {{ (appInfo.gitInfo && appInfo.gitInfo.defaultBranch) || '暂无数据' }}
-                </a-descriptions-item>
-                <a-descriptions-item label="最后提交">
-                  {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommitSha) || '暂无数据' }}
-                </a-descriptions-item>
-              </a-descriptions>
+              <a-form-item label="应用名称" name="appName">
+                <a-input v-model:value="editModel.appName" placeholder="请输入应用名称" />
+              </a-form-item>
             </a-col>
             <a-col :span="12">
-              <a-descriptions :column="1" bordered>
-                <a-descriptions-item label="提交者">
-                  {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommitter) || '暂无数据' }}
-                </a-descriptions-item>
-                <a-descriptions-item label="提交时间">
-                  {{ (appInfo.gitInfo && appInfo.gitInfo.lastCommitTime) || '暂无数据' }}
-                </a-descriptions-item>
-                <a-descriptions-item label="分支数量">
-                  {{ (appInfo.gitInfo && appInfo.gitInfo.branchCount) || '暂无数据' }}
-                </a-descriptions-item>
-              </a-descriptions>
+              <a-form-item label="应用编码" name="appCode">
+                <a-input v-model:value="editModel.appCode" placeholder="请输入应用编码" />
+              </a-form-item>
+            </a-col>
+          
+            <a-col :span="12">
+              <a-form-item label="应用类型" name="appType">
+                <a-select v-model:value="editModel.appType" placeholder="请选择应用类型">
+                  <a-select-option value="web">Web应用</a-select-option>
+                  <a-select-option value="mobile">移动应用</a-select-option>
+                  <a-select-option value="desktop">桌面应用</a-select-option>
+                  <a-select-option value="api">API服务</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item label="应用状态" name="status">
+                <!-- 后端为数字：0(禁用)、1(启用) -->
+                <a-select v-model:value="editModel.status" placeholder="请选择状态">
+                  <a-select-option :value="1">启用</a-select-option>
+                  <a-select-option :value="0">禁用</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+          
+            <a-col :span="12">
+              <a-form-item label="负责人" name="owner">
+                <a-input v-model:value="editModel.owner" placeholder="请输入负责人" />
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item label="版本号" name="version">
+                <a-input v-model:value="editModel.version" placeholder="请输入版本号" />
+              </a-form-item>
+            </a-col>
+          
+            <a-col :span="24">
+              <a-form-item label="应用描述" name="description">
+                <a-textarea v-model:value="editModel.description" placeholder="请输入描述" rows="3" />
+              </a-form-item>
+            </a-col>
+            <a-col :span="24">
+              <a-form-item label="Git 仓库地址" name="gitUrl">
+                <a-input v-model:value="editModel.gitUrl" placeholder="请输入仓库地址" />
+              </a-form-item>
             </a-col>
           </a-row>
-        </a-card>
-      </a-col>
-    </a-row>
-
-    <!-- 依赖信息（暂不展示） -->
-    <a-row v-if="showDependencies" :gutter="24" class="mt-4">
-      <a-col :span="24">
-        <a-card title="依赖信息" :bordered="false">
-          <div v-if="packageJsonLoading" class="loading-container">
-            <a-spin size="large" />
-            <div class="loading-text">正在加载依赖信息...</div>
-          </div>
-          <div v-else-if="packageJsonError" class="error-container">
-            <a-alert type="error" :message="packageJsonError" show-icon />
-          </div>
-          <div v-else-if="packageJsonData">
-            <a-tabs v-model:activeKey="dependencyTabKey" type="card">
-              <!-- 生产依赖 -->
-              <a-tab-pane key="dependencies" :tab="`生产依赖 (${getDependencyCount('dependencies')})`">
-                <div class="dependency-section">
-                  <div class="dependency-header">
-                    <span class="dependency-title">
-                      <Icon icon="ant-design:package-outlined" :size="18" />
-                      生产环境依赖包
-                    </span>
-                    <a-button type="link" @click="copyDependencies('dependencies')" size="small">
-                      <Icon icon="ant-design:copy-outlined" :size="16" />
-                      复制依赖列表
-                    </a-button>
-                  </div>
-                  <a-descriptions 
-                    :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
-                    size="small"
-                    bordered
-                    class="dependency-descriptions"
-                  >
-                    <a-descriptions-item 
-                      v-for="(version, name) in packageJsonData.dependencies" 
-                      :key="name"
-                      :label="name"
-                    >
-                      <a-tag color="blue">{{ version }}</a-tag>
-                    </a-descriptions-item>
-                  </a-descriptions>
-                </div>
-              </a-tab-pane>
-
-              <!-- 开发依赖 -->
-              <a-tab-pane key="devDependencies" :tab="`开发依赖 (${getDependencyCount('devDependencies')})`">
-                <div class="dependency-section">
-                  <div class="dependency-header">
-                    <span class="dependency-title">
-                      <Icon icon="ant-design:tool-outlined" :size="18" />
-                      开发环境依赖包
-                    </span>
-                    <a-button type="link" @click="copyDependencies('devDependencies')" size="small">
-                      <Icon icon="ant-design:copy-outlined" :size="16" />
-                      复制依赖列表
-                    </a-button>
-                  </div>
-                  <a-descriptions 
-                    :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
-                    size="small"
-                    bordered
-                    class="dependency-descriptions"
-                  >
-                    <a-descriptions-item 
-                      v-for="(version, name) in packageJsonData.devDependencies" 
-                      :key="name"
-                      :label="name"
-                    >
-                      <a-tag color="orange">{{ version }}</a-tag>
-                    </a-descriptions-item>
-                  </a-descriptions>
-                </div>
-              </a-tab-pane>
-
-              <!-- 可选依赖 -->
-              <a-tab-pane key="optionalDependencies" :tab="`可选依赖 (${getDependencyCount('optionalDependencies')})`" v-if="packageJsonData.optionalDependencies">
-                <div class="dependency-section">
-                  <div class="dependency-header">
-                    <span class="dependency-title">
-                      <Icon icon="ant-design:question-circle-outlined" :size="18" />
-                      可选依赖包
-                    </span>
-                    <a-button type="link" @click="copyDependencies('optionalDependencies')" size="small">
-                      <Icon icon="ant-design:copy-outlined" :size="16" />
-                      复制依赖列表
-                    </a-button>
-                  </div>
-                  <a-descriptions 
-                    :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
-                    size="small"
-                    bordered
-                    class="dependency-descriptions"
-                  >
-                    <a-descriptions-item 
-                      v-for="(version, name) in packageJsonData.optionalDependencies" 
-                      :key="name"
-                      :label="name"
-                    >
-                      <a-tag color="purple">{{ version }}</a-tag>
-                    </a-descriptions-item>
-                  </a-descriptions>
-                </div>
-              </a-tab-pane>
-
-              <!-- 同级依赖 -->
-              <a-tab-pane key="peerDependencies" :tab="`同级依赖 (${getDependencyCount('peerDependencies')})`" v-if="packageJsonData.peerDependencies">
-                <div class="dependency-section">
-                  <div class="dependency-header">
-                    <span class="dependency-title">
-                      <Icon icon="ant-design:share-alt-outlined" :size="18" />
-                      同级依赖包
-                    </span>
-                    <a-button type="link" @click="copyDependencies('peerDependencies')" size="small">
-                      <Icon icon="ant-design:copy-outlined" :size="16" />
-                      复制依赖列表
-                    </a-button>
-                  </div>
-                  <a-descriptions 
-                    :column="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }"
-                    size="small"
-                    bordered
-                    class="dependency-descriptions"
-                  >
-                    <a-descriptions-item 
-                      v-for="(version, name) in packageJsonData.peerDependencies" 
-                      :key="name"
-                      :label="name"
-                    >
-                      <a-tag color="green">{{ version }}</a-tag>
-                    </a-descriptions-item>
-                  </a-descriptions>
-                </div>
-              </a-tab-pane>
-            </a-tabs>
-          </div>
-          <div v-else class="no-data-container">
-            <a-empty description="未找到 package.json 文件" />
-          </div>
-        </a-card>
-      </a-col>
-    </a-row>
-    
-    <!-- 编辑弹窗 -->
-    <a-modal
-      v-model:open="editVisible"
-      title="编辑应用基本信息"
-      :maskClosable="false"
-      :destroyOnClose="true"
-      @ok="handleEditOk"
-      @cancel="handleEditCancel"
-      :width="720"
-    >
-      <a-form :model="editModel" layout="vertical" class="edit-form" style="width: 80%; max-width: none;margin:0 auto;">
-        <a-row :gutter="[16, 8]">
-          <a-col :span="12">
-            <a-form-item label="应用名称" name="appName">
-              <a-input v-model:value="editModel.appName" placeholder="请输入应用名称" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="应用编码" name="appCode">
-              <a-input v-model:value="editModel.appCode" placeholder="请输入应用编码" />
-            </a-form-item>
-          </a-col>
-
-          <a-col :span="12">
-            <a-form-item label="应用类型" name="appType">
-              <a-select v-model:value="editModel.appType" placeholder="请选择应用类型">
-                <a-select-option value="web">Web应用</a-select-option>
-                <a-select-option value="mobile">移动应用</a-select-option>
-                <a-select-option value="desktop">桌面应用</a-select-option>
-                <a-select-option value="api">API服务</a-select-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="应用状态" name="status">
-              <a-select v-model:value="editModel.status" placeholder="请选择状态">
-                <a-select-option value="running">运行中</a-select-option>
-                <a-select-option value="stopped">已停止</a-select-option>
-                <a-select-option value="pending">待部署</a-select-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-
-          <a-col :span="12">
-            <a-form-item label="负责人" name="owner">
-              <a-input v-model:value="editModel.owner" placeholder="请输入负责人" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="版本号" name="version">
-              <a-input v-model:value="editModel.version" placeholder="请输入版本号" />
-            </a-form-item>
-          </a-col>
-
-          <a-col :span="24">
-            <a-form-item label="应用描述" name="description">
-              <a-textarea v-model:value="editModel.description" placeholder="请输入描述" rows="3" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="24">
-            <a-form-item label="Git 仓库地址" name="gitUrl">
-              <a-input v-model:value="editModel.gitUrl" placeholder="请输入仓库地址" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-      </a-form>
-    </a-modal>
-  </div>
-</template>
+        </a-form>
+      </a-modal>
+    </div>
+  </template>
 
 <script lang="ts" setup>
 import { ref, onMounted, h } from 'vue';
@@ -376,7 +343,8 @@ interface AppInfo {
   appName: string;
   appCode: string;
   appType: string;
-  status: string;
+  // 后端为数字(0:禁用,1:启用)，兼容历史字符串
+  status: number | string | null;
   owner: string;
   createTime: string;
   updateTime: string;
@@ -513,7 +481,8 @@ const appInfo = ref<AppInfo>({
   appName: props.appDetail?.appName || '',
   appCode: props.appDetail?.appCode || '',
   appType: props.appDetail?.appType || '',
-  status: props.appDetail?.status || '',
+  // 0 是有效值，这里用 null 作为“未知/未设置”的占位
+  status: props.appDetail?.status ?? null,
   owner: props.appDetail?.owner || '',
   createTime: props.appDetail?.createTime || '',
   updateTime: props.appDetail?.updateTime || '',
@@ -556,7 +525,7 @@ function openEdit() {
 
 async function handleEditOk() {
   // 构建提交数据（与后端实体字段保持一致），统一使用编辑接口
-  const submitData = {
+  const submitData: any = {
     // 使用 props.appId 作为主键ID，兜底使用 props.appDetail.id
     id: props.appId || props.appDetail?.id,
     // 保留原有字段，避免后端更新为 null
@@ -565,7 +534,10 @@ async function handleEditOk() {
     appName: editModel.value.appName || '',
     appCode: editModel.value.appCode || '',
     appType: editModel.value.appType || '',
-    status: editModel.value.status || '',
+    // 确保提交给后端的是数字(0/1)
+    status: (editModel.value.status !== undefined && editModel.value.status !== null && editModel.value.status !== '')
+      ? Number(editModel.value.status)
+      : (props.appDetail?.status ?? undefined),
     owner: editModel.value.owner || '',
     version: editModel.value.version || '',
     // 后端实体使用 appDescription 字段
@@ -582,7 +554,8 @@ async function handleEditOk() {
       appInfo.value.appName = newDetail.appName || '';
       appInfo.value.appCode = newDetail.appCode || '';
       appInfo.value.appType = newDetail.appType || '';
-      appInfo.value.status = newDetail.status || '';
+      // 后端返回为数字，直接赋值
+      appInfo.value.status = (typeof newDetail.status === 'number') ? newDetail.status : Number(newDetail.status);
       appInfo.value.owner = newDetail.owner || '';
       appInfo.value.version = newDetail.version || '';
       // 兼容后端返回 appDescription 字段
@@ -699,25 +672,37 @@ const getAppTypeText = (type: string) => {
 /**
  * 获取状态颜色
  */
-const getStatusColor = (status: string) => {
+const getStatusColor = (status: number | string | null) => {
+  // 数字状态：0(禁用)红色，1(启用)绿色
+  if (status === 0 || status === '0') return 'red';
+  if (status === 1 || status === '1') return 'green';
+  // 历史字符串状态兼容
   const colorMap: Record<string, string> = {
     running: 'green',
     stopped: 'red',
     pending: 'orange',
+    enabled: 'green',
+    disabled: 'red',
   };
-  return colorMap[status] || 'default';
+  return colorMap[String(status)] || 'default';
 };
 
 /**
  * 获取状态文本
  */
-const getStatusText = (status: string) => {
+const getStatusText = (status: number | string | null) => {
+  // 数字状态：0(禁用)、1(启用)
+  if (status === 0 || status === '0') return '禁用';
+  if (status === 1 || status === '1') return '启用';
+  // 历史字符串状态兼容
   const textMap: Record<string, string> = {
     running: '运行中',
     stopped: '已停止',
     pending: '待部署',
+    enabled: '启用',
+    disabled: '禁用',
   };
-  return textMap[status] || status;
+  return textMap[String(status)] || String(status);
 };
 
 /**

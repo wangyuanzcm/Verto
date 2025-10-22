@@ -240,8 +240,8 @@ function generateId(): string {
 export default [
   // 获取配置列表
   {
-    url: '/jeecgboot/super/config/list',
-    method: 'get',
+    method: 'GET',
+    url: '/jeecgboot/appmanage/config/list',
     response: ({ query }) => {
       console.log('=== Mock Config List Request ===');
       console.log('Query params:', query);
@@ -283,8 +283,8 @@ export default [
 
   // 保存配置
   {
-    url: '/jeecgboot/super/config/save',
-    method: 'post',
+    method: 'POST',
+    url: '/jeecgboot/appmanage/config/save',
     response: ({ body }) => {
       
       const config = body;
@@ -314,8 +314,8 @@ export default [
 
   // 删除配置
   {
-    url: '/jeecgboot/super/config/delete',
-    method: 'delete',
+    method: 'DELETE',
+    url: '/jeecgboot/appmanage/config/delete',
     response: ({ query }) => {
       
       const { id } = query;
@@ -330,8 +330,8 @@ export default [
 
   // 获取配置详情
   {
-    url: '/jeecgboot/super/config/detail',
-    method: 'get',
+    method: 'GET',
+    url: '/jeecgboot/appmanage/config/detail',
     response: ({ query }) => {
       const { id } = query;
       const config = allConfigs.find(c => c.id === id);
@@ -342,8 +342,8 @@ export default [
 
   // 复制配置
   {
-    url: '/jeecgboot/super/config/copy',
-    method: 'post',
+    method: 'POST',
+    url: '/jeecgboot/appmanage/config/copy',
     response: ({ body }) => {
       const { id } = body;
       const originalConfig = allConfigs.find(c => c.id === id);
@@ -370,8 +370,8 @@ export default [
 
   // 部署配置
   {
-    url: '/jeecgboot/super/config/deploy',
-    method: 'post',
+    method: 'POST',
+    url: '/jeecgboot/appmanage/config/deploy',
     response: ({ body }) => {
       const { id } = body;
       const config = allConfigs.find(c => c.id === id);
@@ -387,8 +387,8 @@ export default [
 
   // 回滚配置
   {
-    url: '/jeecgboot/super/config/rollback',
-    method: 'post',
+    method: 'POST',
+    url: '/jeecgboot/appmanage/config/rollback',
     response: ({ body }) => {
       
       const { id, version } = body;
@@ -399,8 +399,8 @@ export default [
 
   // 验证配置
   {
-    url: '/jeecgboot/super/config/validate',
-    method: 'post',
+    method: 'POST',
+    url: '/jeecgboot/appmanage/config/validate',
     response: ({ body }) => {
       
       const config = body;
@@ -426,8 +426,8 @@ export default [
 
   // 导出配置
   {
-    url: '/jeecgboot/super/config/export',
-    method: 'post',
+    method: 'POST',
+    url: '/jeecgboot/appmanage/config/export',
     response: ({ body }) => {
       
       const { ids } = body;
@@ -443,8 +443,8 @@ export default [
 
   // 导入配置
   {
-    url: '/jeecgboot/super/config/import',
-    method: 'post',
+    method: 'POST',
+    url: '/jeecgboot/appmanage/config/import',
     response: ({ body }) => {
       
       const { configs } = body;
@@ -474,8 +474,8 @@ export default [
 
   // 获取配置历史
   {
-    url: '/jeecgboot/super/config/history',
-    method: 'get',
+    method: 'GET',
+    url: '/jeecgboot/appmanage/config/history',
     response: ({ query }) => {
       
       const { id, pageNo = 1, pageSize = 10 } = query;
@@ -513,8 +513,8 @@ export default [
 
   // 预览配置
   {
-    url: '/jeecgboot/super/config/preview',
-    method: 'get',
+    method: 'GET',
+    url: '/jeecgboot/appmanage/config/preview',
     response: ({ query }) => {
       
       const { id } = query;

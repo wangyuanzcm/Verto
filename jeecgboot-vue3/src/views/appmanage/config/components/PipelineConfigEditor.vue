@@ -5,7 +5,7 @@
       <a-tab-pane key="stages" tab="阶段配置">
         <div class="stages-config">
           <div class="toolbar">
-            <a-button type="primary" @click="addStage" size="small">
+            <a-button type="primary" @click="addStage" size="small" :disabled="isReadonly">
               <template #icon><Icon icon="ant-design:plus-outlined" /></template>
               添加阶段
             </a-button>
@@ -20,10 +20,10 @@
               <a-card size="small" :title="`阶段 ${index + 1}: ${stage.name}`">
                 <template #extra>
                   <a-space>
-                    <a-button type="text" size="small" @click="editStage(index)">
+                    <a-button type="text" size="small" @click="editStage(index)" :disabled="isReadonly">
                       <Icon icon="ant-design:edit-outlined" />
                     </a-button>
-                    <a-button type="text" size="small" danger @click="removeStage(index)">
+                    <a-button type="text" size="small" danger @click="removeStage(index)" :disabled="isReadonly">
                       <Icon icon="ant-design:delete-outlined" />
                     </a-button>
                   </a-space>
@@ -53,7 +53,7 @@
       <a-tab-pane key="triggers" tab="触发器配置">
         <div class="triggers-config">
           <div class="toolbar">
-            <a-button type="primary" @click="addTrigger" size="small">
+            <a-button type="primary" @click="addTrigger" size="small" :disabled="isReadonly">
               <template #icon><Icon icon="ant-design:plus-outlined" /></template>
               添加触发器
             </a-button>
@@ -63,8 +63,8 @@
             <template #renderItem="{ item, index }">
               <a-list-item>
                 <template #actions>
-                  <a @click="editTrigger(index)">编辑</a>
-                  <a @click="removeTrigger(index)" style="color: #ff4d4f;">删除</a>
+                  <a-button type="link" @click="editTrigger(index)" :disabled="isReadonly">编辑</a-button>
+                  <a-button type="link" danger @click="removeTrigger(index)" :disabled="isReadonly">删除</a-button>
                 </template>
                 
                 <a-list-item-meta>
@@ -92,7 +92,7 @@
       <a-tab-pane key="variables" tab="变量配置">
         <div class="variables-config">
           <div class="toolbar">
-            <a-button type="primary" @click="addVariable" size="small">
+            <a-button type="primary" @click="addVariable" size="small" :disabled="isReadonly">
               <template #icon><Icon icon="ant-design:plus-outlined" /></template>
               添加变量
             </a-button>
@@ -111,15 +111,15 @@
                 </a-tag>
               </template>
               <template v-if="column.key === 'protected'">
-                <a-switch v-model:checked="record.protected" size="small" />
+                <a-switch v-model:checked="record.protected" size="small" :disabled="isReadonly" />
               </template>
               <template v-if="column.key === 'masked'">
-                <a-switch v-model:checked="record.masked" size="small" />
+                <a-switch v-model:checked="record.masked" size="small" :disabled="isReadonly" />
               </template>
               <template v-if="column.key === 'action'">
                 <a-space>
-                  <a @click="editVariable(index)">编辑</a>
-                  <a @click="removeVariable(index)" style="color: #ff4d4f;">删除</a>
+                  <a-button type="link" @click="editVariable(index)" :disabled="isReadonly">编辑</a-button>
+                  <a-button type="link" danger @click="removeVariable(index)" :disabled="isReadonly">删除</a-button>
                 </a-space>
               </template>
             </template>
@@ -131,7 +131,7 @@
       <a-tab-pane key="notifications" tab="通知配置">
         <div class="notifications-config">
           <div class="toolbar">
-            <a-button type="primary" @click="addNotification" size="small">
+            <a-button type="primary" @click="addNotification" size="small" :disabled="isReadonly">
               <template #icon><Icon icon="ant-design:plus-outlined" /></template>
               添加通知
             </a-button>
@@ -141,8 +141,8 @@
             <template #renderItem="{ item, index }">
               <a-list-item>
                 <template #actions>
-                  <a @click="editNotification(index)">编辑</a>
-                  <a @click="removeNotification(index)" style="color: #ff4d4f;">删除</a>
+                  <a-button type="link" @click="editNotification(index)" :disabled="isReadonly">编辑</a-button>
+                  <a-button type="link" danger @click="removeNotification(index)" :disabled="isReadonly">删除</a-button>
                 </template>
                 
                 <a-list-item-meta>
@@ -178,7 +178,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, watch } from 'vue';
+  import { ref, reactive, watch, computed } from 'vue';
   import { Icon } from '/@/components/Icon';
   import { useModal } from '/@/components/Modal';
   import { useMessage } from '/@/hooks/web/useMessage';
@@ -192,6 +192,7 @@
 
   interface Props {
     value?: PipelineConfig;
+    readonly?: boolean;
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -201,12 +202,14 @@
       variables: [],
       notifications: [],
     }),
+    readonly: false,
   });
 
   const emit = defineEmits(['update:value']);
 
   const { createMessage } = useMessage();
   const activeTab = ref('stages');
+  const isReadonly = computed(() => !!props.readonly);
 
   // 配置数据
   const config = reactive<PipelineConfig>({
@@ -267,9 +270,28 @@
    * 编辑阶段
    */
   function editStage(index: number) {
+    const s = config.stages[index];
     openStageModal(true, {
       isUpdate: true,
-      record: config.stages[index],
+      // 将现有阶段数据映射到 StageModal 的字段，确保回填
+      record: {
+        stageName: s.name,
+        stageType: s.type,
+        order: s.order ?? index + 1,
+        executor: (s as any).executor,
+        commands: s.script,
+        workingDirectory: (s as any).workingDirectory,
+        environment: typeof s.environment === 'string' ? s.environment : s.environment ? JSON.stringify(s.environment, null, 2) : '',
+        timeout: s.timeout,
+        retryCount: s.retryCount,
+        continueOnError: (s as any).continueOnError ?? false,
+        parallel: (s as any).parallel ?? false,
+        conditions: typeof (s as any).conditions === 'string' ? (s as any).conditions : (s as any).conditions ? JSON.stringify((s as any).conditions, null, 2) : '',
+        artifacts: typeof (s as any).artifacts === 'string' ? (s as any).artifacts : (s as any).artifacts ? JSON.stringify((s as any).artifacts, null, 2) : '',
+        dependencies: Array.isArray(s.dependencies) ? s.dependencies.join(',') : (s as any).dependencies ?? '',
+        enabled: (s as any).enabled ?? true,
+        description: (s as any).description ?? '',
+      },
       index,
     });
   }
@@ -291,16 +313,52 @@
     const rawStage = data?.stage ?? data;
     const index = data?.index;
 
+    // 解析可能为 JSON 字符串的字段
+    const parseJSONIfString = (v: any) => {
+      if (!v) return undefined;
+      if (typeof v === 'string') {
+        try {
+          return JSON.parse(v);
+        } catch {
+          return v; // 保留原字符串
+        }
+      }
+      return v;
+    };
+
+    // 处理依赖字段（字符串转数组）
+    const normalizeDependencies = (deps: any): string[] | undefined => {
+      if (!deps) return undefined;
+      if (Array.isArray(deps)) return deps as string[];
+      if (typeof deps === 'string') {
+        return deps
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => !!s);
+      }
+      return undefined;
+    };
+
     // 规范化为 PipelineStage 结构
     const normalizedStage: PipelineStage = {
-      id:
-        rawStage?.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: rawStage?.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       name: rawStage?.name ?? rawStage?.stageName ?? '未命名阶段',
       type: rawStage?.type ?? rawStage?.stageType ?? 'custom',
+      script: rawStage?.script ?? rawStage?.commands ?? rawStage?.command ?? '',
       environment: rawStage?.environment ?? rawStage?.env ?? '',
       timeout: rawStage?.timeout ?? 30,
       retryCount: rawStage?.retryCount ?? 0,
-      script: rawStage?.script ?? rawStage?.command ?? ''
+      // 以下为 StageModal 扩展字段
+      order: rawStage?.order,
+      executor: rawStage?.executor,
+      workingDirectory: rawStage?.workingDirectory,
+      continueOnError: rawStage?.continueOnError,
+      parallel: rawStage?.parallel,
+      conditions: parseJSONIfString(rawStage?.conditions),
+      artifacts: parseJSONIfString(rawStage?.artifacts),
+      dependencies: normalizeDependencies(rawStage?.dependencies),
+      enabled: rawStage?.enabled,
+      description: rawStage?.description,
     } as PipelineStage;
 
     if (typeof index === 'number' && index >= 0) {

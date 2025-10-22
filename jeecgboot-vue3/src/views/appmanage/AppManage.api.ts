@@ -25,7 +25,7 @@ export enum Api {
   
   // 流水线配置相关
   getPipelineConfig = '/verto-backend/appmanage/pipeline/config',
-  savePipelineConfig = '/verto-backend/appmanage/pipeline/config/save',
+  savePipelineConfig = '/verto-backend/project/pipeline/config/save',
   deletePipelineConfig = '/verto-backend/appmanage/pipeline/config/delete',
   togglePipelineConfig = '/verto-backend/appmanage/pipeline/config/toggle',
   copyPipelineConfig = '/verto-backend/appmanage/pipeline/config/copy',
@@ -272,7 +272,7 @@ export const getAppStatistics = (appId: string) => {
 
 /**
  * 创建 Git 仓库（当前支持 GitHub）
- * @param payload 包含 gitUrl、token、visibility
+ * @param payload 包含 gitUrl、visibility
  */
 export const createGitRepo = (payload: any) => {
   return defHttp.post({ url: Api.createGitRepo, data: payload }, { isTransformResponse: false });
@@ -280,7 +280,7 @@ export const createGitRepo = (payload: any) => {
 
 /**
  * 校验 Git 权限
- * @param params 包含 gitUrl、token
+ * @param params 包含 gitUrl
  */
 export const checkGitPermission = (params: any) => {
   return defHttp.get({ url: Api.checkGitPermission, params }, { isTransformResponse: false });

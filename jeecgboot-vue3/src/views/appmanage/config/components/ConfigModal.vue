@@ -24,6 +24,14 @@
         v-model:value="configContent"
       />
     </div>
+
+    <!-- 明确的底部操作按钮，避免某些场景下默认确定按钮不显示 -->
+    <template #footer>
+      <a-space>
+        <a-button @click="closeModal">取消</a-button>
+        <a-button type="primary" @click="handleSubmit">保存</a-button>
+      </a-space>
+    </template>
   </BasicModal>
 </template>
 

@@ -87,8 +87,8 @@
       </a-card>
     </div>
 
-    <!-- 编辑弹窗 -->
-    <ConfigModal @register="registerModal" @success="handleEditSuccess" />
+    <!-- 编辑抽屉 -->
+    <ConfigDrawer @register="registerDrawer" @success="handleEditSuccess" />
     
     <!-- 导入弹窗 -->
     <ImportModal @register="registerImportModal" @success="handleImportSuccess" />
@@ -100,16 +100,17 @@
   import { useRoute, useRouter } from 'vue-router';
   import { Icon } from '/@/components/Icon';
   import { useModal } from '/@/components/Modal';
+  import { useDrawer } from '/@/components/Drawer';
   import { useMessage } from '/@/hooks/web/useMessage';
   import { downloadByData } from '/@/utils/file/download';
   
-  import ConfigModal from './components/ConfigModal.vue';
+  import ConfigDrawer from './components/ConfigDrawer.vue';
   import ImportModal from './components/ImportModal.vue';
   import PipelineConfigEditor from './components/PipelineConfigEditor.vue';
   import TrackingConfigEditor from './components/TrackingConfigEditor.vue';
   import CodeReviewConfigEditor from './components/CodeReviewConfigEditor.vue';
   
-  import { getConfigDetail, saveConfig as saveConfigApi, deleteConfig } from './api/Config.api';
+  import { getConfigDetail, saveConfig as saveConfigApi, deleteConfig, validateConfig } from './api/Config.api';
   import { configDetailTabs } from './data/Config.data';
   import type { ConfigModel } from './data/Config.data';
 
@@ -151,8 +152,8 @@
     });
   });
 
-  // 弹窗注册
-  const [registerModal, { openModal }] = useModal();
+  // 抽屉/弹窗注册
+  const [registerDrawer, { openDrawer }] = useDrawer();
   const [registerImportModal, { openModal: openImportModal }] = useModal();
 
   onMounted(() => {
@@ -201,7 +202,7 @@
    * 编辑配置
    */
   function editConfig() {
-    openModal(true, {
+    openDrawer(true, {
       isUpdate: true,
       record: configInfo,
     });
@@ -213,16 +214,56 @@
   async function saveConfig() {
     try {
       saving.value = true;
-      
-      const params = {
-        ...configInfo,
-        content: JSON.stringify(configContent.value),
+
+      // 先合并基础信息到配置内容中进行后端校验（后端要求 config 中包含 name 与 type）
+      const configForValidate = {
+        ...JSON.parse(JSON.stringify(configContent.value || {})),
+        name: configInfo.name,
+        type: configInfo.type,
       };
-      
+
+      let validateResp: any;
+      try {
+        validateResp = await validateConfig({
+          type: configInfo.type,
+          config: configForValidate,
+        });
+      } catch (e) {
+        console.warn('validateConfig failed:', e);
+      }
+
+      const v = validateResp?.result ?? validateResp;
+      if (v) {
+        if (Array.isArray(v.warnings) && v.warnings.length > 0) {
+          const warnMsg = v.warnings
+            .map((w: any) => `${w.field || 'general'}: ${w.message || ''}`)
+            .join('\n');
+          createMessage.info(`校验提示:\n${warnMsg}`);
+        }
+        if (v.valid === false) {
+          const errMsg = Array.isArray(v.errors)
+            ? v.errors.map((e: any) => `${e.field || 'field'}: ${e.message || ''}`).join('\n')
+            : '配置校验未通过';
+          createMessage.error(`保存被阻止，原因如下：\n${errMsg}`);
+          return;
+        }
+      }
+
+      // 校验通过后保存。注意后端字段为 config（字符串），不是 content
+      const params = {
+        id: configInfo.id,
+        name: configInfo.name,
+        type: configInfo.type,
+        status: configInfo.status,
+        environment: configInfo.environment,
+        description: configInfo.description,
+        config: JSON.parse(JSON.stringify(configContent.value || {})),
+      };
+
       await saveConfigApi(params);
       createMessage.success('保存成功');
-      
-      // 重新加载详情
+
+      // 重新加载详情，刷新界面
       await loadConfigDetail();
     } catch (error) {
       createMessage.error('保存失败');
@@ -282,7 +323,7 @@
       updateTime: '',
     };
     
-    openModal(true, {
+    openDrawer(true, {
       isUpdate: false,
       record: newConfig,
     });

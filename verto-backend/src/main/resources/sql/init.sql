@@ -208,3 +208,26 @@ INSERT INTO `material_component` (`id`, `component_name`, `component_code`, `com
 INSERT INTO `material_template` (`id`, `template_name`, `template_code`, `template_type`, `category`, `description`, `version`, `author`, `tags`, `framework`, `preview_image`, `source_code`, `config_schema`, `demo_url`, `documentation`, `download_count`, `star_count`, `create_by`, `update_by`) VALUES
 ('1', '管理后台模板', 'AdminTemplate', 'project', '后台管理', '基于Vue3+Vite的现代化管理后台模板', '3.2.1', 'wangwu', '["Vue3", "Vite", "管理后台"]', 'Vue3', 'https://example.com/preview/admin-template.png', '// Vue3 Admin Template Source Code', '{"theme": "string", "layout": "string"}', 'https://demo.admin-template.com', '完整的管理后台解决方案', 2340, 156, 'admin', 'wangwu'),
 ('2', '移动端H5模板', 'MobileH5Template', 'project', '移动端', '响应式移动端H5应用模板', '2.0.8', 'zhaoliu', '["H5", "移动端", "响应式"]', 'Vue3', 'https://example.com/preview/mobile-h5.png', '// Mobile H5 Template Source Code', '{"theme": "string", "features": "array"}', 'https://demo.mobile-h5.com', '适配各种移动设备的H5模板', 1680, 92, 'admin', 'zhaoliu');
+
+-- 配置管理表
+DROP TABLE IF EXISTS `app_config`;
+CREATE TABLE `app_config` (
+  `id` varchar(32) NOT NULL COMMENT '主键ID',
+  `name` varchar(100) NOT NULL COMMENT '配置名称',
+  `type` varchar(50) NOT NULL COMMENT '配置类型(pipeline/tracking/code-review/other)',
+  `status` varchar(20) DEFAULT 'disabled' COMMENT '状态(enabled/disabled)',
+  `environment` varchar(20) COMMENT '环境(dev/test/prod)',
+  `description` text COMMENT '描述',
+  `app_id` varchar(32) COMMENT '关联应用ID',
+  `config` longtext COMMENT '配置内容(JSON)',
+  `create_by` varchar(50) COMMENT '创建人',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by` varchar(50) COMMENT '更新人',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_name` (`name`),
+  KEY `idx_type` (`type`),
+  KEY `idx_status` (`status`),
+  KEY `idx_app_id` (`app_id`),
+  KEY `idx_env` (`environment`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='配置管理表';

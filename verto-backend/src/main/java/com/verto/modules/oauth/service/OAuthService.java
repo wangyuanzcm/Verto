@@ -12,11 +12,14 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class OAuthService {
     private final OAuthUserMapper userMapper;
     private final OAuthTokenMapper tokenMapper;
+    // 简易内存绑定表：key = systemUserId+"|"+platform, value = thirdUserUuid
+    private final Map<String, String> userBindings = new ConcurrentHashMap<>();
 
     public OAuthService(OAuthUserMapper userMapper, OAuthTokenMapper tokenMapper) {
         this.userMapper = userMapper;
@@ -85,16 +88,12 @@ public class OAuthService {
             QueryWrapper<OAuthUser> qw = new QueryWrapper<>();
             qw.eq("platform", platform).eq("oauth_user_id", thirdUserUuid);
             OAuthUser oauthUser = userMapper.selectOne(qw);
-            
             if (oauthUser == null) {
                 return false; // 第三方用户不存在
             }
-            
-            // 这里应该创建一个用户绑定表来关联系统用户和OAuth用户
-            // 暂时先更新OAuth用户表，添加系统用户ID字段
-            // TODO: 创建 user_oauth_binding 表来管理绑定关系
-            
-            return true; // 暂时返回成功
+            // 简易内存绑定（后续应落库到 user_oauth_binding 表）
+            userBindings.put(systemUserId + "|" + platform, thirdUserUuid);
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -109,12 +108,31 @@ public class OAuthService {
      */
     public boolean unbindUserAccount(String systemUserId, String platform) {
         try {
-            // TODO: 从绑定表中删除对应记录
+            userBindings.remove(systemUserId + "|" + platform);
             return true; // 暂时返回成功
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * 根据系统用户和平台，获取最近一次保存的 access_token（从数据库）
+     * 仅用于后端代理调用，不回传到前端。
+     */
+    public String getAccessTokenForSystemUser(String systemUserId, String platform) {
+        String thirdUserUuid = userBindings.get(systemUserId + "|" + platform);
+        if (!StringUtils.hasText(thirdUserUuid)) {
+            return null;
+        }
+        QueryWrapper<OAuthUser> qw = new QueryWrapper<>();
+        qw.eq("platform", platform).eq("oauth_user_id", thirdUserUuid);
+        OAuthUser user = userMapper.selectOne(qw);
+        if (user == null || !StringUtils.hasText(user.getLastTokenId())) {
+            return null;
+        }
+        OAuthToken token = tokenMapper.selectById(user.getLastTokenId());
+        return token != null ? token.getAccessToken() : null;
     }
 
     /**
@@ -124,22 +142,25 @@ public class OAuthService {
      */
     public Map<String, Object> getUserBindings(String systemUserId) {
         Map<String, Object> result = new HashMap<>();
-        
         try {
-            // TODO: 从绑定表中查询用户的所有绑定信息
-            // 暂时返回示例数据
-            Map<String, Object> githubBinding = new HashMap<>();
-            githubBinding.put("platform", "github");
-            githubBinding.put("username", "test_user");
-            githubBinding.put("avatar", "https://avatars.githubusercontent.com/u/12345");
-            githubBinding.put("bound", true);
-            
-            result.put("github", githubBinding);
-            
+            String githubUuid = userBindings.get(systemUserId + "|" + "github");
+            if (StringUtils.hasText(githubUuid)) {
+                QueryWrapper<OAuthUser> qw = new QueryWrapper<>();
+                qw.eq("platform", "github").eq("oauth_user_id", githubUuid);
+                OAuthUser oauthUser = userMapper.selectOne(qw);
+                if (oauthUser != null) {
+                    Map<String, Object> githubBinding = new HashMap<>();
+                    githubBinding.put("platform", "github");
+                    githubBinding.put("username", oauthUser.getLogin());
+                    githubBinding.put("avatar", oauthUser.getAvatarUrl());
+                    githubBinding.put("bound", true);
+                    githubBinding.put("uuid", oauthUser.getOauthUserId());
+                    result.put("github", githubBinding);
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
         return result;
     }
 }

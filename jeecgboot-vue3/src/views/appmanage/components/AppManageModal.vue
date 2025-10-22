@@ -248,16 +248,9 @@
               // 写入到提交数据
               submitData.gitUrl = repoUrl as any;
 
-              // 从 Cookie 中读取 GitHub OAuth Token（创建仓库需要令牌）
-              function getCookie(name: string): string | null {
-                const matches = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
-                return matches ? decodeURIComponent(matches[1]) : null;
-              }
-              const cookieToken = getCookie('verto_github_token');
-
+              // 不再从 Cookie 读取 GitHub OAuth Token，改为由后端代理使用绑定令牌
               const gitResp = await createGitRepo({
                 gitUrl: repoUrl,
-                token: cookieToken || undefined,
                 visibility: 'private',
               });
               if (!gitResp?.success) {

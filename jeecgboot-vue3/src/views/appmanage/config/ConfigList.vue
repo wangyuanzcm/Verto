@@ -6,25 +6,7 @@
         <a-button type="primary" @click="handleAdd" preIcon="ant-design:plus-outlined">
           新增配置
         </a-button>
-        <!-- 新增流水线模板（预置） -->
-        <a-dropdown>
-          <a-button type="primary" preIcon="ant-design:plus-outlined">
-            新增流水线模板
-          </a-button>
-          <template #overlay>
-            <a-menu>
-              <a-menu-item key="tpl-standard" @click="handleAddTemplate('standard')">
-                标准构建流水线
-              </a-menu-item>
-              <a-menu-item key="tpl-test" @click="handleAddTemplate('test')">
-                测试流水线
-              </a-menu-item>
-              <a-menu-item key="tpl-deploy" @click="handleAddTemplate('deploy')">
-                部署流水线
-              </a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
+
         <a-button
           type="primary"
           @click="handleBatchDelete"
@@ -85,18 +67,7 @@
               tooltip: '查看详情',
               onClick: handleDetail.bind(null, record),
             },
-            {
-              icon: 'ant-design:cloud-upload-outlined',
-              tooltip: '部署',
-              onClick: handleDeploy.bind(null, record),
-              ifShow: record.status === 'enabled',
-            },
-            {
-              icon: 'ant-design:rollback-outlined',
-              tooltip: '回滚',
-              onClick: handleRollback.bind(null, record),
-              ifShow: record.status === 'enabled',
-            },
+
           ]"
           :dropDownActions="[
             {
@@ -326,10 +297,14 @@
   }
 
   /**
-   * 查看详情
+   * 查看详情（改为抽屉展示）
    */
   function handleDetail(record: Recordable) {
-    go(`/appmanage/config/detail/${record.id}`);
+    openDrawer(true, {
+      record,
+      isUpdate: true,
+      readonly: true,
+    });
   }
 
   /**

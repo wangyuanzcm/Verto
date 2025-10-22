@@ -5,7 +5,7 @@
       <a-tab-pane key="events" tab="事件配置">
         <div class="events-config">
           <div class="toolbar">
-            <a-button type="primary" @click="addEvent" size="small">
+            <a-button type="primary" @click="addEvent" size="small" :disabled="isReadonly">
               <template #icon><Icon icon="ant-design:plus-outlined" /></template>
               添加事件
             </a-button>
@@ -19,7 +19,7 @@
           >
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'enabled'">
-                <a-switch v-model:checked="record.enabled" size="small" />
+                <a-switch v-model:checked="record.enabled" size="small" :disabled="isReadonly" />
               </template>
               <template v-if="column.key === 'properties'">
                 <a-tag v-for="prop in record.properties" :key="prop" size="small">
@@ -28,8 +28,8 @@
               </template>
               <template v-if="column.key === 'action'">
                 <a-space>
-                  <a @click="editEvent(index)">编辑</a>
-                  <a @click="removeEvent(index)" style="color: #ff4d4f;">删除</a>
+                  <a-button type="link" @click="editEvent(index)" :disabled="isReadonly">编辑</a-button>
+                  <a-button type="link" danger @click="removeEvent(index)" :disabled="isReadonly">删除</a-button>
                 </a-space>
               </template>
             </template>
@@ -41,7 +41,7 @@
       <a-tab-pane key="properties" tab="属性配置">
         <div class="properties-config">
           <div class="toolbar">
-            <a-button type="primary" @click="addProperty" size="small">
+            <a-button type="primary" @click="addProperty" size="small" :disabled="isReadonly">
               <template #icon><Icon icon="ant-design:plus-outlined" /></template>
               添加属性
             </a-button>
@@ -60,7 +60,7 @@
                 </a-tag>
               </template>
               <template v-if="column.key === 'required'">
-                <a-switch v-model:checked="record.required" size="small" />
+                <a-switch v-model:checked="record.required" size="small" :disabled="isReadonly" />
               </template>
               <template v-if="column.key === 'defaultValue'">
                 <a-typography-text code v-if="record.defaultValue">
@@ -70,8 +70,8 @@
               </template>
               <template v-if="column.key === 'action'">
                 <a-space>
-                  <a @click="editProperty(index)">编辑</a>
-                  <a @click="removeProperty(index)" style="color: #ff4d4f;">删除</a>
+                  <a-button type="link" @click="editProperty(index)" :disabled="isReadonly">编辑</a-button>
+                  <a-button type="link" danger @click="removeProperty(index)" :disabled="isReadonly">删除</a-button>
                 </a-space>
               </template>
             </template>
@@ -83,7 +83,7 @@
       <a-tab-pane key="filters" tab="过滤器配置">
         <div class="filters-config">
           <div class="toolbar">
-            <a-button type="primary" @click="addFilter" size="small">
+            <a-button type="primary" @click="addFilter" size="small" :disabled="isReadonly">
               <template #icon><Icon icon="ant-design:plus-outlined" /></template>
               添加过滤器
             </a-button>
@@ -106,8 +106,8 @@
               </template>
               <template v-if="column.key === 'action'">
                 <a-space>
-                  <a @click="editFilter(index)">编辑</a>
-                  <a @click="removeFilter(index)" style="color: #ff4d4f;">删除</a>
+                  <a-button type="link" @click="editFilter(index)" :disabled="isReadonly">编辑</a-button>
+                  <a-button type="link" danger @click="removeFilter(index)" :disabled="isReadonly">删除</a-button>
                 </a-space>
               </template>
             </template>
@@ -122,7 +122,7 @@
             <a-row :gutter="16">
               <a-col :span="8">
                 <a-form-item label="启用采样">
-                  <a-switch v-model:checked="config.sampling.enabled" />
+                  <a-switch v-model:checked="config.sampling.enabled" :disabled="isReadonly" />
                 </a-form-item>
               </a-col>
               <a-col :span="8">
@@ -132,7 +132,7 @@
                     :min="0"
                     :max="1"
                     :step="0.1"
-                    :disabled="!config.sampling.enabled"
+                    :disabled="isReadonly || !config.sampling.enabled"
                     style="width: 100%"
                   />
                 </a-form-item>
@@ -141,7 +141,7 @@
                 <a-form-item label="采样策略">
                   <a-select
                     v-model:value="config.sampling.strategy"
-                    :disabled="!config.sampling.enabled"
+                    :disabled="isReadonly || !config.sampling.enabled"
                   >
                     <a-select-option value="random">随机采样</a-select-option>
                     <a-select-option value="user_based">基于用户</a-select-option>
@@ -167,7 +167,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, watch } from 'vue';
+  import { ref, reactive, watch, computed } from 'vue';
   import { Icon } from '/@/components/Icon';
   import { useModal } from '/@/components/Modal';
   import { useMessage } from '/@/hooks/web/useMessage';
@@ -180,6 +180,7 @@
 
   interface Props {
     value?: TrackingConfig;
+    readonly?: boolean;
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -193,12 +194,14 @@
         strategy: 'random',
       },
     }),
+    readonly: false,
   });
 
   const emit = defineEmits(['update:value']);
 
   const { createMessage } = useMessage();
   const activeTab = ref('events');
+  const isReadonly = computed(() => !!props.readonly);
 
   // 配置数据
   const config = reactive<TrackingConfig>({
@@ -273,6 +276,7 @@
    * 添加事件
    */
   function addEvent() {
+    if (isReadonly.value) return createMessage.warning('当前为只读模式，无法修改');
     openEventModal(true, {
       isUpdate: false,
     });
@@ -282,6 +286,7 @@
    * 编辑事件
    */
   function editEvent(index: number) {
+    if (isReadonly.value) return createMessage.warning('当前为只读模式，无法修改');
     openEventModal(true, {
       isUpdate: true,
       record: config.events[index],
@@ -293,6 +298,7 @@
    * 删除事件
    */
   function removeEvent(index: number) {
+    if (isReadonly.value) return createMessage.warning('当前为只读模式，无法修改');
     config.events.splice(index, 1);
   }
 
@@ -313,6 +319,7 @@
    * 添加属性
    */
   function addProperty() {
+    if (isReadonly.value) return createMessage.warning('当前为只读模式，无法修改');
     openPropertyModal(true, {
       isUpdate: false,
     });
@@ -322,6 +329,7 @@
    * 编辑属性
    */
   function editProperty(index: number) {
+    if (isReadonly.value) return createMessage.warning('当前为只读模式，无法修改');
     openPropertyModal(true, {
       isUpdate: true,
       record: config.properties[index],
@@ -333,6 +341,7 @@
    * 删除属性
    */
   function removeProperty(index: number) {
+    if (isReadonly.value) return createMessage.warning('当前为只读模式，无法修改');
     config.properties.splice(index, 1);
   }
 
@@ -353,6 +362,7 @@
    * 添加过滤器
    */
   function addFilter() {
+    if (isReadonly.value) return createMessage.warning('当前为只读模式，无法修改');
     openFilterModal(true, {
       isUpdate: false,
     });
@@ -362,6 +372,7 @@
    * 编辑过滤器
    */
   function editFilter(index: number) {
+    if (isReadonly.value) return createMessage.warning('当前为只读模式，无法修改');
     openFilterModal(true, {
       isUpdate: true,
       record: config.filters[index],
@@ -373,6 +384,7 @@
    * 删除过滤器
    */
   function removeFilter(index: number) {
+    if (isReadonly.value) return createMessage.warning('当前为只读模式，无法修改');
     config.filters.splice(index, 1);
   }
 

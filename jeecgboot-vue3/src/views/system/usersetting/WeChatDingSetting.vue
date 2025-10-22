@@ -103,12 +103,28 @@
     try {
       const vertoRes = await vertoOAuthGetUserBindings();
       if (vertoRes && vertoRes.success && vertoRes.result) {
-        const list = Array.isArray(vertoRes.result) ? vertoRes.result : [vertoRes.result];
+        const result = vertoRes.result;
+        let list: any[] = [];
+        if (Array.isArray(result)) {
+          list = result;
+        } else if (result && typeof result === 'object') {
+          // 兼容 { github: {...}, gitlab: {...} } 这种以平台为key的结构，展开为数组
+          Object.keys(result).forEach((key) => {
+            const val = (result as any)[key];
+            if (val && typeof val === 'object') {
+              list.push({ ...val, platform: val.platform || key });
+            }
+          });
+        } else {
+          list = [result];
+        }
+
         list.forEach((item: any) => {
           const normalized = {
             realname: item?.username || item?.realname || '',
             thirdType: (item?.platform || item?.thirdType || '').toLowerCase(),
-            sysUserId: userStore.getUserInfo?.id || '',
+            // 只有服务端标记为已绑定时，才认为当前用户已绑定（影响“绑定/解绑”按钮和图标颜色）
+            sysUserId: item?.bound ? (userStore.getUserInfo?.id || '') : '',
             id: item?.id || '',
             uuid: item?.uuid || '',
           };

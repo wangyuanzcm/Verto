@@ -5,7 +5,7 @@
       <a-tab-pane key="rules" tab="审查规则">
         <div class="rules-config">
           <div class="toolbar">
-            <a-button type="primary" @click="addRule" size="small">
+            <a-button type="primary" @click="addRule" size="small" :disabled="isReadonly">
               <template #icon><Icon icon="ant-design:plus-outlined" /></template>
               添加规则
             </a-button>
@@ -29,12 +29,12 @@
                 </a-tag>
               </template>
               <template v-if="column.key === 'enabled'">
-                <a-switch v-model:checked="record.enabled" size="small" />
+                <a-switch v-model:checked="record.enabled" size="small" :disabled="isReadonly" />
               </template>
               <template v-if="column.key === 'action'">
                 <a-space>
-                  <a @click="editRule(index)">编辑</a>
-                  <a @click="removeRule(index)" style="color: #ff4d4f;">删除</a>
+                  <a-button type="link" @click="editRule(index)" :disabled="isReadonly">编辑</a-button>
+                  <a-button type="link" danger @click="removeRule(index)" :disabled="isReadonly">删除</a-button>
                 </a-space>
               </template>
             </template>
@@ -46,7 +46,7 @@
       <a-tab-pane key="checkers" tab="检查器配置">
         <div class="checkers-config">
           <div class="toolbar">
-            <a-button type="primary" @click="addChecker" size="small">
+            <a-button type="primary" @click="addChecker" size="small" :disabled="isReadonly">
               <template #icon><Icon icon="ant-design:plus-outlined" /></template>
               添加检查器
             </a-button>
@@ -65,15 +65,15 @@
                 </a-tag>
               </template>
               <template v-if="column.key === 'enabled'">
-                <a-switch v-model:checked="record.enabled" size="small" />
+                <a-switch v-model:checked="record.enabled" size="small" :disabled="isReadonly" />
               </template>
               <template v-if="column.key === 'config'">
-                <a-button size="small" @click="configChecker(index)">配置</a-button>
+                <a-button size="small" @click="configChecker(index)" :disabled="isReadonly">配置</a-button>
               </template>
               <template v-if="column.key === 'action'">
                 <a-space>
-                  <a @click="editChecker(index)">编辑</a>
-                  <a @click="removeChecker(index)" style="color: #ff4d4f;">删除</a>
+                  <a-button type="link" @click="editChecker(index)" :disabled="isReadonly">编辑</a-button>
+                  <a-button type="link" danger @click="removeChecker(index)" :disabled="isReadonly">删除</a-button>
                 </a-space>
               </template>
             </template>
@@ -88,7 +88,7 @@
             <a-row :gutter="16">
               <a-col :span="8">
                 <a-form-item label="自动分配审查者">
-                  <a-switch v-model:checked="config.workflow.autoAssign" />
+                  <a-switch v-model:checked="config.workflow.autoAssign" :disabled="isReadonly" />
                 </a-form-item>
               </a-col>
               <a-col :span="8">
@@ -98,6 +98,7 @@
                     :min="1"
                     :max="10"
                     style="width: 100%"
+                    :disabled="isReadonly"
                   />
                 </a-form-item>
               </a-col>
@@ -108,6 +109,7 @@
                     :min="1"
                     :max="168"
                     style="width: 100%"
+                    :disabled="isReadonly"
                   />
                 </a-form-item>
               </a-col>
@@ -116,7 +118,7 @@
             <a-row :gutter="16">
               <a-col :span="12">
                 <a-form-item label="审查者分配策略">
-                  <a-select v-model:value="config.workflow.assignmentStrategy">
+                  <a-select v-model:value="config.workflow.assignmentStrategy" :disabled="isReadonly">
                     <a-select-option value="round_robin">轮询分配</a-select-option>
                     <a-select-option value="load_balanced">负载均衡</a-select-option>
                     <a-select-option value="expertise_based">专业领域</a-select-option>
@@ -126,7 +128,7 @@
               </a-col>
               <a-col :span="12">
                 <a-form-item label="合并策略">
-                  <a-select v-model:value="config.workflow.mergeStrategy">
+                  <a-select v-model:value="config.workflow.mergeStrategy" :disabled="isReadonly">
                     <a-select-option value="all_approved">全部通过</a-select-option>
                     <a-select-option value="majority_approved">多数通过</a-select-option>
                     <a-select-option value="one_approved">一人通过</a-select-option>
@@ -260,7 +262,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, watch } from 'vue';
+  import { ref, reactive, watch, computed } from 'vue';
   import { Icon } from '/@/components/Icon';
   import { useModal } from '/@/components/Modal';
   import { useMessage } from '/@/hooks/web/useMessage';
@@ -274,6 +276,7 @@
 
   interface Props {
     value?: CodeReviewConfig;
+    readonly?: boolean;
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -300,12 +303,14 @@
         },
       },
     }),
+    readonly: false,
   });
 
   const emit = defineEmits(['update:value']);
 
   const { createMessage } = useMessage();
   const activeTab = ref('rules');
+  const isReadonly = computed(() => !!props.readonly);
 
   // 配置数据
   const config = reactive<CodeReviewConfig>({

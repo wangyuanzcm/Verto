@@ -12,6 +12,7 @@ import com.verto.modules.appmanage.service.IAppManageService;
 import com.verto.modules.appmanage.service.IAppStatisticsService;
 import com.verto.modules.appmanage.service.IPackageJsonService;
 import com.verto.modules.appmanage.service.IAppGitRepoInfoService;
+import com.verto.modules.oauth.service.OAuthService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.client.RestTemplate;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +21,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.Cookie;
+import org.springframework.util.StringUtils;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpMethod;
 
 import java.util.Arrays;
 import java.util.Date;
@@ -52,6 +60,37 @@ public class AppManageController {
     @Autowired
     @Qualifier("githubRestTemplate")
     private RestTemplate githubRestTemplate;
+
+    @Autowired
+    private OAuthService oauthService;
+
+    // 解析当前系统用户绑定的 GitHub 访问令牌（优先从 X-User-Id 获取用户ID）
+    private String resolveUserToken(HttpServletRequest request) {
+        if (request == null) return null;
+        try {
+            String currentUserId = request.getHeader("X-User-Id");
+            if (!StringUtils.hasText(currentUserId)) {
+                return null;
+            }
+            String dbToken = oauthService.getAccessTokenForSystemUser(currentUserId, "github");
+            if (StringUtils.hasText(dbToken)) {
+                return dbToken.trim();
+            }
+            // Fallback（仅开发调试用途）：若数据库未取到绑定令牌，则尝试从 Cookie 中读取 verto_github_token
+            Cookie[] cookies = request.getCookies();
+            if (cookies != null) {
+                for (Cookie c : cookies) {
+                    if ("verto_github_token".equals(c.getName()) && StringUtils.hasText(c.getValue())) {
+                        log.warn("未从数据库取到用户GitHub令牌，使用Cookie verto_github_token 作为临时令牌，userId={}", currentUserId);
+                        return c.getValue().trim();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("解析用户GitHub令牌失败: {}", e.getMessage());
+        }
+        return null;
+    }
 
     /**
      * 分页查询应用列表
@@ -214,7 +253,7 @@ public class AppManageController {
      */
     @Operation(summary = "同步应用的Git仓库详细信息并持久化")
     @PostMapping("/git/sync")
-    public Result<AppGitRepoInfo> syncGitRepoInfo(@Parameter(description = "应用ID") @RequestParam(name = "appId", required = true) String appId) {
+    public Result<AppGitRepoInfo> syncGitRepoInfo(@Parameter(description = "应用ID") @RequestParam(name = "appId", required = true) String appId, HttpServletRequest request) {
         try {
             AppManage appManage = appManageService.getById(appId);
             if (appManage == null) {
@@ -232,85 +271,108 @@ public class AppManageController {
             String owner = ownerRepo[0];
             String repo = ownerRepo[1];
 
-            // 获取仓库基本信息
-            String repoUrl = String.format("https://api.github.com/repos/%s/%s", owner, repo);
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> repoInfo = githubRestTemplate.getForObject(repoUrl, java.util.Map.class);
-            if (repoInfo == null || repoInfo.isEmpty()) {
-                return Result.error("GitHub 仓库信息获取失败");
+            // 根据当前用户解析 GitHub 令牌；若为空则不设置头，交由 PAT 拦截器兜底
+            String userToken = resolveUserToken(request);
+            HttpHeaders headers = new HttpHeaders();
+            // 始终设置 Accept 头
+            headers.set(HttpHeaders.ACCEPT, "application/vnd.github+json");
+            if (StringUtils.hasText(userToken)) {
+                String tokenVal = userToken.trim();
+                String scheme = (tokenVal.startsWith("ghp_") || tokenVal.startsWith("github_pat_")) ? "token" : "Bearer";
+                headers.set(HttpHeaders.AUTHORIZATION, scheme + " " + tokenVal);
+                log.info("/git/sync 使用GitHub授权方案: {} , userId={}", scheme, request.getHeader("X-User-Id"));
+            } else {
+                log.info("/git/sync 未解析到用户令牌，准备使用全局PAT（若已配置） , userId={}", request.getHeader("X-User-Id"));
             }
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            AppGitRepoInfo info = new AppGitRepoInfo();
-            info.setAppId(appId);
-            info.setOwner(owner);
-            info.setRepoName(repo);
-            info.setHtmlUrl((String) repoInfo.get("html_url"));
-            info.setCloneUrl((String) repoInfo.get("clone_url"));
-            info.setSshUrl((String) repoInfo.get("ssh_url"));
-            info.setDescription((String) repoInfo.get("description"));
-            Object privateObj = repoInfo.get("private");
-            info.setVisibility(Boolean.TRUE.equals(privateObj) ? "private" : "public");
-            info.setStars(toInt(repoInfo.get("stargazers_count")));
-            info.setForks(toInt(repoInfo.get("forks_count")));
-            info.setOpenIssues(toInt(repoInfo.get("open_issues_count")));
-            Object licenseObj = repoInfo.get("license");
-            if (licenseObj instanceof java.util.Map) {
-                info.setLicense((String) ((java.util.Map<?, ?>) licenseObj).get("name"));
-            }
-            Object topicsObj = repoInfo.get("topics");
-            if (topicsObj instanceof java.util.List) {
-                info.setTopics(String.join(",", ((java.util.List<String>) topicsObj)));
-            }
-            String defaultBranch = (String) repoInfo.get("default_branch");
-            info.setDefaultBranch(defaultBranch);
-            info.setCreatedAt(parseIsoDatetime((String) repoInfo.get("created_at")));
-            info.setUpdatedAt(parseIsoDatetime((String) repoInfo.get("updated_at")));
-
-            // 获取分支数量（仅统计第一页）
             try {
-                String branchesUrl = String.format("https://api.github.com/repos/%s/%s/branches?per_page=100", owner, repo);
-                java.util.List<?> branches = githubRestTemplate.getForObject(branchesUrl, java.util.List.class);
-                if (branches != null) {
-                    info.setBranchCount(branches.size());
+                String repoUrl = String.format("https://api.github.com/repos/%s/%s", owner, repo);
+                ResponseEntity<java.util.Map> repoResp = githubRestTemplate.exchange(repoUrl, HttpMethod.GET, entity, java.util.Map.class);
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> repoInfo = (java.util.Map<String, Object>) repoResp.getBody();
+                if (repoInfo == null || repoInfo.isEmpty()) {
+                    return Result.error("GitHub 仓库信息获取失败");
                 }
-            } catch (Exception e) {
-                log.warn("获取分支列表失败: {}", e.getMessage());
-            }
 
-            // 获取默认分支最新提交
-            try {
-                if (defaultBranch != null && !defaultBranch.isEmpty()) {
-                    String commitsUrl = String.format("https://api.github.com/repos/%s/%s/commits?sha=%s&per_page=1", owner, repo, defaultBranch);
-                    java.util.List<?> commits = githubRestTemplate.getForObject(commitsUrl, java.util.List.class);
-                    if (commits != null && !commits.isEmpty()) {
-                        Object first = commits.get(0);
-                        if (first instanceof java.util.Map) {
-                            java.util.Map<?, ?> commitMap = (java.util.Map<?, ?>) first;
-                            info.setLastCommitSha((String) commitMap.get("sha"));
-                            Object commitInner = commitMap.get("commit");
-                            if (commitInner instanceof java.util.Map) {
-                                java.util.Map<?, ?> inner = (java.util.Map<?, ?>) commitInner;
-                                info.setLastCommitMessage((String) inner.get("message"));
-                                Object committerObj = inner.get("committer");
-                                if (committerObj instanceof java.util.Map) {
-                                    java.util.Map<?, ?> committerMap = (java.util.Map<?, ?>) committerObj;
-                                    info.setLastCommitter((String) committerMap.get("name"));
-                                    info.setLastCommitTime(parseIsoDatetime((String) committerMap.get("date")));
+                AppGitRepoInfo info = new AppGitRepoInfo();
+                info.setAppId(appId);
+                info.setOwner(owner);
+                info.setRepoName(repo);
+                info.setHtmlUrl((String) repoInfo.get("html_url"));
+                info.setCloneUrl((String) repoInfo.get("clone_url"));
+                info.setSshUrl((String) repoInfo.get("ssh_url"));
+                info.setDescription((String) repoInfo.get("description"));
+                Object privateObj = repoInfo.get("private");
+                info.setVisibility(Boolean.TRUE.equals(privateObj) ? "private" : "public");
+                info.setStars(toInt(repoInfo.get("stargazers_count")));
+                info.setForks(toInt(repoInfo.get("forks_count")));
+                info.setOpenIssues(toInt(repoInfo.get("open_issues_count")));
+                Object licenseObj = repoInfo.get("license");
+                if (licenseObj instanceof java.util.Map) {
+                    info.setLicense((String) ((java.util.Map<?, ?>) licenseObj).get("name"));
+                }
+                Object topicsObj = repoInfo.get("topics");
+                if (topicsObj instanceof java.util.List) {
+                    info.setTopics(String.join(",", ((java.util.List<String>) topicsObj)));
+                }
+                String defaultBranch = (String) repoInfo.get("default_branch");
+                info.setDefaultBranch(defaultBranch);
+                info.setCreatedAt(parseIsoDatetime((String) repoInfo.get("created_at")));
+                info.setUpdatedAt(parseIsoDatetime((String) repoInfo.get("updated_at")));
+
+                // 获取分支数量（仅统计第一页）
+                try {
+                    String branchesUrl = String.format("https://api.github.com/repos/%s/%s/branches?per_page=100", owner, repo);
+                    ResponseEntity<java.util.List> branchesResp = githubRestTemplate.exchange(branchesUrl, HttpMethod.GET, entity, java.util.List.class);
+                    java.util.List<?> branches = branchesResp.getBody();
+                    if (branches != null) {
+                        info.setBranchCount(branches.size());
+                    }
+                } catch (Exception e1) {
+                    log.warn("获取分支列表失败: {}", e1.getMessage());
+                }
+
+                // 获取默认分支最新提交
+                try {
+                    if (defaultBranch != null && !defaultBranch.isEmpty()) {
+                        String commitsUrl = String.format("https://api.github.com/repos/%s/%s/commits?sha=%s&per_page=1", owner, repo, defaultBranch);
+                        ResponseEntity<java.util.List> commitsResp = githubRestTemplate.exchange(commitsUrl, HttpMethod.GET, entity, java.util.List.class);
+                        java.util.List<?> commits = commitsResp.getBody();
+                        if (commits != null && !commits.isEmpty()) {
+                            Object first = commits.get(0);
+                            if (first instanceof java.util.Map) {
+                                java.util.Map<?, ?> commitMap = (java.util.Map<?, ?>) first;
+                                info.setLastCommitSha((String) commitMap.get("sha"));
+                                Object commitInner = commitMap.get("commit");
+                                if (commitInner instanceof java.util.Map) {
+                                    java.util.Map<?, ?> inner = (java.util.Map<?, ?>) commitInner;
+                                    info.setLastCommitMessage((String) inner.get("message"));
+                                    Object committerObj = inner.get("committer");
+                                    if (committerObj instanceof java.util.Map) {
+                                        java.util.Map<?, ?> committerMap = (java.util.Map<?, ?>) committerObj;
+                                        info.setLastCommitter((String) committerMap.get("name"));
+                                        info.setLastCommitTime(parseIsoDatetime((String) committerMap.get("date")));
+                                    }
                                 }
                             }
                         }
                     }
+                } catch (Exception e2) {
+                    log.warn("获取最新提交失败: {}", e2.getMessage());
                 }
-            } catch (Exception e) {
-                log.warn("获取最新提交失败: {}", e.getMessage());
-            }
 
-            info.setLastSyncedAt(java.time.LocalDateTime.now());
-            boolean ok = appGitRepoInfoService.upsertByAppId(info);
-            if (!ok) {
-                return Result.error("持久化 Git 仓库信息失败");
+                info.setLastSyncedAt(java.time.LocalDateTime.now());
+                boolean ok = appGitRepoInfoService.upsertByAppId(info);
+                if (!ok) {
+                    return Result.error("持久化 Git 仓库信息失败");
+                }
+                return Result.ok(info);
+            } catch (org.springframework.web.client.HttpClientErrorException.Unauthorized uex) {
+                // 用户令牌或PAT无效
+                String hint = "GitHub凭证无效，请先在【设置-账号绑定】绑定GitHub或更新PAT（非必填）。";
+                return Result.error("同步失败: 401 Unauthorized - " + hint);
             }
-            return Result.ok(info);
         } catch (Exception e) {
             log.error("同步Git仓库信息失败", e);
             return Result.error("同步失败: " + e.getMessage());

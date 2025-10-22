@@ -177,21 +177,16 @@ public class OAuthController {
         OAuthUser user = oauthService.upsertUser("github", oauthUserId, login, name, avatarUrl, email);
         OAuthToken token = oauthService.saveToken("github", oauthUserId, accessToken, tokenType, scope);
 
-        // Set cookie for existing GitController which reads verto_github_token
-        Cookie cookie = new Cookie("verto_github_token", accessToken);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        // 7 days expiry
-        cookie.setMaxAge(7 * 24 * 60 * 60);
-        response.addCookie(cookie);
+        // 不再将 access_token 写入 Cookie。令牌已在后端持久化保存，后续请求由后端代理使用。
+        // 如需设置会话标识，请在统一登录模块发放 HttpOnly + Secure + SameSite 的会话 Cookie。
 
-        // Return a small HTML page that notifies opener
+        // Return a small HTML page that notifies opener WITHOUT exposing access_token
         String html = "<!DOCTYPE html>" +
                 "<html><head><meta charset=\"utf-8\"><title>GitHub Bind Success</title></head>" +
                 "<body>" +
                 "<script>" +
                 "if (window.opener) {" +
-                "  window.opener.postMessage({vertoOAuth:true, platform:'github', uuid:'" + jsEnc(oauthUserId) + "', username:'" + jsEnc(login) + "', accessToken:'" + jsEnc(accessToken) + "'}, '*');" +
+                "  window.opener.postMessage({vertoOAuth:true, platform:'github', uuid:'" + jsEnc(oauthUserId) + "', username:'" + jsEnc(login) + "'}, '*');" +
                 "}" +
                 "window.close();" +
                 "</script>" +
@@ -205,10 +200,13 @@ public class OAuthController {
      * 对应前端的 bindThirdAppAccount 接口
      */
     @PostMapping("/bind")
-    public Result<String> bindThirdAccount(@RequestParam String thirdUserUuid, @RequestParam String thirdType) {
+    public Result<String> bindThirdAccount(@RequestParam String thirdUserUuid, @RequestParam String thirdType, HttpServletRequest request) {
         try {
-            // 这里应该获取当前登录用户ID，暂时使用固定值进行测试
-            String currentUserId = "test_user_001"; // TODO: 从JWT或Session中获取真实用户ID
+            // 从请求头获取当前用户ID
+            String currentUserId = request.getHeader("X-User-Id");
+            if (!StringUtils.hasText(currentUserId)) {
+                return Result.error("用户身份验证失败，请重新登录");
+            }
             
             // 调用服务层进行绑定
             boolean success = oauthService.bindUserAccount(currentUserId, thirdType, thirdUserUuid);
@@ -227,10 +225,13 @@ public class OAuthController {
      * 解绑第三方账号
      */
     @PostMapping("/unbind")
-    public Result<String> unbindThirdAccount(@RequestParam String thirdType) {
+    public Result<String> unbindThirdAccount(@RequestParam String thirdType, HttpServletRequest request) {
         try {
-            // 这里应该获取当前登录用户ID，暂时使用固定值进行测试
-            String currentUserId = "test_user_001"; // TODO: 从JWT或Session中获取真实用户ID
+            // 从请求头获取当前用户ID
+            String currentUserId = request.getHeader("X-User-Id");
+            if (!StringUtils.hasText(currentUserId)) {
+                return Result.error("用户身份验证失败，请重新登录");
+            }
             
             // 调用服务层进行解绑
             boolean success = oauthService.unbindUserAccount(currentUserId, thirdType);
@@ -249,10 +250,13 @@ public class OAuthController {
      * 获取用户绑定的第三方账号信息
      */
     @GetMapping("/user/bindings")
-    public Result<Map<String, Object>> getUserBindings() {
+    public Result<Map<String, Object>> getUserBindings(HttpServletRequest request) {
         try {
-            // 这里应该获取当前登录用户ID，暂时使用固定值进行测试
-            String currentUserId = "test_user_001"; // TODO: 从JWT或Session中获取真实用户ID
+            // 从请求头获取当前用户ID
+            String currentUserId = request.getHeader("X-User-Id");
+            if (!StringUtils.hasText(currentUserId)) {
+                return Result.error("用户身份验证失败，请重新登录");
+            }
             
             // 调用服务层获取绑定信息
             Map<String, Object> bindings = oauthService.getUserBindings(currentUserId);

@@ -94,6 +94,8 @@ public class AppManagePipelineController {
 
         // 1) 查找应用下的项目（按 related_app_id 关联）
         QueryWrapper<Project> pjWrapper = new QueryWrapper<>();
+        // 仅选择主键ID，避免因历史字段（如 priority）未建表导致的 SQL 错误
+        pjWrapper.select("id");
         pjWrapper.eq("related_app_id", appId);
         List<Project> projects = projectService.list(pjWrapper);
 
