@@ -18,18 +18,14 @@
               <template #icon><PlusOutlined /></template>
               新建流水线
             </a-button>
+            <a-button type="default" @click="openBindDrawer"> 绑定流水线 </a-button>
           </a-space>
         </a-col>
       </a-row>
     </div>
 
     <!-- 创建 Jenkins 流水线 Modal（使用 BasicModal 对齐新增配置弹框样式） -->
-    <BasicModal
-      @register="registerCreateJenkins"
-      :title="'创建 Jenkins 流水线'"
-      :width="720"
-      @ok="submitCreateJenkins"
-    >
+    <BasicModal @register="registerCreateJenkins" :title="'创建 Jenkins 流水线'" :width="720" @ok="submitCreateJenkins">
       <!-- 与配置管理保持一致，使用 BasicForm 构建表单 -->
       <BasicForm @register="registerCreateForm" />
     </BasicModal>
@@ -45,20 +41,10 @@
           <div class="history-toolbar">
             <a-row :gutter="16" align="middle">
               <a-col :span="8">
-                <a-input-search
-                  v-model:value="searchText"
-                  placeholder="搜索流水线名称或提交信息"
-                  @search="handleSearch"
-                  allow-clear
-                />
+                <a-input-search v-model:value="searchText" placeholder="搜索流水线名称或提交信息" @search="handleSearch" allow-clear />
               </a-col>
               <a-col :span="6">
-                <a-select
-                  v-model:value="statusFilter"
-                  placeholder="筛选状态"
-                  allow-clear
-                  @change="handleStatusFilter"
-                >
+                <a-select v-model:value="statusFilter" placeholder="筛选状态" allow-clear @change="handleStatusFilter">
                   <a-select-option value="success">成功</a-select-option>
                   <a-select-option value="failed">失败</a-select-option>
                   <a-select-option value="running">运行中</a-select-option>
@@ -66,11 +52,7 @@
                 </a-select>
               </a-col>
               <a-col :span="6">
-                <a-range-picker
-                  v-model:value="dateRange"
-                  @change="handleDateFilter"
-                  style="width: 100%"
-                />
+                <a-range-picker v-model:value="dateRange" @change="handleDateFilter" style="width: 100%" />
               </a-col>
               <a-col :span="4">
                 <a-button @click="handleClearFilters">清除筛选</a-button>
@@ -80,18 +62,13 @@
 
           <!-- 运行历史列表 -->
           <div class="history-list">
-            <a-list
-              :data-source="pipelineHistory"
-              :loading="historyLoading"
-              item-layout="horizontal"
-              :pagination="historyPagination"
-            >
+            <a-list :data-source="pipelineHistory" :loading="historyLoading" item-layout="horizontal" :pagination="historyPagination">
               <template #renderItem="{ item }">
                 <a-list-item>
                   <template #actions>
                     <a @click="handleViewLogs(item)">查看日志</a>
                     <a @click="handleRerun(item)" v-if="item.status !== 'running'">重新运行</a>
-                    <a @click="handleCancel(item)" v-if="item.status === 'running'" style="color: #ff4d4f;">取消</a>
+                    <a @click="handleCancel(item)" v-if="item.status === 'running'" style="color: #ff4d4f">取消</a>
                   </template>
 
                   <a-list-item-meta>
@@ -139,21 +116,17 @@
         <div class="pipeline-config">
           <!-- 配置列表 -->
           <div class="config-list">
-            <a-list
-              :data-source="pipelineConfigs"
-              :loading="configLoading"
-              item-layout="horizontal"
-            >
+            <a-list :data-source="pipelineConfigs" :loading="configLoading" item-layout="horizontal">
               <template #renderItem="{ item }">
                 <a-list-item>
                   <template #actions>
                     <a @click="handleEditConfig(item)">编辑</a>
-                    <a @click="handleDeleteConfig(item)" style="color: #ff4d4f;">删除</a>
+                    <a @click="handleDeleteConfig(item)" style="color: #ff4d4f">删除</a>
                   </template>
 
                   <a-list-item-meta>
                     <template #avatar>
-                      <a-avatar style="background-color: #1890ff;">
+                      <a-avatar style="background-color: #1890ff">
                         <template #icon><BranchesOutlined /></template>
                       </a-avatar>
                     </template>
@@ -182,6 +155,50 @@
           </div>
         </div>
       </a-tab-pane>
+
+      <!-- 新增：Jenkins 流水线绑定展示 -->
+      <a-tab-pane key="jenkins" tab="Jenkins流水线">
+        <div class="jenkins-bind-list">
+          <a-list :data-source="jenkinsBindings" item-layout="horizontal">
+            <template #renderItem="{ item }">
+              <a-list-item>
+                <template #actions>
+                  <a @click="editBinding(item)">编辑绑定</a>
+                  <a @click="unbindJenkins(item)" style="color: #ff4d4f">解除绑定</a>
+                </template>
+                <a-list-item-meta>
+                  <template #avatar>
+                    <a-avatar style="background-color: #722ed1">
+                      <template #icon><BranchesOutlined /></template>
+                    </a-avatar>
+                  </template>
+                  <template #title>
+                    <div class="binding-title">
+                      <span class="config-name">{{ item.configName }}</span>
+                      <a-tag color="blue" style="margin-left: 8px">{{ item.jenkins.jobName }}</a-tag>
+                    </div>
+                  </template>
+                  <template #description>
+                    <div class="binding-desc">
+                      <div>环境: {{ item.environment || '-' }}</div>
+                      <div
+                        >Jenkins URL: <a :href="item.jenkins.jobUrl" target="_blank">{{ item.jenkins.jobUrl || '-' }}</a></div
+                      >
+                      <div
+                        >参数映射: BRANCH={{ item.jenkins.params?.branch || 'BRANCH' }}, COMMIT={{ item.jenkins.params?.commit || 'COMMIT' }},
+                        VERSION={{ item.jenkins.params?.version || 'VERSION' }}</div
+                      >
+                    </div>
+                  </template>
+                </a-list-item-meta>
+              </a-list-item>
+            </template>
+          </a-list>
+          <div v-if="!jenkinsBindings.length" style="text-align: center; color: #888; padding: 16px 0"
+            >暂无绑定的 Jenkins 流水线，请点击右上角“绑定流水线”进行配置</div
+          >
+        </div>
+      </a-tab-pane>
     </a-tabs>
 
     <!-- 配置编辑抽屉 -->
@@ -196,18 +213,12 @@
       @ok="handleConfigSave"
     >
       <!-- 基础信息表单 -->
-      <div class="config-form-section" style="margin-bottom: 16px;">
-        <BasicForm
-          ref="basicFormRef"
-          :schemas="basicFormSchemas"
-          :model="currentConfig"
-          :label-width="100"
-          :show-action-button-group="false"
-        />
+      <div class="config-form-section" style="margin-bottom: 16px">
+        <BasicForm ref="basicFormRef" :schemas="basicFormSchemas" :model="currentConfig" :label-width="100" :show-action-button-group="false" />
       </div>
 
       <!-- 可选：从配置管理复制内容并回填（仅在“新建”模式显示，值不入库） -->
-      <div class="config-prefill-section" v-if="!isEditMode" style="margin: -8px 0 16px 0;">
+      <div class="config-prefill-section" v-if="!isEditMode" style="margin: -8px 0 16px 0">
         <a-form layout="vertical">
           <a-form-item label="从已有配置复制">
             <a-select
@@ -226,38 +237,41 @@
 
       <!-- 流水线配置编辑器 -->
       <div class="pipeline-editor-section">
-        <PipelineConfigEditor
-          ref="pipelineEditorRef"
-          v-model:value="currentConfig.content"
-        />
+        <PipelineConfigEditor ref="pipelineEditorRef" v-model:value="currentConfig.content" />
       </div>
 
       <!-- 抽屉底部操作按钮 -->
-     <template #footer>
-  <a-space>
-    <a-button @click="handleConfigDrawerClose">取消</a-button>
-    <a-button type="primary" @click="handleCreateJenkinsFromConfig" :loading="saveLoading">
-      创建流水线
-    </a-button>
-  </a-space>
-</template>
+      <template #footer>
+        <a-space>
+          <a-button @click="handleConfigDrawerClose">取消</a-button>
+          <a-button type="primary" @click="handleCreateJenkinsFromConfig" :loading="saveLoading"> 创建流水线 </a-button>
+        </a-space>
+      </template>
+    </BasicDrawer>
+
+    <!-- 新增：绑定 Jenkins 流水线抽屉 -->
+    <BasicDrawer
+      v-model:open="bindDrawerVisible"
+      :title="'绑定 Jenkins 流水线'"
+      :width="600"
+      showFooter
+      :mask-closable="false"
+      :destroy-on-close="true"
+    >
+      <BasicForm @register="registerBindForm" />
+      <template #footer>
+        <a-space>
+          <a-button @click="bindDrawerVisible = false">取消</a-button>
+          <a-button type="primary" :loading="bindSubmitting" @click="submitBindJenkins">保存绑定</a-button>
+        </a-space>
+      </template>
     </BasicDrawer>
 
     <!-- 日志查看弹窗 -->
-    <a-modal
-      v-model:open="logModalVisible"
-      title="流水线运行日志"
-      :width="1000"
-      :footer="null"
-      :destroy-on-close="true"
-    >
+    <a-modal v-model:open="logModalVisible" title="流水线运行日志" :width="1000" :footer="null" :destroy-on-close="true">
       <div class="pipeline-logs">
         <a-tabs v-model:activeKey="activeLogTab">
-          <a-tab-pane
-            v-for="stage in currentLogs.stages"
-            :key="stage.name"
-            :tab="stage.name"
-          >
+          <a-tab-pane v-for="stage in currentLogs.stages" :key="stage.name" :tab="stage.name">
             <div class="log-content">
               <pre>{{ stage.logs }}</pre>
             </div>
@@ -287,7 +301,7 @@
   import { BasicModal, useModal } from '/@/components/Modal';
   import PipelineConfigEditor from '../config/components/PipelineConfigEditor.vue';
   import type { PipelineConfig } from '../../config/data/Config.data';
-  
+
   // 导入应用管理相关的API
   import {
     // getPipelineConfig, // 移除，改用配置管理列表接口
@@ -318,7 +332,10 @@
   const activeTab = ref('history');
 
   // 创建 Jenkins 流水线 Modal（BasicModal + BasicForm）
-  const [registerCreateJenkins, { openModal: openCreateJenkinsModal, closeModal: closeCreateJenkinsModal, setModalProps: setCreateJenkinsModalProps }] = useModal();
+  const [
+    registerCreateJenkins,
+    { openModal: openCreateJenkinsModal, closeModal: closeCreateJenkinsModal, setModalProps: setCreateJenkinsModalProps },
+  ] = useModal();
 
   const jenkinsFormSchemas: FormSchema[] = [
     {
@@ -391,7 +408,10 @@
     },
   ];
 
-  const [registerCreateForm, { validate: validateJenkinsForm, setFieldsValue: setCreateFormFields, resetFields: resetCreateForm, getFieldsValue: getCreateFormValues }] = useForm({
+  const [
+    registerCreateForm,
+    { validate: validateJenkinsForm, setFieldsValue: setCreateFormFields, resetFields: resetCreateForm, getFieldsValue: getCreateFormValues },
+  ] = useForm({
     labelWidth: 100,
     baseColProps: { span: 24 },
     schemas: jenkinsFormSchemas,
@@ -429,7 +449,7 @@
   const basicFormRef = ref();
   const pipelineEditorRef = ref();
 
-  // 新增：可选下拉的选中值（不入库，仅用于回填）
+  // 可选下拉的选中值（不入库，仅用于回填）
   const selectedConfigId = ref<string | undefined>();
   const prefillOptions = computed(() =>
     (pipelineConfigs.value || []).map((pc: any) => ({
@@ -471,232 +491,9 @@
       triggers: [],
       variables: [],
       notifications: [],
-    } as PipelineConfig,
-  });
-
-  // 新增：基础信息表单Schema
-  const basicFormSchemas: FormSchema[] = [
-    {
-      field: 'name',
-      label: '配置名称',
-      component: 'Input',
-      required: true,
-      componentProps: { placeholder: '例如：默认流水线' },
     },
-    {
-      field: 'environment',
-      label: '环境',
-      component: 'Select',
-      required: true,
-      defaultValue: 'dev',
-      componentProps: {
-        options: [
-          { label: '开发(dev)', value: 'dev' },
-          { label: '测试(test)', value: 'test' },
-          { label: '生产(prod)', value: 'prod' },
-        ],
-      },
-    },
-    {
-      field: 'status',
-      label: '状态',
-      component: 'Select',
-      required: true,
-      defaultValue: 'enabled',
-      componentProps: {
-        options: [
-          { label: '启用', value: 'enabled' },
-          { label: '禁用', value: 'disabled' },
-        ],
-      },
-    },
-    {
-      field: 'description',
-      label: '描述',
-      component: 'InputTextArea',
-      componentProps: { rows: 3, placeholder: '该配置的简介（可选）' },
-    },
-  ];
-
-  // 抽屉标题
-  const configDrawerTitle = computed(() => (isEditMode.value ? '编辑流水线配置' : '新建流水线配置'));
-
-  // 运行历史工具函数
-  function getStatusColor(status: string) {
-    switch (status) {
-      case 'success':
-        return 'green';
-      case 'failed':
-        return 'red';
-      case 'running':
-        return 'blue';
-      case 'cancelled':
-        return 'orange';
-      default:
-        return 'default';
-    }
-  }
-  function getStatusText(status: string) {
-    const map: Record<string, string> = {
-      success: '成功',
-      failed: '失败',
-      running: '运行中',
-      cancelled: '已取消',
-    };
-    return map[status] || status;
-  }
-  function formatDuration(ms: number) {
-    if (!ms && ms !== 0) return '-';
-    const sec = Math.round(ms / 1000);
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}分${s}秒`;
-  }
-  function formatTime(ts: string | number | Date) {
-    const d = new Date(ts);
-    if (Number.isNaN(d.getTime())) return '-';
-    const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  }
-
-  // 日志弹窗相关
-  const logModalVisible = ref(false);
-  const activeLogTab = ref<string>('');
-  const currentLogs = reactive<{ stages: Array<{ name: string; logs: string }> }>({ stages: [] });
-
-  // 加载配置列表
-  async function loadPipelineConfigs() {
-    try {
-      configLoading.value = true;
-      // 改为调用配置管理的列表接口，筛选 type=pipeline
-      const res = await getConfigList({ type: 'pipeline', pageNo: 1, pageSize: 100 });
-      const records = Array.isArray((res as any)?.records)
-        ? (res as any).records
-        : Array.isArray((res as any)?.result?.records)
-        ? (res as any).result.records
-        : [];
-      // 统一处理 config 字段为对象，并计算阶段数量用于展示
-      pipelineConfigs.value = records.map((r: any) => {
-        let cfg: any = r?.config;
-        if (typeof cfg === 'string') {
-          try {
-            cfg = JSON.parse(cfg || '{}');
-          } catch (e) {
-            cfg = {};
-          }
-        }
-        const stages = Array.isArray(cfg?.stages) ? cfg.stages : [];
-        return {
-          id: r.id,
-          name: r.name,
-          environment: r.environment,
-          stageCount: stages.length,
-          config: cfg,
-        };
-      });
-    } catch (e) {
-      console.error(e);
-      message.error('加载配置列表失败');
-      pipelineConfigs.value = [];
-    } finally {
-      configLoading.value = false;
-    }
-  }
-
-  // 加载运行历史（占位实现）
-  async function loadPipelineHistory() {
-    try {
-      historyLoading.value = true;
-      // 可根据 appId 与筛选参数调用 getPipelineHistory
-      // 这里简化为占位实现
-      // const res = await getPipelineHistory({ appId: props.appId, ... });
-      // pipelineHistory.value = Array.isArray(res) ? res : [];
-      pipelineHistory.value = [];
-    } catch (e) {
-      console.error(e);
-      message.error('加载运行历史失败');
-    } finally {
-      historyLoading.value = false;
-    }
-  }
-
-  // 顶部刷新按钮
-  async function handleRefresh() {
-    await Promise.all([loadPipelineConfigs(), loadPipelineHistory()]);
-    message.success('已刷新');
-  }
-
-  // 历史筛选（占位实现）
-  function handleSearch() {
-    loadPipelineHistory();
-  }
-  function handleStatusFilter() {
-    loadPipelineHistory();
-  }
-  function handleDateFilter() {
-    loadPipelineHistory();
-  }
-  function handleClearFilters() {
-    searchText.value = '';
-    statusFilter.value = undefined;
-    dateRange.value = undefined as any;
-    loadPipelineHistory();
-  }
-
-  // 查看日志（占位实现）
-  async function handleViewLogs(item: any) {
-    try {
-      const res = await getPipelineLogs(item?.id);
-      const stages = Array.isArray(res?.stages) ? res.stages : [];
-      currentLogs.stages = stages.map((s: any) => ({ name: s?.name || '阶段', logs: String(s?.logs || '') }));
-      activeLogTab.value = currentLogs.stages[0]?.name || '';
-      logModalVisible.value = true;
-    } catch (e) {
-      console.error(e);
-      message.error('获取日志失败');
-    }
-  }
-
-  async function handleRerun(item: any) {
-    try {
-      await rerunPipeline(item?.id);
-      message.success('已触发重新运行');
-      loadPipelineHistory();
-    } catch (e) {
-      console.error(e);
-      message.error('重新运行失败');
-    }
-  }
-
-  async function handleCancel(item: any) {
-    try {
-      await cancelPipeline(item?.id);
-      message.success('已取消运行');
-      loadPipelineHistory();
-    } catch (e) {
-      console.error(e);
-      message.error('取消失败');
-    }
-  }
-
-  // 新建流水线：打开抽屉
-  function handleCreatePipeline() {
-    isEditMode.value = false;
-    selectedConfigId.value = undefined;
-    // 重置当前配置
-    currentConfig.id = '';
-    currentConfig.name = '';
-    currentConfig.environment = 'dev';
-    currentConfig.description = '';
-    currentConfig.status = 'enabled';
-    currentConfig.content = {
-      stages: [],
-      triggers: [],
-      variables: [],
-      notifications: [],
-    } as PipelineConfig;
-    configDrawerVisible.value = true;
-  }
+  }) as PipelineConfig;
+  configDrawerVisible.value = true;
 
   // 编辑配置：打开抽屉并回填
   function handleEditConfig(item: any) {
@@ -764,37 +561,31 @@
       .map((v: any) => `      ${v.name} = '${String(v.value ?? '')}'`)
       .join('\n');
 
-    const stageBlocks = (cfg.stages || []).map((s: any) => {
-      const hasImage = !!s.image;
-      const agentBlock = hasImage
-        ? `        agent { docker { image '${s.image}' } }\n`
-        : '';
-      const timeoutBlock = s.timeout
-        ? `        options { timeout(time: ${s.timeout}, unit: 'SECONDS') }\n`
-        : '';
-      const stepsScript = (s.script || '').trim() || 'echo "No script defined"';
-      return [
-        `    stage('${s.name || s.id || 'stage'}') {`,
-        agentBlock ? agentBlock.trimEnd() : '',
-        timeoutBlock ? timeoutBlock.trimEnd() : '',
-        '        steps {',
-        `          sh '''`,
-        `            ${stepsScript}`,
-        `          '''`,
-        '        }',
-        '    }',
-      ].filter(Boolean).join('\n');
-    }).join('\n');
+    const stageBlocks = (cfg.stages || [])
+      .map((s: any) => {
+        const hasImage = !!s.image;
+        const agentBlock = hasImage ? `        agent { docker { image '${s.image}' } }\n` : '';
+        const timeoutBlock = s.timeout ? `        options { timeout(time: ${s.timeout}, unit: 'SECONDS') }\n` : '';
+        const stepsScript = (s.script || '').trim() || 'echo "No script defined"';
+        return [
+          `    stage('${s.name || s.id || 'stage'}') {`,
+          agentBlock ? agentBlock.trimEnd() : '',
+          timeoutBlock ? timeoutBlock.trimEnd() : '',
+          '        steps {',
+          `          sh '''`,
+          `            ${stepsScript}`,
+          `          '''`,
+          '        }',
+          '    }',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      })
+      .join('\n');
 
-    const pipeline = [
-      'pipeline {',
-      '  agent any',
-      envLines ? '  environment {\n' + envLines + '\n  }' : '',
-      '  stages {',
-      stageBlocks,
-      '  }',
-      '}'
-    ].filter(Boolean).join('\n');
+    const pipeline = ['pipeline {', '  agent any', envLines ? '  environment {\n' + envLines + '\n  }' : '', '  stages {', stageBlocks, '  }', '}']
+      .filter(Boolean)
+      .join('\n');
 
     return pipeline;
   }
@@ -808,8 +599,8 @@
       const script = buildInlineJenkinsScriptFromConfig(currentConfig.content as PipelineConfig);
 
       // 2) 生成 Job 名称（优先使用配置名称；否则基于应用名兜底）
-      const appName = (props.appDetail?.basicInfo?.name || props.appDetail?.name || 'app');
-      const jobName = (currentConfig.name && currentConfig.name.trim()) ? currentConfig.name.trim() : `${appName}-pipeline`;
+      const appName = props.appDetail?.basicInfo?.name || props.appDetail?.name || 'app';
+      const jobName = currentConfig.name && currentConfig.name.trim() ? currentConfig.name.trim() : `${appName}-pipeline`;
 
       // 3) 后台创建 Jenkins Job（内联脚本模式）
       const createPayload = {
@@ -848,6 +639,194 @@
       message.error('创建流水线失败，请稍后重试');
     } finally {
       saveLoading.value = false;
+    }
+  }
+
+  // 绑定 Jenkins 流水线抽屉 & 表单
+  const bindDrawerVisible = ref(false);
+  const bindSubmitting = ref(false);
+  const bindFormSchemas: FormSchema[] = [
+    {
+      field: 'pipelineConfigId',
+      label: '选择配置',
+      component: 'Select',
+      required: true,
+      componentProps: {
+        placeholder: '请选择需要绑定的流水线配置',
+        // 注意：a-select 的 options 需要是数组，不能是函数或 Ref
+        options: [],
+      },
+    },
+    {
+      field: 'jobName',
+      label: 'Jenkins 作业名',
+      component: 'Input',
+      required: true,
+      componentProps: { placeholder: '例如：my-app-pipeline' },
+    },
+    {
+      field: 'jobUrl',
+      label: 'Jenkins 作业URL',
+      component: 'Input',
+      componentProps: { placeholder: '例如：http://jenkins/job/my-app-pipeline/' },
+    },
+    {
+      field: 'environment',
+      label: '环境',
+      component: 'Select',
+      required: true,
+      defaultValue: 'dev',
+      componentProps: {
+        options: [
+          { label: '开发(dev)', value: 'dev' },
+          { label: '测试(test)', value: 'test' },
+          { label: '生产(prod)', value: 'prod' },
+        ],
+      },
+    },
+    {
+      field: 'branchParam',
+      label: '分支参数名',
+      component: 'Input',
+      defaultValue: 'BRANCH',
+      helpMessage: 'Jenkins Job中对应的参数名称，用于传递分支',
+    },
+    {
+      field: 'commitParam',
+      label: '提交ID参数名',
+      component: 'Input',
+      defaultValue: 'COMMIT',
+      helpMessage: 'Jenkins Job中对应的参数名称，用于传递提交ID',
+    },
+    {
+      field: 'versionParam',
+      label: '版本号参数名',
+      component: 'Input',
+      defaultValue: 'VERSION',
+      helpMessage: 'Jenkins Job中对应的参数名称，用于传递版本号',
+    },
+  ];
+
+  const [
+    registerBindForm,
+    { getFieldsValue: getBindFormValues, setFieldsValue: setBindFormValues, resetFields: resetBindForm, validate: validateBindForm, updateSchema },
+  ] = useForm({
+    labelWidth: 100,
+    baseColProps: { span: 24 },
+    showActionButtonGroup: false,
+    schemas: bindFormSchemas,
+  });
+
+  const jenkinsBindings = computed(() => {
+    return (pipelineConfigs.value || [])
+      .filter((pc: any) => pc?.config && pc?.config?.jenkins && pc?.config?.jenkins?.jobName)
+      .map((pc: any) => ({
+        configId: pc.id,
+        configName: pc.name,
+        environment: pc.environment,
+        jenkins: pc.config.jenkins,
+      }));
+  });
+
+  function openBindDrawer() {
+    // 重置表单并打开抽屉
+    resetBindForm();
+    // 将当前的配置列表写入到 Select 的 options（必须是数组）
+    const opts = (pipelineConfigs.value || []).map((pc: any) => ({ label: pc.name, value: pc.id }));
+    updateSchema([
+      {
+        field: 'pipelineConfigId',
+        componentProps: { options: opts },
+      },
+    ]);
+    bindDrawerVisible.value = true;
+  }
+
+  function editBinding(item: any) {
+    setBindFormValues({
+      pipelineConfigId: item.configId,
+      jobName: item.jenkins?.jobName,
+      jobUrl: item.jenkins?.jobUrl,
+      environment: item.environment || 'dev',
+      branchParam: item.jenkins?.params?.branch || 'BRANCH',
+      commitParam: item.jenkins?.params?.commit || 'COMMIT',
+      versionParam: item.jenkins?.params?.version || 'VERSION',
+    });
+    // 同步 options，避免首次进入时为空
+    const opts = (pipelineConfigs.value || []).map((pc: any) => ({ label: pc.name, value: pc.id }));
+    updateSchema([
+      {
+        field: 'pipelineConfigId',
+        componentProps: { options: opts },
+      },
+    ]);
+    bindDrawerVisible.value = true;
+  }
+
+  async function submitBindJenkins() {
+    try {
+      bindSubmitting.value = true;
+      await validateBindForm();
+      const values = getBindFormValues();
+      const target = (pipelineConfigs.value || []).find((pc: any) => String(pc.id) === String(values.pipelineConfigId));
+      if (!target) {
+        message.error('未找到选择的流水线配置');
+        return;
+      }
+      // 构造新的配置（写入 jenkins 绑定信息）
+      const newConfig = {
+        id: target.id,
+        name: target.name,
+        environment: values.environment || target.environment,
+        description: target.description,
+        status: target.status || 'enabled',
+        config: {
+          ...(target.config || {}),
+          jenkins: {
+            jobName: values.jobName,
+            jobUrl: values.jobUrl,
+            params: {
+              branch: values.branchParam || 'BRANCH',
+              commit: values.commitParam || 'COMMIT',
+              version: values.versionParam || 'VERSION',
+            },
+          },
+        },
+      };
+      await savePipelineConfig(props.appId, newConfig);
+      message.success('绑定成功');
+      bindDrawerVisible.value = false;
+      await loadPipelineConfigs();
+      // 切换到 Jenkins Tab 查看效果
+      activeTab.value = 'jenkins';
+    } catch (e) {
+      console.error(e);
+      message.error('绑定失败，请稍后重试');
+    } finally {
+      bindSubmitting.value = false;
+    }
+  }
+
+  async function unbindJenkins(item: any) {
+    try {
+      const target = (pipelineConfigs.value || []).find((pc: any) => pc.id === item.configId);
+      if (!target) return;
+      const newCfg = { ...target.config };
+      if (newCfg.jenkins) delete newCfg.jenkins;
+      const payload = {
+        id: target.id,
+        name: target.name,
+        environment: target.environment,
+        description: target.description,
+        status: target.status || 'enabled',
+        config: newCfg,
+      };
+      await savePipelineConfig(props.appId, payload);
+      message.success('已解除绑定');
+      await loadPipelineConfigs();
+    } catch (e) {
+      console.error(e);
+      message.error('解除绑定失败');
     }
   }
 
@@ -981,6 +960,17 @@
           white-space: pre-wrap;
           word-break: break-all;
         }
+      }
+    }
+
+    .jenkins-bind-list {
+      .binding-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .binding-desc {
+        color: #666;
       }
     }
   }
