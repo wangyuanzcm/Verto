@@ -9,6 +9,8 @@ import com.verto.modules.pipeline.service.IProjectPipelineService;
 import com.verto.modules.pipeline.dto.PipelineCreateRequest;
 import com.verto.modules.pipeline.dto.PipelineDefinitionRequest;
 import com.verto.modules.pipeline.service.IJenkinsService;
+import com.verto.modules.appmanage.entity.AppPipelineBinding;
+import com.verto.modules.appmanage.service.IAppPipelineBindingService;
 import com.verto.modules.project.entity.Project;
 import com.verto.modules.project.service.IProjectService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,6 +42,9 @@ public class ProjectPipelineController {
 
     @Autowired
     private IProjectService projectService;
+
+    @Autowired
+    private IAppPipelineBindingService appPipelineBindingService;
 
     /**
      * 获取流水线配置
@@ -241,6 +246,9 @@ public class ProjectPipelineController {
         String environment = (String) triggerData.getOrDefault("environment", "test");
         String branch = (String) triggerData.get("branch");
         String commitId = (String) triggerData.get("commitId");
+        // 可选参数：显式指定 Jenkins Job 名称或绑定ID
+        String explicitJobName = (String) triggerData.get("jobName");
+        String bindingId = (String) triggerData.get("bindingId");
 
         // 兼容前端 parameters 对象（可能包含 version、remark、pipelineConfigId 等）
         @SuppressWarnings("unchecked")
@@ -249,12 +257,41 @@ public class ProjectPipelineController {
         // 读取项目信息，用于映射到 Jenkins Job 名称
         Project project = projectService.getById(projectId);
         String relatedAppId = project != null ? project.getRelatedAppId() : null;
-        // 约定：使用 app-<appId>-<env> 作为 Jenkins Job 名称；如果缺失，则回退为 project-<projectId>-<env>
-        String jobName;
-        if (org.springframework.util.StringUtils.hasText(relatedAppId)) {
-            jobName = "app-" + relatedAppId + "-" + environment;
-        } else {
-            jobName = "project-" + projectId + "-" + environment;
+
+        // 1) 解析 Jenkins Job 名称优先级：显式 > 绑定ID > 按应用&环境查找绑定 > 旧约定
+        String jobName = null;
+        if (org.springframework.util.StringUtils.hasText(explicitJobName)) {
+            jobName = explicitJobName;
+        } else if (org.springframework.util.StringUtils.hasText(bindingId)) {
+            AppPipelineBinding b = appPipelineBindingService.getById(bindingId);
+            if (b != null && org.springframework.util.StringUtils.hasText(b.getJobName())) {
+                jobName = b.getJobName();
+            }
+        }
+        if (!org.springframework.util.StringUtils.hasText(jobName) && org.springframework.util.StringUtils.hasText(relatedAppId)) {
+            // 查询该应用在该环境的绑定列表，优先启用的，若有多个取最近更新
+            java.util.List<AppPipelineBinding> bindings = appPipelineBindingService.listByAppAndEnv(relatedAppId, environment);
+            if (bindings != null && !bindings.isEmpty()) {
+                // 优先选择 status=enabled 的绑定
+                AppPipelineBinding selected = null;
+                for (AppPipelineBinding b : bindings) {
+                    if ("enabled".equalsIgnoreCase(b.getStatus())) {
+                        selected = b; break;
+                    }
+                }
+                if (selected == null) {
+                    selected = bindings.get(0);
+                }
+                jobName = selected.getJobName();
+            }
+        }
+        if (!org.springframework.util.StringUtils.hasText(jobName)) {
+            // 约定：使用 app-<appId>-<env> 作为 Jenkins Job 名称；如果缺失，则回退为 project-<projectId>-<env>
+            if (org.springframework.util.StringUtils.hasText(relatedAppId)) {
+                jobName = "app-" + relatedAppId + "-" + environment;
+            } else {
+                jobName = "project-" + projectId + "-" + environment;
+            }
         }
 
         // 创建新的构建记录（先写入 DB）
@@ -267,14 +304,14 @@ public class ProjectPipelineController {
         pipeline.setBranch(effectiveBranch);
         pipeline.setCommitId(commitId);
         pipeline.setStatus("running");
-        pipeline.setStartTime(new Date());
+        pipeline.setStartTime(new java.util.Date());
         pipeline.setCurrentStage("build");
         pipeline.setProgress(0);
-        pipeline.setCreateTime(new Date());
+        pipeline.setCreateTime(new java.util.Date());
         pipeline.setCreateBy("admin");
 
         // 获取当前项目的最大构建编号
-        QueryWrapper<ProjectPipeline> queryWrapper = new QueryWrapper<>();
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<ProjectPipeline> queryWrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
         queryWrapper.eq("project_id", projectId);
         queryWrapper.orderByDesc("build_number");
         queryWrapper.last("LIMIT 1");
@@ -287,7 +324,7 @@ public class ProjectPipelineController {
         projectPipelineService.save(pipeline);
 
         // 组装 Jenkins 参数
-        Map<String, String> jenkinsParams = new HashMap<>();
+        java.util.Map<String, String> jenkinsParams = new java.util.HashMap<>();
         jenkinsParams.put("BRANCH", effectiveBranch);
         if (org.springframework.util.StringUtils.hasText(commitId)) {
             jenkinsParams.put("COMMIT_ID", commitId);
@@ -302,12 +339,12 @@ public class ProjectPipelineController {
         }
 
         // 调用 Jenkins 触发构建
-        Map<String, Object> jenkinsResp = jenkinsService.triggerBuild(jobName, jenkinsParams);
+        java.util.Map<String, Object> jenkinsResp = jenkinsService.triggerBuild(jobName, jenkinsParams);
         if (jenkinsResp.containsKey("error")) {
             return Result.error("触发 Jenkins 构建失败: " + jenkinsResp.get("error"));
         }
 
-        Map<String, Object> result = new HashMap<>();
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("buildId", pipeline.getId());
         result.put("buildNumber", nextBuildNumber);
         result.put("status", "triggered");

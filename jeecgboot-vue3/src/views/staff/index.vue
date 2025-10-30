@@ -5,8 +5,6 @@
       <!--插槽:table标题-->
       <template #tableTitle>
         <a-button type="primary" preIcon="ant-design:plus-outlined" @click="handleCreate"> 新增</a-button>
-        <a-button type="primary" preIcon="ant-design:export-outlined" @click="onExportXls"> 导出</a-button>
-        <j-upload-button type="primary" preIcon="ant-design:import-outlined" @click="onImportXls">导入</j-upload-button>
         <a-dropdown v-if="selectedRowKeys.length > 0">
           <template #overlay>
             <a-menu>
@@ -46,10 +44,10 @@
 
   const { createMessage, createConfirm } = useMessage();
   const router = useRouter();
-  
+
   // 注册弹窗
   const [registerModal, { openModal }] = useModal();
-  
+
   // 列表页面公共参数、方法
   const { prefixCls, tableContext, onExportXls, onImportXls } = useListPage({
     designScope: 'staff-list',
@@ -116,7 +114,7 @@
    * @param record 人员记录
    */
   function handlePointsManage(record: StaffModel) {
-    router.push({ path: '/staff/points', query: { staffId: record.id } });
+    router.push({ path: '/points/manage', query: { staffId: record.id } });
   }
 
   /**
@@ -157,11 +155,7 @@
         icon: 'ant-design:eye-outlined',
         onClick: handleView.bind(null, record),
       },
-      {
-        label: '积分管理',
-        icon: 'mdi:cards-outline',
-        onClick: handlePointsManage.bind(null, record),
-      },
+
       {
         label: '编辑',
         icon: 'clarity:note-edit-line',

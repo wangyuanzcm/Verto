@@ -283,7 +283,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, onMounted, computed } from 'vue';
+  import { ref, reactive, onMounted, computed, nextTick } from 'vue';
   import { message } from 'ant-design-vue';
   import {
     PlusOutlined,
@@ -493,10 +493,11 @@
       notifications: [],
     },
   }) as PipelineConfig;
-  configDrawerVisible.value = true;
 
   // 编辑配置：打开抽屉并回填
   function handleEditConfig(item: any) {
+      configDrawerVisible.value = true;
+
     isEditMode.value = true;
     selectedConfigId.value = undefined;
     currentConfig.id = item?.id ?? '';
@@ -729,38 +730,42 @@
   });
 
   function openBindDrawer() {
-    // 重置表单并打开抽屉
-    resetBindForm();
-    // 将当前的配置列表写入到 Select 的 options（必须是数组）
-    const opts = (pipelineConfigs.value || []).map((pc: any) => ({ label: pc.name, value: pc.id }));
-    updateSchema([
-      {
-        field: 'pipelineConfigId',
-        componentProps: { options: opts },
-      },
-    ]);
+    // 先打开抽屉，等待表单实例注册
     bindDrawerVisible.value = true;
+    nextTick(() => {
+      // 重置表单并同步 options
+      resetBindForm();
+      const opts = (pipelineConfigs.value || []).map((pc: any) => ({ label: pc.name, value: pc.id }));
+      updateSchema([
+        {
+          field: 'pipelineConfigId',
+          componentProps: { options: opts },
+        },
+      ]);
+    });
   }
 
   function editBinding(item: any) {
-    setBindFormValues({
-      pipelineConfigId: item.configId,
-      jobName: item.jenkins?.jobName,
-      jobUrl: item.jenkins?.jobUrl,
-      environment: item.environment || 'dev',
-      branchParam: item.jenkins?.params?.branch || 'BRANCH',
-      commitParam: item.jenkins?.params?.commit || 'COMMIT',
-      versionParam: item.jenkins?.params?.version || 'VERSION',
-    });
-    // 同步 options，避免首次进入时为空
-    const opts = (pipelineConfigs.value || []).map((pc: any) => ({ label: pc.name, value: pc.id }));
-    updateSchema([
-      {
-        field: 'pipelineConfigId',
-        componentProps: { options: opts },
-      },
-    ]);
+    // 先打开抽屉，等待表单实例注册
     bindDrawerVisible.value = true;
+    nextTick(() => {
+      setBindFormValues({
+        pipelineConfigId: item.configId,
+        jobName: item.jenkins?.jobName,
+        jobUrl: item.jenkins?.jobUrl,
+        environment: item.environment || 'dev',
+        branchParam: item.jenkins?.params?.branch || 'BRANCH',
+        commitParam: item.jenkins?.params?.commit || 'COMMIT',
+        versionParam: item.jenkins?.params?.version || 'VERSION',
+      });
+      const opts = (pipelineConfigs.value || []).map((pc: any) => ({ label: pc.name, value: pc.id }));
+      updateSchema([
+        {
+          field: 'pipelineConfigId',
+          componentProps: { options: opts },
+        },
+      ]);
+    });
   }
 
   async function submitBindJenkins() {
@@ -827,6 +832,341 @@
     } catch (e) {
       console.error(e);
       message.error('解除绑定失败');
+    }
+  }
+
+  // 基础信息表单 Schema（用于配置抽屉）
+  const basicFormSchemas: FormSchema[] = [
+    {
+      field: 'name',
+      label: '配置名称',
+      component: 'Input',
+      required: true,
+      componentProps: { placeholder: '请输入配置名称' },
+    },
+    {
+      field: 'environment',
+      label: '环境',
+      component: 'Select',
+      required: true,
+      componentProps: {
+        options: [
+          { label: '开发(dev)', value: 'dev' },
+          { label: '测试(test)', value: 'test' },
+          { label: '生产(prod)', value: 'prod' },
+        ],
+      },
+    },
+    {
+      field: 'description',
+      label: '描述',
+      component: 'InputTextArea',
+      componentProps: { rows: 3, placeholder: '请输入配置描述（可选）' },
+    },
+    {
+      field: 'status',
+      label: '状态',
+      component: 'Select',
+      defaultValue: 'enabled',
+      componentProps: {
+        options: [
+          { label: '启用', value: 'enabled' },
+          { label: '禁用', value: 'disabled' },
+        ],
+      },
+    },
+  ];
+
+  // 抽屉标题
+  const configDrawerTitle = computed(() => (isEditMode.value ? '编辑流水线配置' : '新建流水线配置'));
+
+  // 状态与时间格式化
+  function getStatusColor(status: string) {
+    switch (status) {
+      case 'success':
+        return 'green';
+      case 'failed':
+        return '#ff4d4f';
+      case 'running':
+        return '#1890ff';
+      case 'cancelled':
+        return '#d9d9d9';
+      default:
+        return '#d9d9d9';
+    }
+  }
+  function getStatusText(status: string) {
+    const map: Record<string, string> = {
+      success: '成功',
+      failed: '失败',
+      running: '运行中',
+      cancelled: '已取消',
+    };
+    return map[status] || '未知';
+  }
+  function formatTime(ts: any) {
+    if (!ts) return '-';
+    try {
+      const d = typeof ts === 'number' ? new Date(ts) : new Date(String(ts));
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+    } catch {
+      return String(ts);
+    }
+  }
+  function formatDuration(ms: number) {
+    if (!ms && ms !== 0) return '-';
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const h = Math.floor(m / 60);
+    const ss = s % 60;
+    const mm = m % 60;
+    const hh = h;
+    if (hh) return `${hh}h ${mm}m ${ss}s`;
+    if (mm) return `${mm}m ${ss}s`;
+    return `${ss}s`;
+  }
+
+  // 加载配置列表
+  async function loadPipelineConfigs() {
+    try {
+      configLoading.value = true;
+      const resp: any = await getConfigList({ appId: props.appId, pageNo: 1, pageSize: 100 });
+      const list = Array.isArray(resp)
+        ? resp
+        : Array.isArray(resp?.result)
+        ? resp.result
+        : Array.isArray(resp?.records)
+        ? resp.records
+        : Array.isArray(resp?.data)
+        ? resp.data
+        : Array.isArray(resp?.items)
+        ? resp.items
+        : [];
+      pipelineConfigs.value = (list || []).map((it: any) => {
+        let cfg = it?.config;
+        if (typeof cfg === 'string') {
+          try {
+            cfg = JSON.parse(cfg);
+          } catch {
+            cfg = {};
+          }
+        }
+        const stages = Array.isArray(cfg?.stages) ? cfg.stages : [];
+        return {
+          id: it.id || it.configId || it.key || '',
+          name: it.name || it.configName || '未命名配置',
+          environment: it.environment || cfg?.environment || 'dev',
+          description: it.description || '',
+          status: it.status || 'enabled',
+          stageCount: stages.length || it.stageCount || 0,
+          updatedTime: it.updatedTime || it.updateTime || it.updated_at || it.update_at || null,
+          config: cfg || {},
+        };
+      });
+    } catch (e) {
+      console.error(e);
+      message.error('加载配置列表失败');
+    } finally {
+      configLoading.value = false;
+    }
+  }
+
+  // 加载运行历史
+  async function loadPipelineHistory() {
+    try {
+      historyLoading.value = true;
+      const params: any = {
+        pageNo: historyPagination.current,
+        pageSize: historyPagination.pageSize,
+      };
+      if (searchText.value) params.search = searchText.value;
+      if (statusFilter.value) params.status = statusFilter.value;
+      if (dateRange.value && dateRange.value.length === 2) {
+        params.startTime = dateRange.value[0];
+        params.endTime = dateRange.value[1];
+      }
+      const resp: any = await getPipelineHistory(props.appId, params);
+      const list = Array.isArray(resp)
+        ? resp
+        : Array.isArray(resp?.result)
+        ? resp.result
+        : Array.isArray(resp?.records)
+        ? resp.records
+        : Array.isArray(resp?.data)
+        ? resp.data
+        : Array.isArray(resp?.items)
+        ? resp.items
+        : [];
+      const total =
+        typeof resp?.total === 'number'
+          ? resp.total
+          : typeof resp?.result?.total === 'number'
+          ? resp.result.total
+          : typeof resp?.totalCount === 'number'
+          ? resp.totalCount
+          : Array.isArray(list)
+          ? list.length
+          : 0;
+      historyPagination.total = total;
+      pipelineHistory.value = (list || []).map((h: any) => ({
+        id: h.id || h.historyId || h.runId || '',
+        pipelineName: h.pipelineName || h.name || '未命名流水线',
+        commitMessage: h.commitMessage || h.message || '',
+        commitHash: h.commitHash || h.commitId || h.sha || '',
+        triggeredBy: h.triggeredBy || h.user || h.actor || '-',
+        duration: h.duration || h.runTime || 0,
+        startTime: h.startTime || h.createdAt || h.start_at || h.startTimeMs || '',
+        status: h.status || h.runStatus || h.state || 'success',
+      }));
+    } catch (e) {
+      console.error(e);
+      message.error('加载运行历史失败');
+    } finally {
+      historyLoading.value = false;
+    }
+  }
+
+  // 过滤与刷新事件
+  function handleSearch() {
+    historyPagination.current = 1;
+    loadPipelineHistory();
+  }
+  function handleStatusFilter() {
+    historyPagination.current = 1;
+    loadPipelineHistory();
+  }
+  function handleDateFilter() {
+    historyPagination.current = 1;
+    loadPipelineHistory();
+  }
+  function handleClearFilters() {
+    searchText.value = '';
+    statusFilter.value = undefined;
+    dateRange.value = undefined as any;
+    historyPagination.current = 1;
+    loadPipelineHistory();
+  }
+
+  // 日志弹窗相关
+  const logModalVisible = ref(false);
+  const currentLogs = reactive<{ stages: any[] }>({ stages: [] });
+  const activeLogTab = ref<string>('');
+
+  async function handleViewLogs(item: any) {
+    try {
+      const runId = item?.id || item?.historyId;
+      if (!runId) return;
+      const resp: any = await getPipelineLogs(props.appId, runId);
+      const stages = Array.isArray(resp?.result?.stages)
+        ? resp.result.stages
+        : Array.isArray(resp?.data?.stages)
+        ? resp.data.stages
+        : Array.isArray(resp?.stages)
+        ? resp.stages
+        : [];
+      currentLogs.stages = stages.map((s: any, idx: number) => ({
+        name: s?.name || `Stage ${idx + 1}`,
+        logs: s?.logs || s?.content || '',
+      }));
+      activeLogTab.value = currentLogs.stages[0]?.name || '';
+      logModalVisible.value = true;
+    } catch (e) {
+      console.error(e);
+      message.error('获取日志失败');
+    }
+  }
+
+  async function handleRerun(item: any) {
+    try {
+      const runId = item?.id || item?.historyId;
+      if (!runId) return;
+      await rerunPipeline(props.appId, runId);
+      message.success('已重新触发运行');
+      loadPipelineHistory();
+    } catch (e) {
+      console.error(e);
+      message.error('重新运行失败');
+    }
+  }
+
+  async function handleCancel(item: any) {
+    try {
+      const runId = item?.id || item?.historyId;
+      if (!runId) return;
+      await cancelPipeline(props.appId, runId);
+      message.success('已取消运行');
+      loadPipelineHistory();
+    } catch (e) {
+      console.error(e);
+      message.error('取消运行失败');
+    }
+  }
+
+  // 新建流水线按钮（打开抽屉初始化空配置）
+  function handleCreatePipeline() {
+    isEditMode.value = false;
+    selectedConfigId.value = undefined;
+    currentConfig.id = '';
+    currentConfig.name = '';
+    currentConfig.environment = 'dev';
+    currentConfig.description = '';
+    currentConfig.status = 'enabled';
+    currentConfig.content = {
+      stages: [],
+      triggers: [],
+      variables: [],
+      notifications: [],
+    };
+    configDrawerVisible.value = true;
+  }
+
+  // 通过表单创建 Jenkins 流水线（来自顶部 Modal）
+  async function submitCreateJenkins() {
+    try {
+      setCreateJenkinsModalProps({ confirmLoading: true });
+      await validateJenkinsForm();
+      const values = getCreateFormValues();
+      const payload: any = {
+        jobName: values.jobName,
+        useScm: !!values.useScm,
+      };
+      if (values.useScm) {
+        payload.repoUrl = values.repoUrl;
+        payload.branch = values.branch;
+        payload.credentialsId = values.credentialsId;
+        payload.jenkinsfilePath = values.jenkinsfilePath || 'Jenkinsfile';
+      } else {
+        payload.useInlineScript = true;
+        payload.pipelineScript = values.pipelineScript;
+      }
+      const resp = await createJenkinsPipeline(payload);
+      message.success('Jenkins 流水线创建成功');
+      closeCreateJenkinsModal();
+      // 创建成功后刷新配置列表
+      await loadPipelineConfigs();
+    } catch (e) {
+      console.error(e);
+      message.error('创建 Jenkins 流水线失败，请检查表单或网络');
+    } finally {
+      setCreateJenkinsModalProps({ confirmLoading: false });
+    }
+  }
+
+  async function handleRefresh() {
+    try {
+      loading.value = true;
+      await Promise.all([loadPipelineConfigs(), loadPipelineHistory()]);
+      message.success('已刷新');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      loading.value = false;
     }
   }
 

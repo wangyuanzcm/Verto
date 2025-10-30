@@ -22,6 +22,7 @@ enum Api {
   // 积分相关
   pointsSummary = '/verto-backend/staff/points/summary',
   pointsLogs = '/verto-backend/staff/points/logs',
+  pointsLogsAll = '/verto-backend/staff/points/logs/all',
   // 可选：手动加分接口（用于测试或管理员操作）
   pointsAdjust = '/verto-backend/staff/points/adjust',
 }
@@ -163,12 +164,16 @@ export const getStaffPointsSummary = (staffId: string) =>
   defHttp.get({ url: Api.pointsSummary, params: { staffId } });
 
 /**
- * 获取人员积分流水
- * @param staffId 人员ID
- * @param params  其他查询参数（如分页、事件类型过滤）
+ * 获取人员积分流水（单人）
  */
 export const getStaffPointsLogs = (staffId: string, params?: Record<string, any>) =>
   defHttp.get({ url: Api.pointsLogs, params: { staffId, ...(params || {}) } });
+
+/**
+ * 获取全员积分流水（可选筛选：staffId、时间区间、事件类型、来源类型、关键字）
+ */
+export const getAllStaffPointsLogs = (params?: Record<string, any>) =>
+  defHttp.get({ url: Api.pointsLogsAll, params: { ...(params || {}) } });
 
 /**
  * 调整人员积分（正负均可）—可选：用于管理员手动调整或联调期间测试
@@ -182,4 +187,4 @@ export const adjustStaffPoints = (
   delta: number,
   remark?: string,
   source?: { sourceType?: string; sourceId?: string; eventType?: string }
-) => defHttp.post({ url: Api.pointsAdjust, params: { staffId, delta, remark, ...(source || {}) } });
+) => defHttp.post({ url: Api.pointsAdjust, params: { staffId, delta, remark, ...(source || {}) }, headers: { 'X-PERMISSION': 'staff:points:adjust' } });

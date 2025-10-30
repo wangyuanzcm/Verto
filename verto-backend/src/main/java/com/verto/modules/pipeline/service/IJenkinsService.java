@@ -27,5 +27,8 @@ public interface IJenkinsService {
      * @param parameters 构建参数（例如 BRANCH、COMMIT_ID、VERSION 等）
      * @return 结果信息，包含 queueUrl、queueId、jobUrl 等字段；失败时包含 error
      */
-    Map<String, Object> triggerBuild(String jobName, Map<String, String> parameters);
+    Map<String, Object> triggerBuild(String jobName, java.util.Map<String, String> parameters);
+
+    // 新增：校验 Jenkins Job 是否存在
+    boolean jobExists(String jobName);
 }

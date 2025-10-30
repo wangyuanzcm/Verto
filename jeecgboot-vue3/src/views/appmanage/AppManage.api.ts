@@ -39,6 +39,12 @@ export enum Api {
 
   // Jenkins 创建流水线 Job（走 project 模块的后端）
   createJenkinsPipeline = '/verto-backend/project/pipeline/jenkins/create',
+  // 新增：应用-流水线绑定相关
+  bindingList = '/verto-backend/appmanage/pipeline/binding/list',
+  bindingSave = '/verto-backend/appmanage/pipeline/binding/save',
+  bindingDelete = '/verto-backend/appmanage/pipeline/binding/delete',
+  bindingDetail = '/verto-backend/appmanage/pipeline/binding/detail',
+  bindingValidate = '/verto-backend/appmanage/pipeline/binding/validate',
   
   // 获取应用 package.json 内容
   getPackageJson = '/verto-backend/appmanage/app/package-json',
@@ -377,4 +383,33 @@ export const deleteStaff = (params) => {
  */
 export const deleteBatchStaff = (params) => {
   return defHttp.delete({ url: Api.staffDeleteBatch, params });
+};
+
+// 新增：应用-流水线绑定 API
+export const listBindings = (params: { appId: string; environment?: string }) => {
+  return defHttp.get({ url: Api.bindingList, params }, { isTransformResponse: false });
+};
+
+export const saveBinding = (data: any) => {
+  return defHttp.post({ url: Api.bindingSave, data }, { isTransformResponse: false });
+};
+
+export const deleteBinding = (id: string) => {
+  return Modal.confirm({
+    title: '确认删除',
+    content: '是否删除该绑定？',
+    okText: '确认',
+    cancelText: '取消',
+    onOk: () => {
+      return defHttp.delete({ url: Api.bindingDelete, params: { id } }, { joinParamsToUrl: true });
+    },
+  });
+};
+
+export const getBindingDetail = (id: string) => {
+  return defHttp.get({ url: Api.bindingDetail, params: { id } }, { isTransformResponse: false });
+};
+
+export const validateBinding = (jobName: string) => {
+  return defHttp.get({ url: Api.bindingValidate, params: { jobName } }, { isTransformResponse: false });
 };

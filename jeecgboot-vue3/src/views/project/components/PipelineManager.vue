@@ -36,7 +36,18 @@
           />
         </a-form-item>
         <a-form-item label="环境">
-          <a-select v-model:value="releaseForm.environment" :options="environmentOptions" />
+          <a-select v-model:value="releaseForm.environment" :options="environmentOptions" @change="onEnvChange" />
+        </a-form-item>
+        <!-- 新增：绑定已有 Jenkins 流水线 -->
+        <a-form-item label="绑定流水线">
+          <a-select
+            v-model:value="releaseForm.bindingId"
+            :options="bindingOptions"
+            :loading="bindingLoading"
+            placeholder="可选：选择已绑定的 Jenkins 流水线"
+            allow-clear
+            show-search
+          />
         </a-form-item>
         <a-form-item label="版本">
           <a-input v-model:value="releaseForm.version" :readonly="true" />
@@ -85,7 +96,7 @@ import { ref, reactive, onMounted, computed, h } from 'vue';
 import { useMessage } from '/@/hooks/web/useMessage';
 import { formatToDateTime } from '/@/utils/dateUtil';
 import { getPipelineHistory, triggerPipeline, retryBuild, getBuildLogs, getGitBranches, getGitCommits, getProjectDetail } from '../Project.api';
-import { getPipelineConfig as getAppPipelineConfig } from '/@/views/appmanage/AppManage.api';
+import { getPipelineConfig as getAppPipelineConfig, listBindings } from '/@/views/appmanage/AppManage.api';
 
 const props = defineProps<{ projectId: string | number; appId?: string | number }>();
 
@@ -150,6 +161,8 @@ const releaseForm = reactive({
   commitId: '',
   remark: '',
   pipelineConfigId: '',
+  // 新增：绑定ID
+  bindingId: '',
 });
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
@@ -171,6 +184,8 @@ function openReleaseDrawer() {
   loadBranches();
   // 根据项目关联的应用，加载流水线配置
   loadPipelineConfigsByProject();
+  // 新增：根据应用+环境加载绑定列表
+  loadBindingsByEnv();
   releaseVisible.value = true;
 }
 
@@ -193,6 +208,10 @@ async function submitRelease() {
         pipelineConfigId: releaseForm.pipelineConfigId || undefined,
       },
     };
+    // 新增：选择了绑定则传递 bindingId
+    if (releaseForm.bindingId) {
+      payload.bindingId = releaseForm.bindingId;
+    }
     await triggerPipeline(payload);
     createMessage.success('已触发发布流程');
     releaseVisible.value = false;
@@ -340,6 +359,33 @@ async function handleViewLogs(record: any) {
     logsText.value = '获取日志失败';
   } finally {
     logsLoading.value = false;
+  }
+}
+// 新增：绑定列表
+const bindingOptions = ref<{ label: string; value: string }[]>([]);
+const bindingLoading = ref(false);
+
+function onEnvChange() {
+  // 环境改变时刷新绑定列表
+  loadBindingsByEnv();
+}
+
+async function loadBindingsByEnv() {
+  bindingOptions.value = [];
+  const appId = (props.appId ?? getAppIdFromProject(projectInfo.value)) as string | number | undefined;
+  if (!appId || !releaseForm.environment) return;
+  try {
+    bindingLoading.value = true;
+    const resp: any = await listBindings({ appId: String(appId), environment: releaseForm.environment });
+    const list = Array.isArray(resp?.result) ? resp.result : Array.isArray(resp?.data) ? resp.data : Array.isArray(resp) ? resp : [];
+    bindingOptions.value = (list || []).map((b: any) => ({
+      label: `${b.jobName || b.name || b.id} (${b.environment || releaseForm.environment})`,
+      value: String(b.id),
+    }));
+  } catch (e) {
+    console.warn('加载绑定列表失败:', e);
+  } finally {
+    bindingLoading.value = false;
   }
 }
 </script>

@@ -70,7 +70,9 @@ public class JenkinsServiceImpl implements IJenkinsService {
         }
     }
 
-    private boolean jobExists(String jobName) {
+    // 将 jobExists 公开并实现接口方法
+    @Override
+    public boolean jobExists(String jobName) {
         try {
             String url = jenkinsProperties.getUrl() + "/job/" + jobName + "/config.xml";
             HttpEntity<Void> entity = new HttpEntity<>(buildAuthHeaders());

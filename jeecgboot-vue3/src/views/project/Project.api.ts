@@ -285,6 +285,9 @@ export const triggerPipeline = (params: {
   branch?: string;
   commitId?: string;
   parameters?: Record<string, any>;
+  // 新增：可选的显式 Jenkins Job 名称或绑定ID
+  jobName?: string;
+  bindingId?: string;
 }) => defHttp.post<any>({ url: Api.triggerPipeline, data: params });
 
 /**

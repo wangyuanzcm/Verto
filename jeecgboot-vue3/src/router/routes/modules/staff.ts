@@ -26,16 +26,8 @@ const staff: AppRouteModule = {
       },
       component: () => import('/@/views/staff/index.vue'),
     },
-    {
-      path: 'points',
-      name: 'StaffPointsManage',
-      meta: {
-        title: '积分管理',
-        ignoreKeepAlive: true,
-        currentActiveMenu: '/staff/list',
-      },
-      component: () => import('/@/views/staff/StaffPointsManage.vue'),
-    },
+    // 积分管理已独立为顶级菜单，不再通过人员管理入口
+
     {
       path: 'detail/:id',
       name: 'StaffDetail',
